@@ -1,0 +1,17 @@
+[package]
+name = "petta"
+version = "0.2.0"
+edition = "2021"
+description = "Efficient MeTTa language implementation in Rust + SWI-Prolog"
+license = "MIT"
+readme = "README.md"
+
+[[bin]]
+name = "petta"
+path = "rust/src/main.rs"
+
+[lib]
+name = "petta"
+path = "rust/src/lib.rs"
+
+[dependencies]

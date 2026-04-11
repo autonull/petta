@@ -1,66 +1,130 @@
 ## PeTTa
 
-Efficient MeTTa language implementation in Prolog.
-
-Please check out the [Wiki](https://github.com/patham9/PeTTa/wiki) for more information.
+Efficient MeTTa language implementation in Rust + SWI-Prolog.
 
 ### Dependencies
 
 - SWI-Prolog >= 9.3.x
-- Python 3.x (for janus Python interop)
+- Rust >= 1.70 (for building the CLI wrapper)
+
+### Building
+
+```bash
+sh build.sh
+```
+
+This verifies SWI-Prolog is available and builds the Rust CLI binary.
 
 ### Usage
 
-Example run:
-
-`time sh run.sh ./examples/nars_tuffy.metta`
-
-### MORK and FAISS spaces
-
-If MORK and FAISS is installed, execute `sh build.sh` to support MORK-based atom spaces and FAISS-based atom-vector spaces.
-
-The following projects are cloned and built by build.sh:
-
-**Repository:** [mork_ffi](https://github.com/patham9/mork_ffi) dependent on [trueagi-io/mork](https://github.com/trueagi-io/mork)
-
-**Repository:** [faiss_ffi](https://github.com/patham9/faiss_ffi) dependent on [facebookresearch/faiss](https://github.com/facebookresearch/faiss)
-
-### Extension libraries
-
-Please check out [Extension libraries](https://github.com/trueagi-io/PeTTa/wiki/Extension-libraries) for a set of extension libraries that can be invoked from MeTTa files directly from the git repository.
-
-## Notebooks, Servers, Browser
-
-### Jupyter Notebook Support
-
-A Jupyter kernel for PeTTa is available in a separate repository for interactive MeTTa development in notebooks.
-
-**Repository:** [trueagi-io/jupyter-petta-kernel](https://github.com/trueagi-io/jupyter-petta-kernel)
-
-Quick install:
+Run a MeTTa file:
 
 ```bash
-# Set PETTA_PATH to this PeTTa installation
-export PETTA_PATH=/path/to/PeTTa
-
-# Clone and install the kernel
-git clone https://github.com/trueagi-io/jupyter-petta-kernel.git
-cd jupyter-petta-kernel
-./install.sh
+sh run.sh ./examples/fib.metta
+./target/release/petta ./examples/fib.metta
 ```
 
-Please see the [jupyter-petta-kernel README](https://github.com/trueagi-io/jupyter-petta-kernel/blob/main/README.md) for detailed installation instructions and usage.
+Run the demo (no arguments):
 
-### MeTTa server
+```bash
+./target/release/petta
+```
 
-A HTTP server running MeTTa code is also available:
+Pass multiple files:
 
-**Repository:** [MettaWamJam](https://github.com/jazzbox35/MettaWamJam)
+```bash
+./target/release/petta ./examples/if.metta ./examples/state.metta
+```
 
-Please see the [MettaWamJam README](https://github.com/jazzbox35/MettaWamJam/blob/main/README.md) for detailed installation instructions and usage.
+Verbose mode:
 
-### MeTTa in WASM
+```bash
+./target/release/petta -v ./examples/fib.metta
+```
 
-Since Swi-Prolog can be compiled to Web Assembly, one can embed PeTTa into websites.
+### Testing
 
-Please see [Execution-in-browser](https://github.com/patham9/PeTTa/wiki/Execution-in-browser) for more information.
+Run the full example test suite:
+
+```bash
+sh test.sh
+```
+
+Run the Rust unit tests:
+
+```bash
+cargo test
+```
+
+### Using as a Rust Library
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+petta = { path = "/path/to/petta" }
+```
+
+Then in Rust:
+
+```rust
+use petta::PettaEngine;
+use std::path::Path;
+
+let engine = PettaEngine::new(Path::new("/path/to/petta"), false)?;
+
+// Process MeTTa code strings
+let results = engine.process_metta_string("(= (myfunc $x) (+ $x 1)) !(myfunc 41)")?;
+for r in &results {
+    println!("{}", r.value);
+}
+
+// Load MeTTa files
+let results = engine.load_metta_file(Path::new("examples/fib.metta"))?;
+```
+
+### Library System
+
+MeTTa libraries in `lib/` are loaded automatically when `import!` is used from a MeTTa file.
+The library path is resolved relative to the project root at runtime.
+
+### Extension Libraries
+
+Extension libraries can be imported from git repositories using `git-import!`:
+
+```metta
+(git-import! "https://github.com/example/my-metta-lib")
+```
+
+## Architecture
+
+```
+MeTTa (.metta files)
+        |
+        v
+  [parser.pl]   -- DCG parser: sread/swrite convert between strings and Prolog terms
+        |
+        v
+  [filereader.pl] -- Reads files, strips comments, identifies forms (! vs non-!)
+        |
+        v
+  [translator.pl] -- Compiles MeTTa expressions to Prolog goals
+        |              - Functions become Prolog clauses
+        |              - Expressions become goal lists
+        |              - reduce/call handle dispatch
+        v
+  [specializer.pl] -- Optional: creates specialized versions of higher-order calls
+        |
+        v
+  [spaces.pl] -- Manages atom spaces (&self) as Prolog predicates
+        |
+        v
+  SWI-Prolog WAM -- Executes compiled Prolog code
+        |
+        v
+  Rust (petta) -- CLI wrapper + library for embedding
+```
+
+**MeTTa code** is the source language (S-expressions like `(= (fib $n) ...)`).
+**SWI-Prolog** serves as the compilation target and execution engine (WAM).
+**Rust** wraps SWI-Prolog as a subprocess, providing a clean CLI and embeddable library API.
