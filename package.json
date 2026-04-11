@@ -1,0 +1,32 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "Efficient MeTTa language implementation in Prolog.",
+  "main": "index.js",
+  "directories": {
+    "example": "examples",
+    "lib": "lib"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -F @petta/cli test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/autonull/petta.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/autonull/petta/issues"
+  },
+  "homepage": "https://github.com/autonull/petta#readme",
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tau-prolog": "^0.3.4",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}

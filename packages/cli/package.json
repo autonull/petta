@@ -1,0 +1,15 @@
+{
+  "name": "@petta/cli",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "petta": "tsx bin/petta.ts",
+    "test": "tsx bin/test.ts"
+  },
+  "dependencies": {
+    "@petta/core": "workspace:*",
+    "@petta/extensions": "workspace:*",
+    "@petta/stdlib": "workspace:*"
+  }
+}
