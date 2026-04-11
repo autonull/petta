@@ -63,8 +63,8 @@ fn find_project_root() -> std::path::PathBuf {
 }
 
 fn run_demo(project_root: &Path) {
-    use petta::PettaEngine;
-    match PettaEngine::new(project_root, false) {
+    use petta::PeTTaEngine;
+    match PeTTaEngine::new(project_root, false) {
         Ok(engine) => {
             println!("PeTTa Demo\n===========");
             let cases = [
@@ -93,8 +93,8 @@ fn run_demo(project_root: &Path) {
 }
 
 fn run_files(project_root: &Path, files: &[&String], verbose: bool) {
-    use petta::PettaEngine;
-    let engine = match PettaEngine::new(project_root, verbose) {
+    use petta::PeTTaEngine;
+    let engine = match PeTTaEngine::new(project_root, verbose) {
         Ok(e) => e,
         Err(e) => {
             eprintln!("Failed to initialize PeTTa engine: {}", e);

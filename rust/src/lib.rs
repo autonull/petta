@@ -22,12 +22,12 @@ pub struct MettaResult {
 }
 
 /// The main PeTTa engine wrapper.
-pub struct PettaEngine {
+pub struct PeTTaEngine {
     project_root: PathBuf,
     verbose: bool,
 }
 
-impl PettaEngine {
+impl PeTTaEngine {
     /// Create a new PeTTa engine.
     ///
     /// # Arguments
@@ -238,15 +238,15 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
     }
 
-    fn make_engine() -> PettaEngine {
+    fn make_engine() -> PeTTaEngine {
         let root = project_root();
-        PettaEngine::new(&root, false).expect("Failed to create engine")
+        PeTTaEngine::new(&root, false).expect("Failed to create engine")
     }
 
     #[test]
     fn test_engine_creation() {
         let root = project_root();
-        assert!(PettaEngine::new(&root, false).is_ok());
+        assert!(PeTTaEngine::new(&root, false).is_ok());
     }
 
     #[test]
@@ -372,7 +372,7 @@ mod tests {
     #[test]
     fn test_verbose_mode() {
         let root = project_root();
-        let engine = PettaEngine::new(&root, true).unwrap();
+        let engine = PeTTaEngine::new(&root, true).unwrap();
         let results = engine.process_metta_string("!(+ 1 2)").unwrap();
         assert!(!results.is_empty());
         assert_eq!(results[0].value, "3");
