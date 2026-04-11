@@ -1,3 +1,8 @@
+:- discontiguous seq/3.
+:- discontiguous seq/4.
+:- discontiguous seq/5.
+:- discontiguous seq/6.
+:- discontiguous sexpr/5.
 :- use_module(library(dcgs)).
 :- use_module(library(charsio)).
 :- use_module(library(lists)).
