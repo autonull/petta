@@ -20,8 +20,8 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                ( ConstrainArgs -> maplist(constrain_args, Args0, Args1, GoalsA),
                                                                   flatten(GoalsA,GoalsPrefix)
                                                                 ; Args1 = Args0, GoalsPrefix = [] ),
-                                               catch(nb_getval(F, Prev), _, Prev = []),
-                                               nb_setval(F, [fun_meta(Args1, BodyExpr) | Prev]),
+                                               catch(retract(F, Prev), _, Prev = []),
+                                               asserta(F, [fun_meta(Args1, BodyExpr) | Prev]),
                                                translate_expr(BodyExpr, GoalsBody, ExpOut),
                                                (  nonvar(ExpOut) , ExpOut = partial(Base,Bound)
                                                -> current_predicate(Base/Arity), length(Bound, N), M is (Arity - N) - 1,
@@ -425,7 +425,7 @@ memberchk_eq(V, [H|_]) :- V == H, !.
 memberchk_eq(V, [_|T]) :- memberchk_eq(V, T).
 
 %Generate readable lambda name:
-next_lambda_name(Name) :- ( catch(nb_getval(lambda_counter, Prev), _, Prev = 0) ),
+next_lambda_name(Name) :- ( catch(retract(lambda_counter, Prev), _, Prev = 0) ),
                           N is Prev + 1,
-                          nb_setval(lambda_counter, N),
+                          asserta(lambda_counter, N),
                           format(atom(Name), 'lambda_~d', [N]).
