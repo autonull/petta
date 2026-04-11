@@ -14,10 +14,10 @@ export class SessionManager {
 
     constructor() {
         this.session = pl.create(10000);
-        this.setupBindings();
+
     }
 
-    private setupBindings() {
+    private async setupBindings() {
         // Here we map custom JS predicates so Prolog can call Node.js / TS functions.
 
         // 1. js_read_file_to_string(Path, StringOut)
@@ -52,22 +52,38 @@ export class SessionManager {
         };
 
         // Load hooks
-        this.session.consult(hooks, {
-            success: () => {},
-            error: (err: any) => console.error("Error setting up bindings:", err)
+        await new Promise<void>((r, e) => {
+            this.session.consult(hooks, {
+                success: r,
+                error: (err: any) => e(new Error("Error setting up bindings: " + this.session.format_answer(err)))
+            });
         });
     }
 
     public async loadCore() {
-        const coreDir = path.join(__dirname, '../src/prolog');
-        // Actually load src/prolog/metta.pl and its dependencies
-        const mettaPl = fs.readFileSync(path.join(coreDir, 'metta.pl'), 'utf8');
+        await this.setupBindings();
+                const coreDir = path.join(__dirname, '../src/prolog');
 
-        return new Promise<void>((resolve, reject) => {
-            this.session.consult(mettaPl, {
-                success: () => resolve(),
-                error: (err: any) => reject(err)
-            });
+        const files = ['parser.pl', 'translator.pl', 'specializer.pl', 'filereader.pl', 'spaces.pl', 'metta.pl'];
+
+        return new Promise<void>(async (resolve, reject) => {
+            try {
+                let combinedPl = ":- op(700, xfx, '=@=').\n:- dynamic(library_path/1).\n:- dynamic(translator_rule/1).\n:- dynamic('get-type'/2).\n:- dynamic(fun/1).\n:- dynamic(silent/1).\n:- dynamic(ho_specialization/2).\n";
+                for (const file of files) {
+                    let content = fs.readFileSync(path.join(coreDir, file), 'utf8');
+                    content = content.replace(/:- ensure_loaded\(\[.*?\]\)\./g, '');
+                    content = content.replace(/:- ensure_loaded\(.*?\)\./g, '');
+                    content = content.replace(/:- dynamic\(.*?\)\./g, '');
+                    combinedPl += content + '\n';
+                }
+
+                this.session.consult(combinedPl, {
+                    success: () => resolve(),
+                    error: (err: any) => reject(new Error(this.session.format_answer(err)))
+                });
+            } catch(e) {
+                reject(e);
+            }
         });
     }
 }

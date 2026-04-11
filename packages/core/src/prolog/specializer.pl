@@ -1,4 +1,4 @@
-:- dynamic ho_specialization/2.
+:- dynamic(ho_specialization/2).
 
 %Maybe specializes HV(AVs) if not already ongoing, and if specialization fails, nothing changes and specneeded is restored:
 maybe_specialize_call(HV, AVs, Out, Goal) :- setup_call_cleanup( (catch(nb_getval(specneeded,Prev),_,Prev = []), nb_setval(specneeded,false)),

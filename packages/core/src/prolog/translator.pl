@@ -37,9 +37,9 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
 maybe_print_compiled_clause(_, _, _) :- silent(true), !.
 maybe_print_compiled_clause(Label, FormTerm, Clause) :-
     swrite(FormTerm, FormStr),
-    format("\e[33m-->  ~w  -->~n\e[36m~w~n\e[33m--> prolog clause -->~n\e[32m", [Label, FormStr]),
+    format("\\u001b[33m-->  ~w  -->~n\\u001b[36m~w~n\\u001b[33m--> prolog clause -->~n\\u001b[32m", [Label, FormStr]),
     portray_clause(current_output, Clause),
-    format("\e[33m^^^^^^^^^^^^^^^^^^^^^~n\e[0m").
+    format("\\u001b[33m^^^^^^^^^^^^^^^^^^^^^~n\\u001b[0m").
 
 %Conjunction builder, turning goals list to a flat conjunction:
 goals_list_to_conj([], true)      :- !.

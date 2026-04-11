@@ -1,3 +1,4 @@
+:- op(700, xfx, '=@=').
 %%%%%%%%%% Dependencies %%%%%%%%%%
 library(X, Path) :- library_path(Base), atomic_list_concat([Base, '/', X], Path).
 library(X, Y, Path) :- library_path(Base), atomic_list_concat([Base, '/../', X, '/', Y], Path).
@@ -65,7 +66,7 @@ exp(Arg,R) :- R is exp(Arg).
 'acos-math'(A, Out) :- Out is acos(A).
 'atan-math'(A, Out) :- Out is atan(A).
 'isnan-math'(A, Out) :- ( A =:= A -> Out = false ; Out = true ).
-'isinf-math'(A, Out) :- ( A =:= 1.0Inf ; A =:= -1.0Inf -> Out = true ; Out = false ).
+'isinf-math'(A, Out) :- ( A =:= inf ; A =:= -inf -> Out = true ; Out = false ).
 'min-atom'(List, Out) :- min_list(List, Out).
 'max-atom'(List, Out) :- max_list(List, Out).
 
@@ -144,7 +145,7 @@ get_function_type([F|Args], T) :- nonvar(F), match('&self', [':',F,[->|Ts]], _, 
                                   append(As,[T],Ts),
                                   maplist('get-type',Args,As).
 
-:- dynamic 'get-type'/2.
+:- dynamic('get-type'/2).
 'get-type'(X, T) :- (get_type_candidate(X, T) *-> true ; T = '%Undefined%' ).
 get_type_candidate(X, 'Number')   :- number(X), !.
 get_type_candidate(X, _) :- var(X), !.
@@ -259,14 +260,14 @@ importer_helper(Space, File) :- atom_string(File, SFile),
                                      exists_file(PathWithExt), !,
                                      load_metta_file(PathWithExt, _, Space) ).
 
-:- dynamic translator_rule/1.
+:- dynamic(translator_rule/1).
 'add-translator-rule!'(HV, true) :- ( translator_rule(HV)
                                       -> true ; assertz(translator_rule(HV)) ).
 
 'remove-translator-rule!'(HV, true) :- retractall(translator_rule(HV)).
 
 %%% Registration: %%%
-:- dynamic fun/1.
+:- dynamic(fun/1).
 register_fun(N) :- (fun(N) -> true ; assertz(fun(N))).
 :- maplist(register_fun, [superpose, empty, let, 'let*', '+','-','*','/', '%', min, max, 'change-state!', 'get-state', 'bind!',
                           '<','>','==', '!=', '=', '=?', '<=', '>=', and, or, xor, implies, not, sqrt, exp, log, cos, sin,
