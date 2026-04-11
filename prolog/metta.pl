@@ -5,19 +5,18 @@ library(X, Y, Path) :- library_path(Base), atomic_list_concat([Base, '/../', X, 
    directory_file_path(Source, '..', Parent),
    directory_file_path(Parent, 'lib', LibPath),
    asserta(library_path(LibPath)).
-:- autoload(library(uuid)).
+
 :- use_module(library(random)).
-:- use_module(library(janus)).
-:- use_module(library(error)).
-:- use_module(library(listing)).
-:- use_module(library(aggregate)).
-:- use_module(library(thread)).
+:-
+:-
+:-
+:-
 :- use_module(library(lists)).
-:- use_module(library(yall), except([(/)/3])).
+:-
 :- use_module(library(apply)).
-:- use_module(library(apply_macros)).
-:- use_module(library(process)).
-:- use_module(library(filesex)).
+:-
+:-
+:-
 :- current_prolog_flag(argv, Argv),
    ( member(mork, Argv) -> ensure_loaded([parser, translator, specializer, filereader, '../mork_ffi/morkspaces', spaces])
                          ; ensure_loaded([parser, translator, specializer, filereader, spaces])).
@@ -49,7 +48,7 @@ parse(Str, R) :- sread(Str, R).
 min(A,B,R)  :- R is min(A,B).
 max(A,B,R)  :- R is max(A,B).
 exp(Arg,R) :- R is exp(Arg).
-:- use_module(library(clpfd)).
+:- use_module(library(clpz)).
 '#+'(A, B, R) :- R #= A + B.
 '#-'(A, B, R) :- R #= A - B.
 '#*'(A, B, R) :- R #= A * B.
@@ -207,31 +206,10 @@ assert(Goal, true) :- ( call(Goal) -> true
 'current-time'(Time) :- get_time(Time).
 'format-time'(Format, TimeString) :- get_time(Time), format_time(atom(TimeString), Format, Time).
 
-%%% Python bindings: %%%
-'py-call'(SpecList, Result) :- 'py-call'(SpecList, Result, []).
-'py-call'([Spec|Args], Result, Opts) :- ( string(Spec) -> atom_string(A, Spec) ; A = Spec ),
-                                        must_be(atom, A),
-                                        ( sub_atom(A, 0, 1, _, '.')         % ".method"
-                                          -> sub_atom(A, 1, _, 0, Fun),
-                                             Args = [Obj|Rest],
-                                             ( Rest == []
-                                               -> compound_name_arguments(Meth, Fun, [])
-                                                ; Meth =.. [Fun|Rest] ),
-                                             py_call(Obj:Meth, Result, Opts)
-                                           ; atomic_list_concat([M,F], '.', A) % "mod.fun"
-                                             -> ( Args == []
-                                                  -> compound_name_arguments(Call0, F, [])
-                                                   ; Call0 =.. [F|Args] ),
-                                                py_call(M:Call0, Result, Opts)
-                                              ; ( Args == []                      % bare "fun"
-                                                  -> compound_name_arguments(Call0, A, [])
-                                                   ; Call0 =.. [A|Args] ),
-                                                py_call(builtins:Call0, Result, Opts) ).
-
 %%% States: %%%
 'bind!'(A, ['new-state', B], C) :- 'change-state!'(A, B, C).
-'change-state!'(Var, Value, true) :- nb_setval(Var, Value).
-'get-state'(Var, Value) :- nb_getval(Var, Value).
+'change-state!'(Var, Value, true) :- asserta(Var, Value).
+'get-state'(Var, Value) :- retract(Var, Value).
 
 %%% Eval: %%%
 eval(C, Out) :- translate_expr(C, Goals, Out),
@@ -298,7 +276,7 @@ register_fun(N) :- (fun(N) -> true ; assertz(fun(N))).
                           repr, repra, parse, 'println!', 'readln!', test, assert, 'mm2-exec', atom_concat, atom_chars, copy_term, term_hash,
                           foldl, first, last, append, length, 'size-atom', sort, msort, member, 'is-member', 'exclude-item', list_to_set, maplist, eval, reduce, 'import!',
                           'add-atom', 'remove-atom', 'get-atoms', match, 'is-var', 'is-expr', 'is-space', 'get-mettatype',
-                          decons, 'decons-atom', 'py-call', 'get-type', 'get-metatype', '=alpha', concat, sread, cons, reverse,
+                          decons, 'decons-atom', 'get-type', 'get-metatype', '=alpha', concat, sread, cons, reverse,
                           '#+','#-','#*','#div','#//','#mod','#min','#max','#<','#>','#=','#\\=','set_hook',
                           'union-atom', 'cons-atom', 'intersection-atom', 'subtraction-atom', 'index-atom', id,
                           'pow-math', 'sqrt-math', 'sort-atom','abs-math', 'log-math', 'trunc-math', 'ceil-math',
