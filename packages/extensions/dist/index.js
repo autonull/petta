@@ -17,3 +17,4 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./llm"), exports);
 __exportStar(require("./vector_store"), exports);
 __exportStar(require("./mork"), exports);
+__exportStar(require("./faiss"), exports);

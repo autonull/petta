@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
+    "prebuild": "tsx scripts/bundle-pl.ts",
     "build": "tsc"
   },
   "dependencies": {

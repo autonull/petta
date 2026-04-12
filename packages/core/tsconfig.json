@@ -8,5 +8,8 @@
     "skipLibCheck": true, "types": ["node"],
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist", "rootDir": "src"
-  }
+  },
+  "exclude": [
+    "scripts"
+  ]
 }
