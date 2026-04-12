@@ -29,22 +29,22 @@ parse_form(runnable(S), parsed(runnable, S, Term)) :- sread(S, Term).
 %Second pass to compile / run / add the Terms:
 process_form(Space, parsed(expression, _, Term), []) :- 'add-atom'(Space, Term, true),
                                                         ( silent(true) -> true ; swrite(Term,STerm),
-                                                                                 format("\\u001b[33m--> metta sexpr -->~n\\u001b[36m~w~n", [STerm]),
-                                                                                 format("\\u001b[33m^^^^^^^^^^^^^^^^^^^~n\\u001b[0m") ).
+                                                                                 format("\u001b[33m--> metta sexpr -->~n\u001b[36m~w~n", [STerm]),
+                                                                                 format("\u001b[33m^^^^^^^^^^^^^^^^^^^~n\u001b[0m") ).
 process_form(_, parsed(runnable, FormStr, Term), Result) :- translate_expr([collapse, Term], Goals, Result),
-                                                            ( silent(true) -> true ; format("\\u001b[33m--> metta runnable  -->~n\\u001b[36m!~w~n\\u001b[33m-->  prolog goal  -->\\u001b[35m ~n", [FormStr]),
+                                                            ( silent(true) -> true ; format("\u001b[33m--> metta runnable  -->~n\u001b[36m!~w~n\u001b[33m-->  prolog goal  -->\u001b[35m ~n", [FormStr]),
                                                                                      forall(member(G, Goals), portray_clause((:- G))),
-                                                                                     format("\\u001b[33m^^^^^^^^^^^^^^^^^^^^^^^~n\\u001b[0m") ),
+                                                                                     format("\u001b[33m^^^^^^^^^^^^^^^^^^^^^^^~n\u001b[0m") ),
                                                             call_goals(Goals).
 process_form(Space, parsed(function, FormStr, Term), []) :- add_sexp(Space, Term),
                                                             translate_clause(Term, Clause),
                                                             assertz(Clause, Ref),
                                                             assertz(translated_from(Ref, Term)),
-                                                            ( silent(true) -> true ; format("\\u001b[33m--> metta function -->~n\\u001b[36m~w~n\\u001b[33m--> prolog clause -->~n\\u001b[32m", [FormStr]),
+                                                            ( silent(true) -> true ; format("\u001b[33m--> metta function -->~n\u001b[36m~w~n\u001b[33m--> prolog clause -->~n\u001b[32m", [FormStr]),
                                                                                      clause(Head, Body, Ref),
                                                                                      ( Body == true -> Show = Head; Show = (Head :- Body) ),
                                                                                      portray_clause(current_output, Show),
-                                                                                     format("\\u001b[33m^^^^^^^^^^^^^^^^^^^^^^~n\\u001b[0m") ).
+                                                                                     format("\u001b[33m^^^^^^^^^^^^^^^^^^^^^^~n\u001b[0m") ).
 process_form(_, In, _) :- format(atom(Msg), "failed to process form: ~w", [In]), throw(error(syntax_error(Msg), none)).
 
 %Like blanks but counts newlines:

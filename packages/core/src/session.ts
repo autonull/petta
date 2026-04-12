@@ -62,7 +62,7 @@ export class SessionManager {
 
     public async loadCore() {
         await this.setupBindings();
-                const coreDir = path.join(__dirname, '../src/prolog');
+        const coreDir = path.join(__dirname, '../src/prolog');
 
         const files = ['parser.pl', 'translator.pl', 'specializer.pl', 'filereader.pl', 'spaces.pl', 'metta.pl'];
 
