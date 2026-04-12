@@ -45,10 +45,17 @@ export class SessionManager {
         `;
 
         // Bind global JS objects
-        (globalThis as any).global = globalThis;
+                (globalThis as any).global = globalThis;
         (globalThis as any).readFileToString = (p: string) => fs.readFileSync(p, 'utf8');
         (globalThis as any).__import__ = (p: string) => {
              // very basic mock of importing
+        };
+        (globalThis as any)._petta_format_error = (fmt: string, args: any[]) => {
+            return fmt; // Just return format unparsed for now
+        };
+        (globalThis as any)._petta_format = (fmt: string, args: any[]) => {
+            console.log(fmt, args);
+            return true;
         };
 
         // Load hooks

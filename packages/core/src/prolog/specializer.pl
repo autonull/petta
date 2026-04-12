@@ -23,7 +23,7 @@ specialize_call(HV, AVs, Out, Goal) :- %1. Retrieve a copy of all meta-clauses s
                                                       nonvar(HoVar) ), BindSet),
                                        %3. Build the specialization name from the concrete higher-order bind set:
                                        replace_vars_with_var(BindSet, CleanBindSet),
-                                       format(atom(SpecName), "~w_Spec_~w",[HV, CleanBindSet]),
+                                       atom_concat(HV, '_Spec_', T1), atom_concat(T1, CleanBindSet, SpecName),
                                        %4. Specialize, but only if not already specialized:
                                        ( ho_specialization(HV, SpecName)
                                          ; ( %4.1. Otherwise register the specialization:
@@ -44,10 +44,10 @@ specialize_call(HV, AVs, Out, Goal) :- %1. Retrieve a copy of all meta-clauses s
                                                ( asserta(Clause, Ref),
                                                  assertz(translated_from(Ref, Input)),
                                                  add_sexp('&self', Input),
-                                                 format(atom(Label), "metta specialization (~w)", [SpecName]),
+                                                 atom_concat('metta specialization ', SpecName, Label),
                                                  maybe_print_compiled_clause(Label, Input, Clause) ))
                                                %4.6 Ok specialized, but if we did not succeed ensure the specialization is retracted:
-                                               -> true ; format("Not specialized ~w~n", [SpecName/Arity]),
+                                               -> true ; write('Not specialized '), write(SpecName), write('/'), write(Arity), nl,
                                                          retractall(fun(SpecName)),
                                                          abolish(SpecName, Arity),
                                                          retractall(arity(SpecName,Arity)),
