@@ -5,7 +5,7 @@ swrite(Term, String) :- phrase(swrite_exp(Term), Codes),
                         string_codes(String, Codes).
 swrite_exp(Var)   --> { var(Var) }, !, "$", { term_to_atom(Var, A), atom_codes(A, Cs) }, Cs.
 swrite_exp(Num)   --> { number(Num) }, !, { number_codes(Num, Cs) }, Cs.
-swrite_exp(Str)   --> { string(Str) }, !, "\"", { string_codes(Str, Cs), escape_quotes(Cs, Es) }, Es, "\"".
+swrite_exp(Str)   --> { string(Str) }, !, [34], { string_codes(Str, Cs), escape_quotes(Cs, Es) }, Es, [34].
 swrite_exp(Atom)  --> { atom(Atom) }, !, atom(Atom).
 swrite_exp([H|T]) --> { \+ is_list([H|T]) }, !, "(", atom(cons), " ", swrite_exp(H), " ", swrite_exp(T), ")".
 swrite_exp([H|T]) --> !, "(", seq([H|T]), ")".
@@ -41,7 +41,7 @@ seq([],E,E)       --> [].
 var_symbol(V,E0,E) --> "$", token(Cs), { atom_chars(N, Cs), ( N == '_' -> V = _, E = E0 ; memberchk(N-V0, E0) -> V = V0, E = E0 ; V = _, E = [N-V|E0] ) }.
 
 %Atoms are derived from tokens:
-atom_symbol(A) --> token(Cs), { string_codes("\"", [Q]), ( Cs = [Q|_] -> append([Q|Body], [Q], Cs), %"str" as string
+atom_symbol(A) --> token(Cs), { Q = 34, ( Cs = [Q|_] -> append([Q|Body], [Q], Cs), %"str" as string
                                                                          string_codes(A, Body)
                                                                        ; atom_codes(R, Cs),         %others are atoms
                                                                          ( R = 'True' -> A = true
@@ -53,7 +53,7 @@ atom_symbol(A) --> token(Cs), { string_codes("\"", [Q]), ( Cs = [Q|_] -> append(
 token(Cs) --> string_without(" \t\r\n()", Cs), { Cs \= [] }.
 
 %Just string literal handling from here-on:
-string_lit(S) --> "\"", string_chars(Cs), "\"", { string_codes(S, Cs) }.
+string_lit(S) --> [34], string_chars(Cs), [34], { string_codes(S, Cs) }.
 string_chars([]) --> [].
 string_chars([C|Cs]) --> [C], { C =\= 0'", C =\= 0'\\ }, !, string_chars(Cs).
 string_chars([C|Cs]) --> "\\", [X], { (X=0'n->C=10; X=0't->C=9; X=0'r->C=13; C=X) }, string_chars(Cs).
