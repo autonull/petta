@@ -1,4 +1,4 @@
-%Since both normal add-attom call and function additions needs to add the S-expression:
+%Since both normal add-atom call and function additions needs to add the S-expression:
 add_sexp(Space, [Rel|Args]) :- Term =.. [Space, Rel | Args],
                                assertz(Term).
 
@@ -62,7 +62,7 @@ match(Space, [Rel|PatArgs], OutPattern, Result) :- Term =.. [Space, Rel | PatArg
                                                    \+ cyclic_term(OutPattern),
                                                    Result = OutPattern.
 
-%Get all atoms in space, irregard of arity:
+%Get all atoms in space, regardless of arity:
 'get-atoms'(Space, Pattern) :- current_predicate(Space/Arity),
                                functor(Head, Space, Arity),
                                clause(Head, true),

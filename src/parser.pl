@@ -37,7 +37,7 @@ sread(S, T) :- ( atom_string(A, S),
                  phrase(sexpr(T, [], _), Cs)
                -> true ; format(atom(Msg), 'Parse error in form: ~w', [S]), throw(error(syntax_error(Msg), none)) ).
 
-%An S-Expression is a parentheses-nesting of S-Expressions that are either numbers, variables, sttrings, or atoms:
+%An S-Expression is a parentheses-nesting of S-Expressions that are either numbers, variables, strings, or atoms:
 sexpr(S,E,E)  --> blanks, string_lit(S), blanks, !.
 sexpr(T,E0,E) --> blanks, "(", blanks, seq(T,E0,E), blanks, ")", blanks, !.
 sexpr(N,E,E)  --> blanks, number(N), ( lookahead_any(" ()\t\n\r") ; \+ [_] ), blanks, !.

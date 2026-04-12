@@ -548,15 +548,14 @@ impl PeTTaEngine {
     }
 
     fn wait_for_ready(&mut self) -> Result<(), PeTTaError> {
+        let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
+            PeTTaError::ProtocolError("stdout pipe unavailable".into())
+        })?;
         loop {
             let mut b = [0u8; 1];
-            self.stdout_pipe
-                .as_mut()
-                .unwrap()
-                .read_exact(&mut b)
-                .map_err(|e| {
-                    PeTTaError::ProtocolError(format!("failed to read ready signal: {}", e))
-                })?;
+            reader.read_exact(&mut b).map_err(|e| {
+                PeTTaError::ProtocolError(format!("failed to read ready signal: {}", e))
+            })?;
             if b[0] == 0xFF {
                 return Ok(());
             }
@@ -565,17 +564,16 @@ impl PeTTaEngine {
 
     fn read_u32(&mut self) -> Result<u32, PeTTaError> {
         let mut b = [0u8; 4];
-        self.stdout_pipe
-            .as_mut()
-            .unwrap()
-            .read_exact(&mut b)
-            .map_err(|e| {
-                if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                    PeTTaError::ProtocolError("child closed".into())
-                } else {
-                    PeTTaError::ProtocolError(e.to_string())
-                }
-            })?;
+        let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
+            PeTTaError::ProtocolError("stdout pipe unavailable".into())
+        })?;
+        reader.read_exact(&mut b).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                PeTTaError::ProtocolError("child closed".into())
+            } else {
+                PeTTaError::ProtocolError(e.to_string())
+            }
+        })?;
         Ok(u32::from_be_bytes(b))
     }
 
@@ -586,7 +584,9 @@ impl PeTTaEngine {
     ) -> Result<Vec<MettaResult>, PeTTaError> {
         let pb = payload.as_bytes();
         let len = pb.len() as u32;
-        let sin = self.stdin_pipe.as_mut().unwrap();
+        let sin = self.stdin_pipe.as_mut().ok_or_else(|| {
+            PeTTaError::ProtocolError("stdin pipe unavailable".into())
+        })?;
         sin.write_all(&[query_type])
             .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
         sin.write_all(&len.to_be_bytes())
@@ -598,9 +598,10 @@ impl PeTTaEngine {
 
         let status = {
             let mut b = [0u8; 1];
-            self.stdout_pipe
-                .as_mut()
-                .unwrap()
+            let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
+                PeTTaError::ProtocolError("stdout pipe unavailable".into())
+            })?;
+            reader
                 .read_exact(&mut b)
                 .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
             b[0]
@@ -613,9 +614,10 @@ impl PeTTaEngine {
                 for _ in 0..count {
                     let len = self.read_u32()?;
                     let mut buf = vec![0u8; len as usize];
-                    self.stdout_pipe
-                        .as_mut()
-                        .unwrap()
+                    let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
+                        PeTTaError::ProtocolError("stdout pipe unavailable".into())
+                    })?;
+                    reader
                         .read_exact(&mut buf)
                         .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
                     let value = String::from_utf8(buf)
@@ -627,9 +629,10 @@ impl PeTTaEngine {
             1 => {
                 let len = self.read_u32()?;
                 let mut buf = vec![0u8; len as usize];
-                self.stdout_pipe
-                    .as_mut()
-                    .unwrap()
+                let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
+                    PeTTaError::ProtocolError("stdout pipe unavailable".into())
+                })?;
+                reader
                     .read_exact(&mut buf)
                     .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
                 let msg = String::from_utf8_lossy(&buf).to_string();
@@ -683,7 +686,10 @@ impl PeTTaEngine {
     }
 
     pub fn stderr_output(&self) -> String {
-        let data = self.stderr_output.lock().unwrap();
+        let data = self
+            .stderr_output
+            .lock()
+            .unwrap_or_else(|e| panic!("mutex poisoned: {}", e));
         String::from_utf8_lossy(&data).to_string()
     }
 
@@ -705,7 +711,7 @@ impl Drop for PeTTaEngine {
 }
 
 // ---------------------------------------------------------------------------
-// Output parsing (legacy)
+// Output parsing (legacy, kept for test compatibility)
 // ---------------------------------------------------------------------------
 
 #[allow(dead_code)]

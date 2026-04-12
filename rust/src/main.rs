@@ -126,7 +126,7 @@ fn run_demo(project_root: &Path) {
 fn filter_valid_paths<'a>(files: &[&'a String]) -> Vec<&'a Path> {
     files
         .iter()
-        .map(|f| Path::new(*f))
+        .map(|f| Path::new(f.as_str()))
         .filter(|p| {
             if !p.exists() {
                 eprintln!("Error: file not found: {}", p.display());
@@ -190,11 +190,12 @@ fn run_files_timed(project_root: &Path, files: &[&String], verbose: bool) {
     }
     let result = run_engine_files(project_root, &paths, verbose);
     let elapsed = start.elapsed();
+    let elapsed_ms = elapsed.as_secs_f64() * 1000.0;
     eprintln!(
         "\n{} engine: {:.3}ms, total: {:.3}ms",
         yellow("Timing:"),
-        elapsed.as_secs_f64() * 1000.0,
-        elapsed.as_secs_f64() * 1000.0
+        elapsed_ms,
+        elapsed_ms
     );
     if result.is_err() {
         std::process::exit(1);

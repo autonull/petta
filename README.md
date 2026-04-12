@@ -68,10 +68,10 @@ petta = { path = "/path/to/petta" }
 Then in Rust:
 
 ```rust
-use petta::PettaEngine;
+use petta::PeTTaEngine;
 use std::path::Path;
 
-let engine = PettaEngine::new(Path::new("/path/to/petta"), false)?;
+let engine = PeTTaEngine::new(Path::new("/path/to/petta"), false)?;
 
 // Process MeTTa code strings
 let results = engine.process_metta_string("(= (myfunc $x) (+ $x 1)) !(myfunc 41)")?;

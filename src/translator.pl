@@ -359,7 +359,7 @@ eval_data_list([E|Es], Goals, [V|Vs]) :- ( is_list(E) -> eval_data_term(E, G1, V
                                          append(G1, G2, Goals).
 
 
-%Convert let* to recusrive let:
+%Convert let* to recursive let:
 letstar_to_rec_let([[Pat,Val]],Body,[let,Pat,Val,Body]).
 letstar_to_rec_let([[Pat,Val]|Rest],Body,[let,Pat,Val,Out]) :- letstar_to_rec_let(Rest,Body,Out).
 
