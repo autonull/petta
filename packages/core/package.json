@@ -4,5 +4,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc"
+  },
+  "dependencies": {
+    "@petta/extensions": "workspace:*"
   }
 }

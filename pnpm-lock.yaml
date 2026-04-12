@@ -33,7 +33,11 @@ importers:
         specifier: workspace:*
         version: link:../stdlib
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      '@petta/extensions':
+        specifier: workspace:*
+        version: link:../extensions
 
   packages/extensions:
     dependencies:
