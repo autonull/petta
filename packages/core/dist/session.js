@@ -5,9 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SessionManager = void 0;
 const tau_prolog_1 = __importDefault(require("tau-prolog"));
-const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
 const extensions_1 = require("@petta/extensions");
+const core_pl_1 = require("./core_pl");
 // Require core modules
 require('tau-prolog/modules/lists')(tau_prolog_1.default);
 require('tau-prolog/modules/random')(tau_prolog_1.default);
@@ -24,13 +23,17 @@ class SessionManager {
         // 1. js_read_file_to_string(Path, StringOut)
         // Wait, Tau-prolog doesn't easily let us add predicates programmatically.
         // It's better to create a tau-prolog module or evaluate a string of Prolog defining them.
-        // Make the library path resolution work
-        const stdlibPath = path_1.default.resolve(__dirname, '../../stdlib/lib');
+        // Make the library path resolution work conditionally for Node vs Browser
+        let stdlibPath = '';
+        if (typeof process !== 'undefined' && process.env) {
+            const path = require('path');
+            stdlibPath = path.resolve(__dirname, '../../stdlib/lib');
+        }
         const hooks = `
             :- use_module(library(js)).
 
             :- dynamic(library_path/1).
-            :- asserta(library_path('${stdlibPath}')).
+            ${stdlibPath ? `:- asserta(library_path('${stdlibPath}')).` : ''}
 
             js_read_file_to_string(Path, StringOut) :-
                 prop(js, readFileToString, Func),
@@ -44,7 +47,12 @@ class SessionManager {
         `;
         // Bind global JS objects
         globalThis.global = globalThis;
-        globalThis.readFileToString = (p) => fs_1.default.readFileSync(p, 'utf8');
+        let readFileStr = (p) => { throw new Error("File reading not supported in this environment"); };
+        if (typeof process !== 'undefined' && process.env) {
+            const fs = require('fs');
+            readFileStr = (p) => fs.readFileSync(p, 'utf8');
+        }
+        globalThis.readFileToString = readFileStr;
         globalThis.__import__ = (p) => {
             // very basic mock of importing
         };
@@ -60,6 +68,14 @@ class SessionManager {
             addAtom: (atom) => morkSpace.addAtom(atom),
             removeAtom: (atom) => morkSpace.removeAtom(atom),
             match: (pattern) => morkSpace.match(pattern)
+        };
+        const faissSpace = new extensions_1.FaissSpace();
+        globalThis.faiss = {
+            create: (dim) => faissSpace.create(dim),
+            add: (id, atom, vector) => faissSpace.add(id, atom, vector),
+            search: (id, vector, k) => faissSpace.search(id, vector, k),
+            remove: (id, atom) => faissSpace.remove(id, atom),
+            embed: (expr, dim) => (0, extensions_1.embed)(expr, dim)
         };
         globalThis.llm = {
             use_gpt: async (model, prompt, maxTokens, effort) => await (0, extensions_1.openrouter_chat)(model, prompt, maxTokens, effort),
@@ -77,26 +93,14 @@ class SessionManager {
     }
     async loadCore() {
         await this.setupBindings();
-        const coreDir = path_1.default.join(__dirname, '../src/prolog');
-        const files = ['parser.pl', 'translator.pl', 'specializer.pl', 'filereader.pl', 'spaces.pl', 'metta.pl'];
-        return new Promise(async (resolve, reject) => {
-            try {
-                let combinedPl = ":- op(700, xfx, '=@=').\n:- dynamic(library_path/1).\n:- dynamic(translator_rule/1).\n:- dynamic('get-type'/2).\n:- dynamic(fun/1).\n:- dynamic(silent/1).\n:- dynamic(ho_specialization/2).\n";
-                for (const file of files) {
-                    let content = fs_1.default.readFileSync(path_1.default.join(coreDir, file), 'utf8');
-                    content = content.replace(/:- ensure_loaded\(\[.*?\]\)\./g, '');
-                    content = content.replace(/:- ensure_loaded\(.*?\)\./g, '');
-                    content = content.replace(/:- dynamic\(.*?\)\./g, '');
-                    combinedPl += content + '\n';
+        return new Promise((resolve, reject) => {
+            this.session.consult(core_pl_1.CORE_PL, {
+                success: () => resolve(),
+                error: (err) => {
+                    console.error("Consult error:", this.session.format_answer(err));
+                    reject(new Error(this.session.format_answer(err)));
                 }
-                this.session.consult(combinedPl, {
-                    success: () => resolve(),
-                    error: (err) => reject(new Error(this.session.format_answer(err)))
-                });
-            }
-            catch (e) {
-                reject(e);
-            }
+            });
         });
     }
 }
