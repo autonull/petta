@@ -18,8 +18,8 @@ library(X, Y, Path) :- library_path(Base), atomic_list_concat([Base, '/../', X, 
 :- use_module(library(process)).
 :- use_module(library(filesex)).
 :- current_prolog_flag(argv, Argv),
-   ( member(mork, Argv) -> ensure_loaded([parser, translator, specializer, filereader, '../mork_ffi/morkspaces', spaces])
-                         ; ensure_loaded([parser, translator, specializer, filereader, spaces])).
+   ( member(mork, Argv) -> ensure_loaded([parser, utils, translator, specializer, filereader, '../mork_ffi/morkspaces', spaces])
+                          ; ensure_loaded([parser, utils, translator, specializer, filereader, spaces])).
 
 %%%%%%%%%% Standard Library for MeTTa %%%%%%%%%%
 
@@ -224,7 +224,7 @@ infer_type(_, Inferred) :- Inferred = 'Unknown'.
 test(A,B,true) :- (A =@= B -> E = '✅' ; E = '❌'),
                   swrite(A, RA),
                   swrite(B, RB),
-                  format("is ~w, should ~w. ~w ~n", [RA, RB, E]),
+                  format(user_error, "is ~w, should ~w. ~w ~n", [RA, RB, E]),
                   (A =@= B -> true ; halt(1)).
 
 assert(Goal, true) :- ( call(Goal) -> true
@@ -352,7 +352,7 @@ register_fun(N) :- (fun(N) -> true ; assertz(fun(N))).
                           'add-translator-rule!', 'remove-translator-rule!', argv, lazy_load_library, reload_library, list_loaded_libraries,
                           declare_type, get_declared_type, infer_type]).
 
-'get-error-location'(error(ErrType, context(Location, _)), Location).
+'get-error-location'(error(_ErrType, context(Location, _)), Location).
 'get-error-location'(_, none).
 
 'error-type-mismatch'(Expected, Found, Context) :-

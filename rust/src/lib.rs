@@ -42,6 +42,7 @@ fn build_server_source(src_dir: &Path, verbose: bool) -> Result<String, PeTTaErr
         "specializer.pl",
         "translator.pl",
         "filereader.pl",
+        "utils.pl",
         "metta.pl",
     ] {
         let fpath = src_dir.join(file);
@@ -471,6 +472,7 @@ pub struct PeTTaEngine {
     child: Option<Child>,
     stdin_pipe: Option<std::process::ChildStdin>,
     stdout_pipe: Option<BufReader<std::process::ChildStdout>>,
+    stderr_output: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
 }
 
 impl PeTTaEngine {
@@ -503,6 +505,8 @@ impl PeTTaEngine {
             .map_err(|e| PeTTaError::SpawnSwipl(e.to_string()))?;
 
         let stderr = child.stderr.take();
+        let stderr_output = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let stderr_output_clone = std::sync::Arc::clone(&stderr_output);
         std::thread::spawn(move || {
             if let Some(mut s) = stderr {
                 let mut buf = [0u8; 4096];
@@ -510,6 +514,10 @@ impl PeTTaEngine {
                     if n == 0 {
                         break;
                     }
+                    stderr_output_clone
+                        .lock()
+                        .unwrap()
+                        .extend_from_slice(&buf[..n]);
                 }
             }
         });
@@ -530,6 +538,7 @@ impl PeTTaEngine {
             child: Some(child),
             stdin_pipe: Some(stdin),
             stdout_pipe: Some(stdout),
+            stderr_output,
         };
 
         // Wait for the ready signal (0xFF), discarding any startup warnings
@@ -671,6 +680,11 @@ impl PeTTaEngine {
         metta_code: &str,
     ) -> Result<Vec<MettaResult>, PeTTaError> {
         self.send_query(b'S', metta_code)
+    }
+
+    pub fn stderr_output(&self) -> String {
+        let data = self.stderr_output.lock().unwrap();
+        String::from_utf8_lossy(&data).to_string()
     }
 
     pub fn shutdown(&mut self) {

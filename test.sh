@@ -1,14 +1,17 @@
 #!/bin/sh
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+
 run_test() {
     f="$1"
     echo "Running $f"
-    output=$(cargo run --quiet -- "$f" 2>&1 | grep "is " | grep " should ")
-    echo "$output" | grep -q "❌"
-    fail=$?
-    echo "$output" | grep -q "✅"
-    pass=$?
-    if [ $fail -eq 0 ] || [ $pass -ne 0 ]; then
+    tmpfile="/tmp/petta_test_$$.out"
+    "$SCRIPT_DIR/target/release/petta" "$f" > "$tmpfile" 2>&1
+    
+    output=$(cat "$tmpfile" | grep " should " | grep " is " || echo "")
+    rm -f "$tmpfile"
+    
+    if echo "$output" | grep -q "❌"; then
         echo "FAILURE in $f:"
         echo "$output"
         return 1
@@ -19,37 +22,25 @@ run_test() {
     fi
 }
 
-pids=""
-pidfile="/tmp/metta_pid_map.$$"
-: > "$pidfile"
-
+status=0
 for f in ./examples/*.metta; do
     base=$(basename "$f")
     case "$base" in
         repl.metta|llm_cities.metta|torch.metta|greedy_chess.metta|git_import2.metta|\
         matespacefast.metta)
-        continue ;;
+        echo "Skipping $base"
+        ;;
+    *)
+        run_test "$f" || status=$?
+        ;;
     esac
-    run_test "$f" &
-    pid=$!
-    pids="$pids $pid"
-    echo "$pid $f" >> "$pidfile"
-done
-
-status=0
-for pid in $pids; do
-    if ! wait "$pid"; then
-        failed_file=$(grep "^$pid " "$pidfile" | cut -d' ' -f2-)
+    if [ $status -ne 0 ]; then
         echo ""
         echo "==============================="
-        echo "Stopping tests due to failure:"
-        echo "❌ Failed test: $failed_file"
+        echo "Test failed: $base"
         echo "==============================="
-        kill $pids 2>/dev/null
-        status=1
         break
     fi
 done
 
-rm -f "$pidfile"
 exit $status

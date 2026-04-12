@@ -151,6 +151,10 @@ fn run_engine_files(project_root: &Path, paths: &[&Path], verbose: bool) -> Resu
     for path in paths {
         match engine.load_metta_file(path) {
             Ok(results) => {
+                let stderr = engine.stderr_output();
+                if !stderr.is_empty() {
+                    eprintln!("{}", stderr);
+                }
                 for r in &results {
                     println!("{}", r.value);
                 }

@@ -1,3 +1,5 @@
+:- use_module(library(apply)).
+
 %Pattern matching, structural and functional/relational constraints on arguments:
 constrain_args(X, X, []) :- (var(X); atomic(X)), !.
 constrain_args([F, A, B], Out, Goals) :- nonvar(F),
@@ -33,19 +35,6 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                append(GoalsPrefix, FinalGoals, Goals),
                                                goals_list_to_conj(Goals, BodyConj).
 
-%Print compiled clause:
-maybe_print_compiled_clause(_, _, _) :- silent(true), !.
-maybe_print_compiled_clause(Label, FormTerm, Clause) :-
-    swrite(FormTerm, FormStr),
-    format("\e[33m-->  ~w  -->~n\e[36m~w~n\e[33m--> prolog clause -->~n\e[32m", [Label, FormStr]),
-    portray_clause(current_output, Clause),
-    format("\e[33m^^^^^^^^^^^^^^^^^^^^^~n\e[0m").
-
-%Conjunction builder, turning goals list to a flat conjunction:
-goals_list_to_conj([], true)      :- !.
-goals_list_to_conj([G], G)        :- !.
-goals_list_to_conj([G|Gs], (G,R)) :- goals_list_to_conj(Gs, R).
-
 % Runtime dispatcher: call F if it's a registered fun/1, else keep as list:
 reduce([F|Args], Out) :- nonvar(F), atom(F), fun(F)
                          -> % --- Case 1: callable predicate ---
@@ -66,9 +55,8 @@ reduce([F|Args], Out) :- nonvar(F), atom(F), fun(F)
 %Calling reduce from aggregate function foldall needs this argument wrapping
 agg_reduce(AF, Acc, Val, NewAcc) :- reduce([AF, Acc, Val], NewAcc).
 
-%Combined expr translation to goals list
 translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
-                                            goals_list_to_conj(Goals, Conj).
+                                           goals_list_to_conj(Goals, Conj).
 
 %Special stream operation rewrite rules before main translation
 rewrite_streamops(['trace!', Arg1, Arg2],
@@ -419,10 +407,6 @@ build_hyperpose_branches([E|Es], [(Goal, Res)|Bs]) :- translate_expr_to_conj(E, 
 %Runtime hyperpose path for variable/computed list arguments.
 hyperpose_runtime(Exprs, Out) :- is_list(Exprs),
                                  concurrent_and(member(Expr, Exprs), eval(Expr, Out)).
-
-%Like membercheck but with direct equality rather than unification
-memberchk_eq(V, [H|_]) :- V == H, !.
-memberchk_eq(V, [_|T]) :- memberchk_eq(V, T).
 
 %Generate readable lambda name:
 next_lambda_name(Name) :- ( catch(nb_getval(lambda_counter, Prev), _, Prev = 0) ),
