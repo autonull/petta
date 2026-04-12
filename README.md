@@ -1,66 +1,63 @@
 ## PeTTa
 
-Efficient MeTTa language implementation in Prolog.
+Efficient MeTTa language implementation.
 
-Please check out the [Wiki](https://github.com/patham9/PeTTa/wiki) for more information.
+This project is a pure TypeScript and tau-prolog implementation of the original Python/SWI-Prolog PeTTa system. It is designed to be fully isomorphic and run seamlessly across Node.js environments and modern web browsers without requiring native C++ or SWI-Prolog dependencies.
+
+Please check out the [Wiki](https://github.com/patham9/PeTTa/wiki) for more information on the original architecture.
+
+### Features of the TypeScript Port
+
+- **No Native Dependencies:** Does not require SWI-Prolog, Python, or native FFI extensions. It runs on a pure JavaScript Prolog engine (`tau-prolog`).
+- **Isomorphic Execution:** Can be imported and evaluated directly in browsers and Node.js environments.
+- **Monorepo Architecture:**
+  - `@petta/core`: The core Prolog interpreter and AST evaluator.
+  - `@petta/cli`: An executable TS-based test runner and CLI interface.
+  - `@petta/extensions`: Replaces original Python/FFI extensions with TS-based vector-store and LLM integrations.
+  - `@petta/stdlib`: A fully portable collection of standard libraries.
 
 ### Dependencies
 
-- SWI-Prolog >= 9.3.x
-- Python 3.x (for janus Python interop)
+- Node.js >= 18.x
+- pnpm
 
 ### Usage
 
+Install dependencies:
+
+```bash
+pnpm install
+```
+
 Example run:
 
-`time sh run.sh ./examples/nars_tuffy.metta`
+```bash
+npx tsx packages/cli/bin/petta.ts ./examples/nars_tuffy.metta
+```
+
+Running tests (executes all `.metta` files in `examples/`):
+
+```bash
+cd packages/cli
+pnpm test
+```
 
 ### MORK and FAISS spaces
 
-If MORK and FAISS is installed, execute `sh build.sh` to support MORK-based atom spaces and FAISS-based atom-vector spaces.
-
-The following projects are cloned and built by build.sh:
-
-**Repository:** [mork_ffi](https://github.com/patham9/mork_ffi) dependent on [trueagi-io/mork](https://github.com/trueagi-io/mork)
-
-**Repository:** [faiss_ffi](https://github.com/patham9/faiss_ffi) dependent on [facebookresearch/faiss](https://github.com/facebookresearch/faiss)
+The original FFI dependencies (`mork_ffi`, `faiss_ffi`) have been abstracted away. The `@petta/extensions` package provides modular vector-store adapters mimicking FAISS capabilities using standard TypeScript packages, running natively in memory.
 
 ### Extension libraries
 
-Please check out [Extension libraries](https://github.com/trueagi-io/PeTTa/wiki/Extension-libraries) for a set of extension libraries that can be invoked from MeTTa files directly from the git repository.
+Check out [Extension libraries](https://github.com/trueagi-io/PeTTa/wiki/Extension-libraries) for a set of extension libraries that can be invoked from MeTTa files directly from the git repository.
 
 ## Notebooks, Servers, Browser
 
-### Jupyter Notebook Support
+Because the TypeScript port uses `tau-prolog` as its backend, the entire engine is embedded directly in JavaScript.
 
-A Jupyter kernel for PeTTa is available in a separate repository for interactive MeTTa development in notebooks.
+### MeTTa in the Browser
 
-**Repository:** [trueagi-io/jupyter-petta-kernel](https://github.com/trueagi-io/jupyter-petta-kernel)
+You can bundle `@petta/core` into web applications without needing WebAssembly compilations. See [Execution-in-browser](https://github.com/patham9/PeTTa/wiki/Execution-in-browser) for more information.
 
-Quick install:
+### Jupyter Notebook Support & MeTTa server
 
-```bash
-# Set PETTA_PATH to this PeTTa installation
-export PETTA_PATH=/path/to/PeTTa
-
-# Clone and install the kernel
-git clone https://github.com/trueagi-io/jupyter-petta-kernel.git
-cd jupyter-petta-kernel
-./install.sh
-```
-
-Please see the [jupyter-petta-kernel README](https://github.com/trueagi-io/jupyter-petta-kernel/blob/main/README.md) for detailed installation instructions and usage.
-
-### MeTTa server
-
-A HTTP server running MeTTa code is also available:
-
-**Repository:** [MettaWamJam](https://github.com/jazzbox35/MettaWamJam)
-
-Please see the [MettaWamJam README](https://github.com/jazzbox35/MettaWamJam/blob/main/README.md) for detailed installation instructions and usage.
-
-### MeTTa in WASM
-
-Since Swi-Prolog can be compiled to Web Assembly, one can embed PeTTa into websites.
-
-Please see [Execution-in-browser](https://github.com/patham9/PeTTa/wiki/Execution-in-browser) for more information.
+A Jupyter kernel and HTTP servers are theoretically compatible via standard `ts-node` or `tsx` executors, allowing high-performance native-feeling integration with standard Node.js server frameworks like Express or Fastify.
