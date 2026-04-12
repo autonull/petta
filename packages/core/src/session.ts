@@ -1,7 +1,7 @@
 import pl from 'tau-prolog';
 import fs from 'fs';
 import path from 'path';
-import { openrouter_chat, openrouter_embed, MorkSpace } from '@petta/extensions';
+import { openrouter_chat, openrouter_embed, MorkSpace, FaissSpace, embed as faiss_embed } from '@petta/extensions';
 
 // Require core modules
 require('tau-prolog/modules/lists')(pl);
@@ -64,6 +64,15 @@ export class SessionManager {
             addAtom: (atom: any) => morkSpace.addAtom(atom),
             removeAtom: (atom: any) => morkSpace.removeAtom(atom),
             match: (pattern: any) => morkSpace.match(pattern)
+        };
+
+        const faissSpace = new FaissSpace();
+        (globalThis as any).faiss = {
+            create: (dim: number) => faissSpace.create(dim),
+            add: (id: number, atom: any, vector: number[]) => faissSpace.add(id, atom, vector),
+            search: (id: number, vector: number[], k: number) => faissSpace.search(id, vector, k),
+            remove: (id: number, atom: any) => faissSpace.remove(id, atom),
+            embed: (expr: any, dim: number) => faiss_embed(expr, dim)
         };
 
         (globalThis as any).llm = {
