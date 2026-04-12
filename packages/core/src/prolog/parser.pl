@@ -41,7 +41,7 @@ seq([],E,E)       --> [].
 var_symbol(V,E0,E) --> "$", token(Cs), { atom_chars(N, Cs), ( N == '_' -> V = _, E = E0 ; memberchk(N-V0, E0) -> V = V0, E = E0 ; V = _, E = [N-V|E0] ) }.
 
 %Atoms are derived from tokens:
-atom_symbol(A) --> token(Cs), { string_codes([34], [Q]), ( Cs = [Q|_] -> append([Q|Body], [Q], Cs), %"str" as string
+atom_symbol(A) --> token(Cs), { Q = 34, ( Cs = [Q|_] -> append([Q|Body], [Q], Cs), %"str" as string
                                                                          string_codes(A, Body)
                                                                        ; atom_codes(R, Cs),         %others are atoms
                                                                          ( R = 'True' -> A = true
