@@ -94,6 +94,26 @@ fn run_demo(project_root: &Path) {
 
 fn run_files(project_root: &Path, files: &[&String], verbose: bool) {
     use petta::PeTTaEngine;
+
+    // Validate all files exist first before spawning any subprocess
+    let paths: Vec<&Path> = files
+        .iter()
+        .map(|f| Path::new(f))
+        .filter(|p| {
+            if !p.exists() {
+                eprintln!("Error: file not found: {}", p.display());
+                false
+            } else {
+                true
+            }
+        })
+        .collect();
+
+    if paths.is_empty() {
+        std::process::exit(1);
+    }
+
+    // Batch all files into a single subprocess
     let engine = match PeTTaEngine::new(project_root, verbose) {
         Ok(e) => e,
         Err(e) => {
@@ -101,27 +121,16 @@ fn run_files(project_root: &Path, files: &[&String], verbose: bool) {
             std::process::exit(1);
         }
     };
-    let mut had_failure = false;
-    for file_path in files {
-        let path = Path::new(file_path);
-        if !path.exists() {
-            eprintln!("Error: file not found: {}", path.display());
-            had_failure = true;
-            continue;
-        }
-        match engine.load_metta_file(path) {
-            Ok(results) => {
-                for r in &results {
-                    println!("{}", r.value);
-                }
-            }
-            Err(e) => {
-                eprintln!("Error processing {}: {}", path.display(), e);
-                had_failure = true;
+
+    match engine.load_metta_files(&paths) {
+        Ok(results) => {
+            for r in &results {
+                println!("{}", r.value);
             }
         }
-    }
-    if had_failure {
-        std::process::exit(1);
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
     }
 }
