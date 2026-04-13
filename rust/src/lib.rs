@@ -59,6 +59,9 @@ fn build_server_source(src_dir: &Path, verbose: bool) -> Result<String, PeTTaErr
         silent
     ));
 
+    // Initialize type lookup cache
+    src.push_str(":- nb_setval(fun_types, []).\n");
+
     src.push_str(SERVER_LOOP);
     Ok(src)
 }
@@ -77,8 +80,8 @@ server_loop :-
     ; Type =:= 81 -> halt
     ; Type =:= 67 -> handle_cancel
     ; read_u32(Len),
-      read_bytes(Len, Bytes),
-      atom_codes(Query, Bytes),
+      read_bytes_fast(Len, Bytes),
+      string_codes(Query, Bytes),
       execute_query(Type, Query, Results),
       write_response(Results),
       flush_output(user_output),
@@ -105,11 +108,28 @@ write_u32(V) :-
     put_byte(user_output,B0), put_byte(user_output,B1),
     put_byte(user_output,B2), put_byte(user_output,B3).
 
-read_bytes(0,[]) :- !.
-read_bytes(N,[B|Bs]) :- get_byte(user_input,B), N1 is N-1, read_bytes(N1,Bs).
+%Bulk-read payload using efficient tail-recursive loop:
+read_bytes_fast(0, []) :- !.
+read_bytes_fast(N, Bytes) :-
+    read_bytes_tail(N, Bytes).
 
-write_bytes([]).
-write_bytes([B|Bs]) :- put_byte(user_output,B), write_bytes(Bs).
+read_bytes_tail(N, Bytes) :-
+    read_bytes_loop(N, [], Rev),
+    reverse(Rev, Bytes).
+
+read_bytes_loop(0, Acc, Acc) :- !.
+read_bytes_loop(N, Acc, Result) :-
+    get_code(user_input, Code),
+    N1 is N - 1,
+    read_bytes_loop(N1, [Code|Acc], Result).
+
+%Tail-recursive byte writing:
+write_bytes(Codes) :- write_bytes_loop(Codes).
+
+write_bytes_loop([]) :- !.
+write_bytes_loop([C|Cs]) :-
+    put_byte(user_output, C),
+    write_bytes_loop(Cs).
 
 write_response(Results) :-
     length(Results, Count),
@@ -127,12 +147,25 @@ write_error_response(Error) :-
     write_u32(Len),
     write_bytes(Codes).
 
+%Single-pass result serialization: DCG directly produces codes, skip atom intermediate:
 write_result_str(Term) :-
-    swrite(Term, Str),
-    atom_codes(Str, Codes),
+    phrase(swrite_exp(Term), Codes),
     length(Codes, Len),
     write_u32(Len),
     write_bytes(Codes).
+
+%Cached type lookup: avoids repeated match/4 calls for type declarations.
+%Types are cached in a list of Fun-TypeChains pairs, invalidated when atoms are added/removed.
+get_fun_types(Fun, TypeChains) :-
+    catch(nb_getval(fun_types, Cache), _, fail),
+    member(Fun-TypeChains, Cache), !.
+get_fun_types(Fun, TypeChains) :-
+    findall(TypeChain, catch(match('&self', [':', Fun, TypeChain], TypeChain, TypeChain), _, fail), TypeChains),
+    ( catch(nb_getval(fun_types, Cache), _, fail)
+      -> nb_setval(fun_types, [Fun-TypeChains|Cache])
+      ; nb_setval(fun_types, [Fun-TypeChains]) ).
+
+invalidate_type_cache :- nb_setval(fun_types, []).
 "#;
 
 // ---------------------------------------------------------------------------

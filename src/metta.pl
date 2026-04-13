@@ -365,24 +365,26 @@ register_fun(N) :- (fun(N) -> true ; assertz(fun(N))).
 similarity(S1, S2, Score) :-
     atom_chars(S1, Chars1),
     atom_chars(S2, Chars2),
-    longest_common_subsubstring(Chars1, Chars2, LCSLen),
+    longest_common_substring(Chars1, Chars2, LCSLen),
     length(Chars1, Len1),
     length(Chars2, Len2),
     MaxLen is max(Len1, Len2),
     MaxLen > 0,
     Score is LCSLen / MaxLen.
 
-longest_common_subsubstring([], _, 0) :- !.
-longest_common_subsubstring(_, [], 0) :- !.
-longest_common_subsubstring([H|T1], [H|T2], Len) :- !,
-    longest_common_subsubstring(T1, T2, SubLen),
+%Tabling prevents exponential blowup in LCS computation:
+:- table longest_common_substring/3.
+longest_common_substring([], _, 0) :- !.
+longest_common_substring(_, [], 0) :- !.
+longest_common_substring([H|T1], [H|T2], Len) :- !,
+    longest_common_substring(T1, T2, SubLen),
     Len is SubLen + 1.
-longest_common_subsubstring([_|T1], [_|T2], Len) :-
-    longest_common_subsubstring(T1, T2, Len1),
-    longest_common_subsubstring(T1, [_|T2], Len2),
-    longest_common_subsubstring([_|T1], T2, Len3),
+longest_common_substring([_|T1], [_|T2], Len) :-
+    longest_common_substring(T1, T2, Len1),
+    longest_common_substring(T1, [_|T2], Len2),
+    longest_common_substring([_|T1], T2, Len3),
     Len is max(max(Len1, Len2), Len3).
-longest_common_subsubstring(_, _, 0).
+longest_common_substring(_, _, 0).
 
 'error-syntax'(Location, Detail, Recoverable) :-
     format(atom(Detail), 'Syntax error at ~w', [Location]),
