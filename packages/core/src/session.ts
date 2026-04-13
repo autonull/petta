@@ -59,7 +59,21 @@ export class SessionManager {
 
         (globalThis as any).readFileToString = readFileStr;
         (globalThis as any).__import__ = (p: string) => {
-             // very basic mock of importing
+            if (typeof process !== 'undefined' && process.env) {
+                const path = require('path');
+                const parsed = path.parse(p);
+                const moduleName = parsed.name;
+                const imported = require(p);
+
+                // Prevent overwriting existing globals (like console, process, math, etc.)
+                if (moduleName in globalThis) {
+                    throw new Error(`Cannot import module '${moduleName}': A global variable with this name already exists.`);
+                }
+
+                (globalThis as any)[moduleName] = imported;
+                return true;
+            }
+            return false;
         };
         (globalThis as any)._petta_format_error = (fmt: string, args: any[]) => {
             return fmt; // Just return format unparsed for now
