@@ -1,10 +1,21 @@
 [package]
 name = "petta"
 version = "0.5.0"
-edition = "2021"
+edition = "2024"
 description = "Efficient MeTTa language implementation in Rust + persistent SWI-Prolog subprocess"
 license = "MIT"
 readme = "README.md"
+repository = "https://github.com/patham9/petta"
+keywords = ["metta", "logic", "prolog", "agi", "trueagi"]
+categories = ["compilers", "parser-implementations"]
+
+[workspace]
+resolver = "2"
+members = ["."]
+exclude = ["repos/MORK"]
+
+[workspace.package]
+edition = "2024"
 
 [[bin]]
 name = "petta"
@@ -16,3 +27,30 @@ path = "rust/src/lib.rs"
 
 [dependencies]
 tempfile = "3"
+thiserror = "2"
+tracing = "0.1"
+nom = "8"
+
+# MORK integration (future - requires pathmap 0.3 + full eval crate)
+# The MORK source is cloned to repos/MORK for local development.
+# To enable: add pathmap 0.3, mork-expr, mork-frontend, mork-interning as dependencies
+# and uncomment the mork feature below.
+# mork = { path = "repos/MORK/kernel", optional = true }
+# mork-expr = { path = "repos/MORK/expr", optional = true }
+# mork-frontend = { path = "repos/MORK/frontend", optional = true }
+# mork-interning = { path = "repos/MORK/interning", optional = true }
+
+[features]
+default = ["swipl"]
+swipl = []
+pure-rust = []
+# mork = ["swipl", "dep:mork", "dep:mork-expr", "dep:mork-frontend", "dep:mork-interning"]
+
+# MORK integration (future - requires pathmap 0.3 + full eval crate)
+# The MORK source is cloned to repos/MORK for local development.
+# To enable: add pathmap 0.3, mork-expr, mork-frontend, mork-interning as dependencies
+# and uncomment the mork feature below.
+# mork = { path = "repos/MORK/kernel", optional = true }
+# mork-expr = { path = "repos/MORK/expr", optional = true }
+# mork-frontend = { path = "repos/MORK/frontend", optional = true }
+# mork-interning = { path = "repos/MORK/interning", optional = true }

@@ -17,9 +17,96 @@
 //!   If 1: [4 bytes: error msg len][N bytes: UTF-8 error]
 //! ```
 
+// MORK feature flags - uncomment when mork feature is enabled in Cargo.toml
+// #![cfg_attr(feature = "mork", allow(internal_features))]
+// #![cfg_attr(feature = "mork", feature(core_intrinsics))]
+// #![cfg_attr(feature = "mork", feature(portable_simd))]
+// #![cfg_attr(feature = "mork", feature(allocator_api))]
+// #![cfg_attr(feature = "mork", feature(coroutine_trait))]
+// #![cfg_attr(feature = "mork", feature(coroutines))]
+// #![cfg_attr(feature = "mork", feature(stmt_expr_attributes))]
+// #![cfg_attr(feature = "mork", feature(gen_blocks))]
+// #![cfg_attr(feature = "mork", feature(yield_expr))]
+
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::time::Duration;
+
+use tracing::{debug, info, trace, warn};
+
+pub mod petta_parser;
+
+/// Configuration options for the PeTTaEngine.
+#[derive(Debug, Clone)]
+pub struct EngineConfig {
+    /// Path to the SWI-Prolog binary (defaults to "swipl").
+    pub swipl_path: PathBuf,
+    /// Source directory containing .pl files (defaults to `<project_root>/src`).
+    pub src_dir: Option<PathBuf>,
+    /// Enable verbose debug output from Prolog.
+    pub verbose: bool,
+    /// Timeout for query execution. None means no timeout.
+    pub query_timeout: Option<Duration>,
+    /// Maximum number of automatic restarts on subprocess crash (default: 0).
+    pub max_restarts: u32,
+    /// Minimum SWI-Prolog version required (major, minor).
+    pub min_swipl_version: (u32, u32),
+}
+
+impl Default for EngineConfig {
+    fn default() -> Self {
+        Self {
+            swipl_path: PathBuf::from("swipl"),
+            src_dir: None,
+            verbose: false,
+            query_timeout: None,
+            max_restarts: 0,
+            min_swipl_version: (9, 3),
+        }
+    }
+}
+
+impl EngineConfig {
+    /// Create a new config with the given project root.
+    /// The Prolog source files are expected to be in `<project_root>/prolog/`.
+    pub fn new(project_root: &Path) -> Self {
+        Self {
+            src_dir: Some(project_root.join("prolog")),
+            ..Default::default()
+        }
+    }
+
+    /// Set the SWI-Prolog binary path.
+    pub fn swipl_path(mut self, path: impl Into<PathBuf>) -> Self {
+        self.swipl_path = path.into();
+        self
+    }
+
+    /// Set the source directory for .pl files.
+    pub fn src_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.src_dir = Some(dir.into());
+        self
+    }
+
+    /// Enable or disable verbose Prolog debug output.
+    pub fn verbose(mut self, v: bool) -> Self {
+        self.verbose = v;
+        self
+    }
+
+    /// Set a timeout for queries.
+    pub fn query_timeout(mut self, timeout: Duration) -> Self {
+        self.query_timeout = Some(timeout);
+        self
+    }
+
+    /// Set the maximum number of automatic restarts on crash.
+    pub fn max_restarts(mut self, n: u32) -> Self {
+        self.max_restarts = n;
+        self
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Prolog server source
@@ -51,6 +138,7 @@ fn build_server_source(src_dir: &Path, verbose: bool) -> Result<String, PeTTaErr
         }
         let fstr = fpath.to_string_lossy().replace('\\', "\\\\");
         src.push_str(&format!(":- consult('{}').\n", fstr));
+        trace!("Consulting Prolog file: {}", fpath.display());
     }
 
     // filereader.pl asserts silent(false) at startup; re-assert our setting after all consults
@@ -63,6 +151,7 @@ fn build_server_source(src_dir: &Path, verbose: bool) -> Result<String, PeTTaErr
     src.push_str(":- nb_setval(fun_types, []).\n");
 
     src.push_str(SERVER_LOOP);
+    debug!("Built Prolog server source ({} bytes)", src.len());
     Ok(src)
 }
 
@@ -315,105 +404,84 @@ impl MettaResult {
 }
 
 // ---------------------------------------------------------------------------
-// Human-readable errors
+// Error types (thiserror)
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone)]
+/// SWI-Prolog-specific error kinds parsed from raw error messages.
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum SwiplErrorKind {
+    #[error("MeTTa function '{name}/{arity}' is not defined{}", .suggestion.as_ref().map(|s| format!(". Did you mean '{}'?", s)).unwrap_or_default())]
     UndefinedFunction {
         name: String,
         arity: usize,
         suggestion: Option<String>,
     },
+
+    #[error("Type error: expected {expected}, got {found}{}", .context.as_ref().map(|c| format!(" ({})", c)).unwrap_or_default())]
     TypeMismatch {
         expected: String,
         found: String,
         context: Option<String>,
     },
+
+    #[error("Syntax error: {detail}")]
     SyntaxError {
         line: Option<u32>,
         column: Option<u32>,
         detail: String,
     },
-    UninstantiatedArgument {
-        location: Option<String>,
-    },
-    PermissionDenied {
-        operation: String,
-        target: String,
-    },
-    ExistenceError {
-        error_type: String,
-        term: String,
-    },
-    StackOverflow {
-        limit: Option<u32>,
-    },
+
+    #[error("Argument is not sufficiently instantiated{}", .location.as_ref().map(|l| format!(" at {}", l)).unwrap_or_default())]
+    UninstantiatedArgument { location: Option<String> },
+
+    #[error("Permission denied: {operation} on {target}")]
+    PermissionDenied { operation: String, target: String },
+
+    #[error("{error_type} {term} does not exist")]
+    ExistenceError { error_type: String, term: String },
+
+    #[error("Stack overflow{}", .limit.map(|l| format!(" (limit: {})", l)).unwrap_or_default())]
+    StackOverflow { limit: Option<u32> },
+
+    #[error("{0}")]
     Generic(String),
 }
 
-impl std::fmt::Display for SwiplErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SwiplErrorKind::UndefinedFunction {
-                name,
-                arity,
-                suggestion,
-            } => {
-                write!(f, "MeTTa function '{}/{}' is not defined", name, arity)?;
-                if let Some(s) = suggestion {
-                    write!(f, ". Did you mean '{}'?", s)?;
-                }
-                Ok(())
-            }
-            SwiplErrorKind::TypeMismatch {
-                expected,
-                found,
-                context,
-            } => {
-                write!(f, "Type error: expected {}, got {}", expected, found)?;
-                if let Some(c) = context {
-                    write!(f, " ({})", c)?;
-                }
-                Ok(())
-            }
-            SwiplErrorKind::SyntaxError {
-                line,
-                column,
-                detail,
-            } => {
-                write!(f, "Syntax error")?;
-                if let (Some(l), Some(c)) = (line, column) {
-                    write!(f, " at {}:{}", l, c)?;
-                }
-                write!(f, ": {}", detail)
-            }
-            SwiplErrorKind::UninstantiatedArgument { location } => {
-                write!(f, "Argument is not sufficiently instantiated")?;
-                if let Some(l) = location {
-                    write!(f, " at {}", l)?;
-                }
-                Ok(())
-            }
-            SwiplErrorKind::PermissionDenied { operation, target } => {
-                write!(f, "Permission denied: {} on {}", operation, target)
-            }
-            SwiplErrorKind::ExistenceError { error_type, term } => {
-                write!(f, "{} {} does not exist", error_type, term)
-            }
-            SwiplErrorKind::StackOverflow { limit } => {
-                write!(f, "Stack overflow")?;
-                if let Some(l) = limit {
-                    write!(f, " (limit: {})", l)?;
-                }
-                Ok(())
-            }
-            SwiplErrorKind::Generic(msg) => write!(f, "{}", msg),
-        }
-    }
+/// Top-level error type for PeTTa operations.
+#[derive(Debug, thiserror::Error)]
+pub enum PeTTaError {
+    #[error("File not found: {0}")]
+    FileNotFound(PathBuf),
+
+    #[error("Failed to spawn swipl: {0}")]
+    SpawnSwipl(String),
+
+    #[error("Path error: {0}")]
+    PathError(String),
+
+    #[error("Write error: {0}")]
+    WriteError(String),
+
+    #[error(transparent)]
+    SwiplError(#[from] SwiplErrorKind),
+
+    #[error("SWI-Prolog version: {0}")]
+    SwiplVersionError(String),
+
+    #[error("Protocol error: {0}")]
+    ProtocolError(String),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Query timed out after {0:?}")]
+    Timeout(Duration),
+
+    #[error("Subprocess crashed after {restarts} restart(s)")]
+    SubprocessCrashed { restarts: u32 },
 }
 
-fn parse_swipl_error(raw: &str) -> SwiplErrorKind {
+pub(crate) fn parse_swipl_error(raw: &str) -> SwiplErrorKind {
     if raw.contains("existence_error") && raw.contains("procedure") {
         if let Some((name, arity)) = extract_name_arity(raw) {
             return SwiplErrorKind::UndefinedFunction {
@@ -469,36 +537,6 @@ fn extract_between(s: &str, start: &str, end: &str) -> Option<String> {
 }
 
 // ---------------------------------------------------------------------------
-// Errors
-// ---------------------------------------------------------------------------
-
-#[derive(Debug)]
-pub enum PeTTaError {
-    FileNotFound(PathBuf),
-    SpawnSwipl(String),
-    PathError(String),
-    WriteError(String),
-    SwiplError(SwiplErrorKind),
-    SwiplVersionError(String),
-    ProtocolError(String),
-}
-
-impl std::fmt::Display for PeTTaError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PeTTaError::FileNotFound(p) => write!(f, "File not found: {}", p.display()),
-            PeTTaError::SpawnSwipl(e) => write!(f, "Failed to spawn swipl: {}", e),
-            PeTTaError::PathError(e) => write!(f, "Path error: {}", e),
-            PeTTaError::WriteError(e) => write!(f, "Write error: {}", e),
-            PeTTaError::SwiplError(e) => write!(f, "{}", e),
-            PeTTaError::SwiplVersionError(e) => write!(f, "SWI-Prolog version: {}", e),
-            PeTTaError::ProtocolError(e) => write!(f, "Protocol error: {}", e),
-        }
-    }
-}
-impl std::error::Error for PeTTaError {}
-
-// ---------------------------------------------------------------------------
 // Persistent engine
 // ---------------------------------------------------------------------------
 
@@ -507,17 +545,38 @@ pub struct PeTTaEngine {
     stdin_pipe: Option<std::process::ChildStdin>,
     stdout_pipe: Option<BufReader<std::process::ChildStdout>>,
     stderr_output: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
+    config: EngineConfig,
+    restart_count: u32,
 }
 
 impl PeTTaEngine {
+    /// Create a new engine with default config for the given project root.
     pub fn new(project_root: &Path, verbose: bool) -> Result<Self, PeTTaError> {
-        let src_dir = project_root.join("src");
-        if !src_dir.exists() {
-            return Err(PeTTaError::FileNotFound(src_dir));
-        }
-        check_swipl_version()?;
+        let config = EngineConfig::new(project_root).verbose(verbose);
+        Self::with_config(&config)
+    }
 
-        let server_source = build_server_source(&src_dir, verbose)?;
+    /// Create a new engine with a custom configuration.
+    pub fn with_config(config: &EngineConfig) -> Result<Self, PeTTaError> {
+        info!(
+            "Creating PeTTaEngine (swipl={}, verbose={}, max_restarts={})",
+            config.swipl_path.display(),
+            config.verbose,
+            config.max_restarts
+        );
+
+        let src_dir = config
+            .src_dir
+            .as_ref()
+            .ok_or_else(|| PeTTaError::PathError("No source directory configured".into()))?;
+
+        if !src_dir.exists() {
+            return Err(PeTTaError::FileNotFound(src_dir.clone()));
+        }
+
+        check_swipl_version(&config.swipl_path, config.min_swipl_version)?;
+
+        let server_source = build_server_source(src_dir, config.verbose)?;
         let tmp = tempfile::Builder::new()
             .prefix("petta_srv_")
             .suffix(".pl")
@@ -527,7 +586,155 @@ impl PeTTaEngine {
         std::fs::write(&tmp_path, &server_source)
             .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
 
-        let mut child = Command::new("swipl")
+        debug!("Launching SWI-Prolog subprocess: {:?}", config.swipl_path);
+        let mut child = Command::new(&config.swipl_path)
+            .arg("-q")
+            .arg("-t")
+            .arg("halt")
+            .arg(&tmp_path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| PeTTaError::SpawnSwipl(e.to_string()))?;
+
+        let stderr = child.stderr.take();
+        let stderr_output = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let stderr_output_clone = std::sync::Arc::clone(&stderr_output);
+        std::thread::spawn(move || {
+            if let Some(mut s) = stderr {
+                let mut buf = [0u8; 4096];
+                while let Ok(n) = s.read(&mut buf) {
+                    if n == 0 {
+                        break;
+                    }
+                    trace!(
+                        "Prolog stderr: {}",
+                        String::from_utf8_lossy(&buf[..n])
+                    );
+                    stderr_output_clone
+                        .lock()
+                        .unwrap()
+                        .extend_from_slice(&buf[..n]);
+                }
+            }
+        });
+
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| PeTTaError::SpawnSwipl("no stdin".into()))?;
+        let stdout = BufReader::new(
+            child
+                .stdout
+                .take()
+                .ok_or_else(|| PeTTaError::SpawnSwipl("no stdout".into()))?,
+        );
+        std::mem::forget(tmp);
+
+        let mut engine = Self {
+            child: Some(child),
+            stdin_pipe: Some(stdin),
+            stdout_pipe: Some(stdout),
+            stderr_output,
+            config: config.clone(),
+            restart_count: 0,
+        };
+
+        // Wait for the ready signal (0xFF), discarding any startup warnings
+        engine.wait_for_ready()?;
+
+        info!("PeTTaEngine initialized successfully");
+        Ok(engine)
+    }
+
+    fn wait_for_ready(&mut self) -> Result<(), PeTTaError> {
+        trace!("Waiting for Prolog ready signal (0xFF)");
+        let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
+            PeTTaError::ProtocolError("stdout pipe unavailable".into())
+        })?;
+        loop {
+            let mut b = [0u8; 1];
+            reader.read_exact(&mut b).map_err(|e| {
+                PeTTaError::ProtocolError(format!("failed to read ready signal: {}", e))
+            })?;
+            if b[0] == 0xFF {
+                debug!("Prolog ready signal received");
+                return Ok(());
+            }
+            trace!("Discarding startup byte: {:?}", b[0]);
+        }
+    }
+
+    fn read_u32(&mut self) -> Result<u32, PeTTaError> {
+        let mut b = [0u8; 4];
+        let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
+            PeTTaError::ProtocolError("stdout pipe unavailable".into())
+        })?;
+        reader.read_exact(&mut b).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                PeTTaError::ProtocolError("child closed".into())
+            } else {
+                PeTTaError::ProtocolError(e.to_string())
+            }
+        })?;
+        Ok(u32::from_be_bytes(b))
+    }
+
+    /// Check if the Prolog subprocess is alive and responsive.
+    pub fn is_alive(&mut self) -> bool {
+        self.stdin_pipe.is_some() && self.stdout_pipe.is_some()
+    }
+
+    /// Attempt to recover from a protocol error by restarting the subprocess and retrying the query.
+    fn try_recover_and_retry<F, T>(&mut self, query_fn: F) -> Result<T, PeTTaError>
+    where
+        F: FnOnce(&mut Self) -> Result<T, PeTTaError>,
+    {
+        warn!("Attempting to recover from subprocess failure");
+        self.restart()?;
+        query_fn(self)
+    }
+
+    /// Restart the Prolog subprocess after a crash.
+    #[allow(dead_code)]
+    fn restart(&mut self) -> Result<(), PeTTaError> {
+        if self.restart_count >= self.config.max_restarts {
+            return Err(PeTTaError::SubprocessCrashed {
+                restarts: self.restart_count,
+            });
+        }
+
+        warn!(
+            "Restarting Prolog subprocess (attempt {}/{})",
+            self.restart_count + 1,
+            self.config.max_restarts
+        );
+
+        // Clean up old child process
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+
+        // Reinitialize pipes and restart
+        let src_dir = self
+            .config
+            .src_dir
+            .as_ref()
+            .ok_or_else(|| PeTTaError::PathError("No source directory configured".into()))?;
+
+        let server_source = build_server_source(src_dir, self.config.verbose)?;
+        let tmp = tempfile::Builder::new()
+            .prefix("petta_srv_")
+            .suffix(".pl")
+            .tempfile()
+            .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
+        let tmp_path = tmp.path().to_path_buf();
+        std::fs::write(&tmp_path, &server_source)
+            .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
+
+        let mut child = Command::new(&self.config.swipl_path)
             .arg("-q")
             .arg("-t")
             .arg("halt")
@@ -556,62 +763,51 @@ impl PeTTaEngine {
             }
         });
 
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| PeTTaError::SpawnSwipl("no stdin".into()))?;
-        let stdout = BufReader::new(
+        self.stdin_pipe = Some(
+            child
+                .stdin
+                .take()
+                .ok_or_else(|| PeTTaError::SpawnSwipl("no stdin".into()))?,
+        );
+        self.stdout_pipe = Some(BufReader::new(
             child
                 .stdout
                 .take()
                 .ok_or_else(|| PeTTaError::SpawnSwipl("no stdout".into()))?,
-        );
+        ));
+        self.child = Some(child);
+        self.stderr_output = stderr_output;
+        self.restart_count += 1;
+
         std::mem::forget(tmp);
+        self.wait_for_ready()?;
 
-        let mut engine = Self {
-            child: Some(child),
-            stdin_pipe: Some(stdin),
-            stdout_pipe: Some(stdout),
-            stderr_output,
-        };
-
-        // Wait for the ready signal (0xFF), discarding any startup warnings
-        engine.wait_for_ready()?;
-
-        Ok(engine)
-    }
-
-    fn wait_for_ready(&mut self) -> Result<(), PeTTaError> {
-        let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
-            PeTTaError::ProtocolError("stdout pipe unavailable".into())
-        })?;
-        loop {
-            let mut b = [0u8; 1];
-            reader.read_exact(&mut b).map_err(|e| {
-                PeTTaError::ProtocolError(format!("failed to read ready signal: {}", e))
-            })?;
-            if b[0] == 0xFF {
-                return Ok(());
-            }
-        }
-    }
-
-    fn read_u32(&mut self) -> Result<u32, PeTTaError> {
-        let mut b = [0u8; 4];
-        let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
-            PeTTaError::ProtocolError("stdout pipe unavailable".into())
-        })?;
-        reader.read_exact(&mut b).map_err(|e| {
-            if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                PeTTaError::ProtocolError("child closed".into())
-            } else {
-                PeTTaError::ProtocolError(e.to_string())
-            }
-        })?;
-        Ok(u32::from_be_bytes(b))
+        info!("Prolog subprocess restarted successfully");
+        Ok(())
     }
 
     fn send_query(
+        &mut self,
+        query_type: u8,
+        payload: &str,
+    ) -> Result<Vec<MettaResult>, PeTTaError> {
+        trace!(
+            "Sending query: type={}, payload_len={}",
+            query_type,
+            payload.len()
+        );
+
+        match self.send_query_inner(query_type, payload) {
+            Ok(results) => Ok(results),
+            Err(PeTTaError::ProtocolError(ref msg)) if msg.contains("child closed") => {
+                warn!("Subprocess crashed during query, attempting recovery");
+                self.try_recover_and_retry(|e| e.send_query_inner(query_type, payload))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    fn send_query_inner(
         &mut self,
         query_type: u8,
         payload: &str,
@@ -637,13 +833,20 @@ impl PeTTaEngine {
             })?;
             reader
                 .read_exact(&mut b)
-                .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
+                .map_err(|e| {
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                        PeTTaError::ProtocolError("child closed".into())
+                    } else {
+                        PeTTaError::ProtocolError(e.to_string())
+                    }
+                })?;
             b[0]
         };
 
         match status {
             0 => {
                 let count = self.read_u32()?;
+                trace!("Query succeeded: {} result(s)", count);
                 let mut results = Vec::with_capacity(count as usize);
                 for _ in 0..count {
                     let len = self.read_u32()?;
@@ -670,7 +873,8 @@ impl PeTTaEngine {
                     .read_exact(&mut buf)
                     .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
                 let msg = String::from_utf8_lossy(&buf).to_string();
-                Err(PeTTaError::SwiplError(parse_swipl_error(&msg)))
+                debug!("Prolog error response: {}", msg);
+                Err(PeTTaError::SwiplError(parse_swipl_error(&msg).into()))
             }
             _ => Err(PeTTaError::ProtocolError(format!(
                 "unknown status: {}",
@@ -686,6 +890,7 @@ impl PeTTaEngine {
         if !abs.exists() {
             return Err(PeTTaError::FileNotFound(abs));
         }
+        debug!("Loading MeTTa file: {}", abs.display());
         self.send_query(b'F', &abs.to_string_lossy())
     }
 
@@ -696,6 +901,7 @@ impl PeTTaEngine {
         if file_paths.is_empty() {
             return Ok(Vec::new());
         }
+        debug!("Loading {} MeTTa files", file_paths.len());
         let combined: String = file_paths
             .iter()
             .map(|p| {
@@ -716,6 +922,7 @@ impl PeTTaEngine {
         &mut self,
         metta_code: &str,
     ) -> Result<Vec<MettaResult>, PeTTaError> {
+        debug!("Processing MeTTa string ({} bytes)", metta_code.len());
         self.send_query(b'S', metta_code)
     }
 
@@ -727,7 +934,18 @@ impl PeTTaEngine {
         String::from_utf8_lossy(&data).to_string()
     }
 
+    /// Returns the current configuration.
+    pub fn config(&self) -> &EngineConfig {
+        &self.config
+    }
+
+    /// Returns the number of times the subprocess has been restarted.
+    pub fn restart_count(&self) -> u32 {
+        self.restart_count
+    }
+
     pub fn shutdown(&mut self) {
+        info!("Shutting down PeTTaEngine");
         if let Some(sin) = self.stdin_pipe.as_mut() {
             let _ = sin.write_all(&[b'Q', 0, 0, 0, 0]);
             let _ = sin.flush();
@@ -775,7 +993,7 @@ fn parse_output(output: &str, _verbose: bool) -> Vec<MettaResult> {
 
 #[allow(dead_code)]
 fn strip_ansi(s: &str) -> String {
-    let mut result = String::new();
+    let mut result = String::with_capacity(s.len());
     let mut in_esc = false;
     for ch in s.chars() {
         if ch == '\x1b' {
@@ -798,17 +1016,19 @@ fn strip_ansi(s: &str) -> String {
 // Version check
 // ---------------------------------------------------------------------------
 
-const MIN_MAJOR: u32 = 9;
-const MIN_MINOR: u32 = 3;
-
-fn check_swipl_version() -> Result<(), PeTTaError> {
-    let output = Command::new("swipl")
+fn check_swipl_version(
+    swipl_path: &Path,
+    min_version: (u32, u32),
+) -> Result<(), PeTTaError> {
+    let output = Command::new(swipl_path)
         .arg("--version")
         .output()
         .map_err(|_| {
             PeTTaError::SwiplVersionError(format!(
-                "swipl not found. Install SWI-Prolog >= {}.{}.",
-                MIN_MAJOR, MIN_MINOR
+                "swipl not found at {}. Install SWI-Prolog >= {}.{}.",
+                swipl_path.display(),
+                min_version.0,
+                min_version.1
             ))
         })?;
     if !output.status.success() {
@@ -821,13 +1041,17 @@ fn check_swipl_version() -> Result<(), PeTTaError> {
         let p: Vec<&str> = part.split('.').collect();
         if p.len() >= 2 {
             if let (Ok(ma), Ok(mi)) = (p[0].parse::<u32>(), p[1].parse::<u32>()) {
-                if ma > MIN_MAJOR || (ma == MIN_MAJOR && mi >= MIN_MINOR) {
+                if ma > min_version.0 || (ma == min_version.0 && mi >= min_version.1) {
+                    debug!(
+                        "SWI-Prolog version {}.{} meets minimum {}.{}",
+                        ma, mi, min_version.0, min_version.1
+                    );
                     return Ok(());
                 }
-                if ma < MIN_MAJOR {
+                if ma < min_version.0 {
                     return Err(PeTTaError::SwiplVersionError(format!(
                         "SWI-Prolog {}.{} found, need >= {}.{}",
-                        ma, mi, MIN_MAJOR, MIN_MINOR
+                        ma, mi, min_version.0, min_version.1
                     )));
                 }
             }
@@ -836,8 +1060,9 @@ fn check_swipl_version() -> Result<(), PeTTaError> {
     Ok(())
 }
 
+/// Check if SWI-Prolog is available with default settings.
 pub fn swipl_available() -> bool {
-    check_swipl_version().is_ok()
+    check_swipl_version(Path::new("swipl"), (9, 3)).is_ok()
 }
 
 // ---------------------------------------------------------------------------
@@ -1056,5 +1281,65 @@ mod tests {
     fn test_result_parsed_value() {
         let r = MettaResult { value: "42".into() };
         assert_eq!(r.parsed_value(), Some(MettaValue::Integer("42".into())));
+    }
+
+    #[test]
+    fn test_engine_config_builder() {
+        let config = EngineConfig::new(&project_root())
+            .verbose(true)
+            .max_restarts(3);
+        assert!(config.verbose);
+        assert_eq!(config.max_restarts, 3);
+    }
+
+    #[test]
+    fn test_engine_with_config() {
+        let config = EngineConfig::new(&project_root())
+            .verbose(false)
+            .max_restarts(1);
+        let engine = PeTTaEngine::with_config(&config);
+        assert!(engine.is_ok());
+    }
+
+    #[test]
+    fn test_is_alive() {
+        let mut e = make_engine();
+        assert!(e.is_alive(), "Engine should be alive after creation");
+        let r = e.process_metta_string("!(+ 1 2)").unwrap();
+        assert!(e.is_alive(), "Engine should be alive after query");
+        assert_eq!(r[0].value, "3");
+    }
+
+    #[test]
+    fn test_error_display() {
+        let e = PeTTaError::FileNotFound(PathBuf::from("/nonexistent"));
+        assert!(e.to_string().contains("/nonexistent"));
+
+        let e = PeTTaError::ProtocolError("test error".into());
+        assert!(e.to_string().contains("test error"));
+
+        let e = SwiplErrorKind::UndefinedFunction {
+            name: "foo".into(),
+            arity: 2,
+            suggestion: Some("bar".into()),
+        };
+        let s = e.to_string();
+        assert!(s.contains("foo/2"));
+        assert!(s.contains("bar"));
+    }
+
+    #[test]
+    fn test_config_defaults() {
+        let config = EngineConfig::default();
+        assert_eq!(config.swipl_path, PathBuf::from("swipl"));
+        assert!(!config.verbose);
+        assert!(config.query_timeout.is_none());
+        assert_eq!(config.max_restarts, 0);
+        assert_eq!(config.min_swipl_version, (9, 3));
+    }
+
+    #[test]
+    fn test_swipl_available() {
+        assert!(swipl_available());
     }
 }
