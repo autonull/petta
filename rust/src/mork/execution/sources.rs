@@ -2,8 +2,8 @@ use log::trace;
 use crate::pathmap::arena_compact::{ACTMmapZipper};
 use crate::pathmap::PathMap;
 use crate::pathmap::zipper::*;
-use super::expr::{byte_item, destruct, item_byte, serialize, Expr, Tag};
-use super::expr::macros::SerializableExpr;
+use super::super::expr::{byte_item, destruct, item_byte, serialize, Expr, Tag};
+use super::super::expr::macros::SerializableExpr;
 
 pub enum ResourceRequest {
     BTM(&'static [u8]),
@@ -142,7 +142,7 @@ impl CmpSource {
                 // bug: de bruijn levels broken, easy fix: shift the copy of p by introductions(p)
                 let e = Expr{ ptr: p.as_ptr().cast_mut() };
                 let mut qv = p.to_vec();
-                e.shift(e.newvars() as _, &mut super::expr::ExprZipper::new(Expr{ ptr: qv.as_mut_ptr() }));
+                e.shift(e.newvars() as _, &mut super::super::expr::ExprZipper::new(Expr{ ptr: qv.as_mut_ptr() }));
                 ((cmp, map), Some(PathMap::single(&qv[..], ()).into_read_zipper(&[])))
             } else if cmp == 1 {
                 let mut cloned = map.clone();

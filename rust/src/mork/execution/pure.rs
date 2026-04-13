@@ -4,7 +4,7 @@ use std::ops::Div;
 use base64::Engine;
 use hex;
 // use eval::{EvalScope, FuncType}; // requires eval crate
-use super::expr::{SourceItem, Tag};
+use super::super::expr::{SourceItem, Tag};
 // use eval_ffi::{ExprSink, ExprSource, EvalError}; // requires eval_ffi crate
 
 // Stub types for compilation when eval_ffi is not available

@@ -7,21 +7,21 @@ use dyn_clone::*;
 use local_or_heap::LocalOrHeap;
 use arrayvec::ArrayVec;
 
-use super::utils::ByteMask;
-use super::alloc::Allocator;
-use super::dense_byte_node::*;
-use super::ring::*;
-use super::tiny_node::TinyRefNode;
-use super::line_list_node::LineListNode;
+use super::super::utils::ByteMask;
+use super::super::alloc::Allocator;
+use super::dense_byte::*;
+use super::super::ring::*;
+use super::tiny::TinyRefNode;
+use super::line_list::LineListNode;
 
 #[cfg(feature = "bridge_nodes")]
-use super::bridge_node::BridgeNode;
+use super::bridge::BridgeNode;
 
 /// The maximum key length any node type may require to access any value or sub-path within the node
 pub(crate) const MAX_NODE_KEY_BYTES: usize = 48;
 
 // Ensure MAX_NODE_KEY_BYTES is big enough to include any path that might be in a node type
-const _: [(); (MAX_NODE_KEY_BYTES >= super::line_list_node::KEY_BYTES_CNT) as usize - 1] = [];
+const _: [(); (MAX_NODE_KEY_BYTES >= super::line_list::KEY_BYTES_CNT) as usize - 1] = [];
 // Ensure it's not too big that it violates the sentinel values we are putting in the length byte of TrieRef
 const _: [(); (MAX_NODE_KEY_BYTES < 253) as usize - 1] = [];
 
@@ -793,7 +793,7 @@ pub(crate) use tagged_node_ref::TaggedNodePtr;
 #[cfg(not(feature = "slim_dispatch"))]
 mod tagged_node_ref {
     use super::*;
-    use super::super::empty_node::EmptyNode;
+    use super::super::empty::EmptyNode;
 
     pub(crate) static EMPTY_NODE: EmptyNode = EmptyNode;
 
@@ -852,7 +852,7 @@ mod tagged_node_ref {
         //         Self::BridgeNode(node) => node as &dyn TrieNode<V, A>,
         //         Self::CellByteNode(node) => node as &dyn TrieNode<V, A>,
         //         Self::TinyRefNode(node) => node as &dyn TrieNode<V, A>,
-        //         Self::EmptyNode => &super::empty_node::EMPTY_NODE as &dyn TrieNode<V, A>,
+        //         Self::EmptyNode => &super::super::empty::EMPTY_NODE as &dyn TrieNode<V, A>,
         //     }
         // }
         #[inline]
@@ -1989,7 +1989,7 @@ mod tagged_node_ref {
         pub fn pjoin_dyn(&self, other: TaggedNodeRef<V, A>) -> AlgebraicResult<TrieNodeODRc<V, A>> where V: Lattice {
             let (ptr, tag) = self.ptr.get_raw_parts();
             match tag {
-                EMPTY_NODE_TAG => super::empty_node::EmptyNode.pjoin_dyn(other),
+                EMPTY_NODE_TAG => super::super::empty::EmptyNode.pjoin_dyn(other),
                 DENSE_BYTE_NODE_TAG => unsafe{ &*ptr.cast::<DenseByteNode<V, A>>() }.pjoin_dyn(other),
                 LINE_LIST_NODE_TAG => unsafe{ &*ptr.cast::<LineListNode<V, A>>() }.pjoin_dyn(other),
                 CELL_BYTE_NODE_TAG => unsafe{ &*ptr.cast::<CellByteNode<V, A>>() }.pjoin_dyn(other),
@@ -2487,7 +2487,7 @@ pub(crate) use opaque_dyn_rc_trie_node::TrieNodeODRc;
 mod opaque_dyn_rc_trie_node {
     use std::sync::Arc;
     use super::TrieNode;
-    use super::{TaggedNodeRefMut, super::alloc::Allocator};
+    use super::{TaggedNodeRefMut, super::super::alloc::Allocator};
     use super::TaggedNodeRef;
 
     //TODO_FUTURE: make a type alias within the trait to refer to this type, as soon as
@@ -2528,13 +2528,13 @@ mod opaque_dyn_rc_trie_node {
         /// This method is needed because it's impossible to get a mutable reference to the EmptyNode, but WriteZippers
         /// carry a mutable reference ato the node at their root
         pub(crate) fn new_allocated_in(_child_cnt_capacity: usize, _val_cnt_capacity: usize, alloc: A) -> Self {
-            let new_node = super::super::line_list_node::LineListNode::new_in(alloc.clone());
+            let new_node = super::super::line_list::LineListNode::new_in(alloc.clone());
             Self::new_in(new_node, alloc)
         }
         #[allow(unused)]
         #[inline]
         pub(crate) fn new_empty() -> Self {
-            Self(Arc::new(super::super::empty_node::EmptyNode))
+            Self(Arc::new(super::super::empty::EmptyNode))
         }
         #[inline]
         pub(crate) fn is_empty(&self) -> bool {
@@ -2637,7 +2637,7 @@ mod slim_node_ptr {
     use core::marker::PhantomData;
     use core::ptr::NonNull;
     use core::sync::atomic::AtomicU32;
-    use super::alloc::Allocator;
+    use super::super::super::alloc::Allocator;
     use super::{TaggedNodeRef, TaggedNodeRefMut, EMPTY_NODE_TAG};
 
     #[cfg(all(not(target_pointer_width="64")))]
@@ -2808,9 +2808,9 @@ mod slim_node_ptr {
 mod opaque_dyn_rc_trie_node {
     use core::mem::MaybeUninit;
     use core::sync::atomic::{AtomicU32, Ordering::Acquire, Ordering::Relaxed, Ordering::Release};
-    use super::alloc::Allocator;
-    use super::dense_byte_node::{DenseByteNode, CellByteNode};
-    use super::line_list_node::LineListNode;
+    use super::super::super::alloc::Allocator;
+    use super::super::dense_byte::{DenseByteNode, CellByteNode};
+    use super::super::line_list::LineListNode;
     use super::slim_node_ptr::SlimNodePtr;
 
     use super::{TaggedNodeRef, TaggedNodeRefMut, TrieNode, EMPTY_NODE_TAG, DENSE_BYTE_NODE_TAG, LINE_LIST_NODE_TAG, CELL_BYTE_NODE_TAG};
@@ -3007,7 +3007,7 @@ mod opaque_dyn_rc_trie_node {
         /// carry a mutable reference ato the node at their root
         #[inline]
         pub(crate) fn new_allocated_in(_child_cnt_capacity: usize, _val_cnt_capacity: usize, alloc: A) -> Self {
-            let new_node = super::super::line_list_node::LineListNode::new_in(alloc.clone());
+            let new_node = super::super::line_list::LineListNode::new_in(alloc.clone());
             Self::new_in(new_node, alloc)
         }
         #[inline]
@@ -3230,11 +3230,11 @@ impl<V: DistributiveLattice + Clone + Send + Sync, A: Allocator> DistributiveLat
 /// Test to make sure slim_ptrs are good with provenance under miri
 #[cfg(all(test, feature = "pathmap-internal-tests"))]
 mod tests {
-    use super::alloc::{GlobalAlloc, global_alloc};
-    use super::line_list_node::LineListNode;
-    use super::trie_node::TrieNodeODRc;
+    use super::super::super::alloc::{GlobalAlloc, global_alloc};
+    use super::super::line_list::LineListNode;
+    use super::TrieNodeODRc;
     use super::super::PathMap;
-    use super::zipper::*;
+    use super::super::zipper::*;
 
     #[test]
     fn slim_ptrs_test1() {

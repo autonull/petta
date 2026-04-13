@@ -3,8 +3,8 @@
 //!
 
 use super::super::PathMap;
-use super::trie_node::{TaggedNodeRef, NODE_ITER_FINISHED};
-use super::dense_byte_node::{DenseByteNode, OrdinaryCoFree, CoFree};
+use super::trie_core::node::{TaggedNodeRef, NODE_ITER_FINISHED};
+use super::trie_core::dense_byte::{DenseByteNode, OrdinaryCoFree, CoFree};
 use super::alloc::GlobalAlloc;
 
 /// An iterator-like object that traverses key-value pairs in a [PathMap], however only one

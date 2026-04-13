@@ -25,8 +25,8 @@ use super::frontend::json_parser::Transcriber;
 use log::*;
 use subprocess::{Popen, PopenConfig, Redirection};
 use subprocess::unix::PopenExt;
-use super::sinks::{WriteResource, WriteResourceRequest};
-use super::sources::{AFactor, Resource, ResourceRequest};
+use super::execution::sinks::{WriteResource, WriteResourceRequest};
+use super::execution::sources::{AFactor, Resource, ResourceRequest};
 
 pub static mut transitions: usize = 0;
 pub static mut unifications: usize = 0;
@@ -1110,7 +1110,7 @@ impl Space {
             mmaps: &mut HashMap<OwnedSourceItem, ArenaCompactTree<memmap2::Mmap>>,
             z3s: &mut HashMap<OwnedSourceItem, Box<Popen>>,
             btm: &PathMap<()>, pat_expr: Expr, mut effect: F) -> usize {
-        use super::sources::{ASource, Resource, ResourceRequest, Source};
+        use super::execution::sources::{ASource, Resource, ResourceRequest, Source};
 
         let pat_newvars = pat_expr.newvars();
         trace!(target: "query_multi_i", "pattern (newvars={}) {:?}", pat_newvars, serialize(unsafe { pat_expr.span().as_ref().unwrap() }));
@@ -1300,7 +1300,7 @@ impl Space {
         out
     }
 
-    pub fn prefix_subsumption_resources(requests: &[super::sinks::WriteResourceRequest]) -> Vec<usize> {
+    pub fn prefix_subsumption_resources(requests: &[super::execution::sinks::WriteResourceRequest]) -> Vec<usize> {
         let n = requests.len();
         let mut out = Vec::with_capacity(n);
 
@@ -1487,7 +1487,7 @@ impl Space {
 
     #[cfg(feature="specialize_io")]
     pub fn transform_multi_multi_o(&mut self, pat_expr: Expr, tpl_expr: Expr, add: Expr) -> (usize, bool) {
-        use super::sinks::*;
+        use super::execution::sinks::*;
         let mut buffer = Vec::with_capacity(1 << 32);
         unsafe { buffer.set_len(1 << 32); }
         let mut tpl_args = Vec::with_capacity(64);
@@ -1580,7 +1580,7 @@ impl Space {
     }
 
     pub fn transform_multi_multi_io(&mut self, pat_expr: Expr, tpl_expr: Expr, add: Expr, no_source: bool, no_sink: bool) -> (usize, bool) {
-        use super::sinks::*;
+        use super::execution::sinks::*;
         let mut buffer = Vec::with_capacity(1 << 32);
         unsafe { buffer.set_len(1 << 32); }
         let mut tpl_args = Vec::with_capacity(64);

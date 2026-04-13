@@ -89,9 +89,12 @@ use super::{
     zipper::{
         Zipper, ZipperValues, ZipperForking, ZipperAbsolutePath, ZipperIteration,
         ZipperMoving, ZipperPathBuffer, ZipperReadOnlyValues, ZipperSubtries,
-        ZipperConcrete, ZipperReadOnlyConditionalValues, TrieRef
+        ZipperConcrete, ZipperReadOnlyConditionalValues
     },
 };
+
+use super::trie_core::r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
+use super::trie_core::node::PayloadRef;
 
 use super::gxhash::{GxHasher, HashMap, HashMapExt};
 

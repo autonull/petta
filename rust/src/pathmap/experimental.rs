@@ -3,7 +3,8 @@
 use super::alloc::Allocator;
 use super::utils::ByteMask;
 use super::PathMap;
-use super::trie_node::*;
+use super::trie_core::node::*;
+use super::trie_core::node::TrieNodeODRc;
 use super::zipper::*;
 use super::ring::{AlgebraicStatus, DistributiveLattice, Lattice};
 use super::TrieValue;

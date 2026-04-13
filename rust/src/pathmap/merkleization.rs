@@ -23,7 +23,8 @@
 // the same as an Rc `weak`, but a similar idea)
 
 use super::alloc::Allocator;
-use super::trie_node::*;
+use super::trie_core::node::*;
+use super::trie_core::node::{TrieNodeODRc, NODE_ITER_FINISHED};
 use super::gxhash;
 
 /// Statistics created after merkleization

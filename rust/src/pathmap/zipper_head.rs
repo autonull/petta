@@ -3,11 +3,12 @@ use core::cell::UnsafeCell;
 
 use super::alloc::{Allocator, GlobalAlloc};
 use super::PathMap;
-use super::trie_node::*;
+use super::trie_core::node::*;
+use super::trie_core::node::TrieNodeODRc;
 use super::zipper::*;
 use super::zipper::zipper_priv::ZipperPriv;
 use super::zipper_tracking::*;
-use super::dense_byte_node::CellByteNode;
+use super::trie_core::dense_byte::CellByteNode;
 
 pub trait ZipperCreation<'trie, V: Clone + Send + Sync, A: Allocator = GlobalAlloc> {
     /// Creates a new read-only [Zipper] with the path specified from the `ZipperHead`

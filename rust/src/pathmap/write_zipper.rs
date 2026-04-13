@@ -4,7 +4,9 @@ use core::ptr::NonNull;
 
 use super::alloc::{Allocator, GlobalAlloc};
 use super::utils::{ByteMask, BitMask};
-use super::trie_node::*;
+use super::trie_core::node::*;
+use super::trie_core::r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
+use super::trie_core::node::PayloadRef;
 use super::PathMap;
 use super::zipper::*;
 use super::zipper::zipper_priv::*;
@@ -1234,11 +1236,11 @@ impl <'a, 'path, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> WriteZipperC
                 } else {
                     #[cfg(not(feature = "all_dense_nodes"))]
                     {
-                        TrieNodeODRc::new_in(super::line_list_node::LineListNode::new_in(alloc.clone()), alloc)
+                        TrieNodeODRc::new_in(super::trie_core::line_list::LineListNode::new_in(alloc.clone()), alloc)
                     }
                     #[cfg(feature = "all_dense_nodes")]
                     {
-                        TrieNodeODRc::new_in(super::dense_byte_node::DenseByteNode::new_in(alloc.clone()), alloc)
+                        TrieNodeODRc::new_in(super::trie_core::dense_byte::DenseByteNode::new_in(alloc.clone()), alloc)
                     }
                 };
                 node.node_set_branch(key, new_node)
@@ -1450,7 +1452,7 @@ impl <'a, 'path, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> WriteZipperC
             //GOAT, we could add a fast-path for `map_count > 2 && !remove_unset`, but for now
             // we'll let the slow-path handle it, since it requires logic to upgrade the focus_node to ByteNode
 
-            let mut new_node = super::dense_byte_node::DenseByteNode::with_capacity_in(map_count, self.alloc.clone());
+            let mut new_node = super::trie_core::dense_byte::DenseByteNode::with_capacity_in(map_count, self.alloc.clone());
             let mut maps_iter = maps.into_iter();
             for child_byte in child_mask.iter() {
                 let map = maps_iter.next().expect("maps iterator returned fewer items than the number of set bits in child_mask");
@@ -2434,13 +2436,13 @@ fn make_parents_in<V: Clone + Send + Sync, A: Allocator>(path: &[u8], child_node
     {
         #[cfg(not(feature = "bridge_nodes"))]
         {
-            let mut new_node = super::line_list_node::LineListNode::new_in(alloc.clone());
+            let mut new_node = super::trie_core::line_list::LineListNode::new_in(alloc.clone());
             new_node.node_set_branch(path, child_node).unwrap_or_else(|_| panic!());
             TrieNodeODRc::new_in(new_node, alloc)
         }
         #[cfg(feature = "bridge_nodes")]
         {
-            let new_node = super::bridge_node::BridgeNode::new_in(path, true, child_node.into());
+            let new_node = super::trie_core::bridge::BridgeNode::new_in(path, true, child_node.into());
             TrieNodeODRc::new_in(new_node)
         }
     }
@@ -2449,7 +2451,7 @@ fn make_parents_in<V: Clone + Send + Sync, A: Allocator>(path: &[u8], child_node
     {
         let mut end = child_node;
         for i in (0..path.len()).rev() {
-            let mut new_node = super::dense_byte_node::DenseByteNode::new_in(alloc.clone());
+            let mut new_node = super::trie_core::dense_byte::DenseByteNode::new_in(alloc.clone());
             new_node.set_child(path[i], end);
             end = TrieNodeODRc::new_in(new_node, alloc.clone());
         }
@@ -2565,7 +2567,7 @@ mod mut_node_stack {
     use core::ptr::NonNull;
     use core::marker::PhantomData;
     use super::super::alloc::Allocator;
-    use super::{TaggedNodeRef, TaggedNodeRefMut, TaggedNodePtr, TrieNodeODRc};
+    use super::super::trie_core::node::{TaggedNodeRef, TaggedNodeRefMut, TaggedNodePtr, TrieNodeODRc};
 
     /// See [mutcursor::MutCursorRootedVec] for discussion about behavior
     pub struct MutNodeStack<'a, V: Clone + Send + Sync, A: Allocator> {
@@ -2694,7 +2696,9 @@ mod tests {
     use super::trie_map::*;
     use super::utils::ByteMask;
     use super::zipper::{*, zipper_priv::*};
-    use super::trie_node::*;
+    use super::trie_core::node::*;
+use super::trie_core::r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
+use super::trie_core::node::PayloadRef;
     use super::alloc::GlobalAlloc;
 
     #[test]

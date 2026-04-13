@@ -12,10 +12,10 @@ use core::fmt::{Debug, Formatter};
 use std::collections::HashMap;
 
 use fast_slice_utils::{find_prefix_overlap, starts_with};
-use super::utils::ByteMask;
-use super::alloc::Allocator;
-use super::trie_node::*;
-use super::ring::*;
+use super::super::utils::ByteMask;
+use super::super::alloc::Allocator;
+use super::node::*;
+use super::super::ring::*;
 
 /// A borrowed reference to a payload with a key stored elsewhere, contained in 16 Bytes
 #[derive(Clone, Copy)]
@@ -50,34 +50,34 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TinyRefNode<'a, V, A> {
     }
 
     /// Turn the TinyRefNode into a LineListNode by cloning the payload
-    pub fn into_list_node(&self) -> Option<super::line_list_node::LineListNode<V, A>> {
+    pub fn into_list_node(&self) -> Option<super::line_list::LineListNode<V, A>> {
         self.clone_payload().map(|payload| {
-            let mut new_node = super::line_list_node::LineListNode::new_in(self.alloc.clone());
+            let mut new_node = super::line_list::LineListNode::new_in(self.alloc.clone());
             unsafe{ new_node.set_payload_owned::<0>(self.key(), payload); }
-            debug_assert!(super::line_list_node::validate_node(&new_node));
+            debug_assert!(super::line_list::validate_node(&new_node));
             new_node
         })
     }
 
     #[cfg(feature = "bridge_nodes")]
     /// Turn the TinyRefNode into a BridgeNode by cloning the payload
-    pub fn into_bridge_node(&self) -> Option<super::bridge_node::BridgeNode<V, A>> {
+    pub fn into_bridge_node(&self) -> Option<super::bridge::BridgeNode<V, A>> {
         let is_child = self.is_child_ptr();
         let payload: ValOrChildUnion<V> = if is_child {
             unsafe{ &*self.payload.child }.clone().into()
         } else {
             unsafe{ &**self.payload.val }.clone().into()
         };
-        Some(super::bridge_node::BridgeNode::new(self.key(), is_child, payload))
+        Some(super::bridge::BridgeNode::new(self.key(), is_child, payload))
     }
 
     #[cfg(not(feature = "bridge_nodes"))]
-    pub fn into_full(&self) -> Option<super::line_list_node::LineListNode<V, A>> {
+    pub fn into_full(&self) -> Option<super::line_list::LineListNode<V, A>> {
         self.into_list_node()
     }
 
     #[cfg(feature = "bridge_nodes")]
-    pub fn into_full(&self) -> Option<super::bridge_node::BridgeNode<V, A>> {
+    pub fn into_full(&self) -> Option<super::bridge::BridgeNode<V, A>> {
         self.into_bridge_node()
     }
 

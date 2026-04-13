@@ -73,7 +73,7 @@ use reusing_vec::ReusingQueue;
 use super::utils::*;
 use super::alloc::Allocator;
 use super::PathMap;
-use super::trie_node::TrieNodeODRc;
+use super::trie_core::node::TrieNodeODRc;
 use super::zipper;
 use super::zipper::*;
 

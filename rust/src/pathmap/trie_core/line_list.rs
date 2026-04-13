@@ -5,12 +5,12 @@ use std::collections::HashMap;
 use fast_slice_utils::{find_prefix_overlap, starts_with};
 use local_or_heap::LocalOrHeap;
 
-use super::utils::{BitMask, ByteMask};
-use super::alloc::Allocator;
-use super::trie_node::*;
-use super::ring::*;
-use super::dense_byte_node::{DenseByteNode, ByteNode, CoFree, OrdinaryCoFree, CellCoFree};
-use super::tiny_node::TinyRefNode;
+use super::super::utils::{BitMask, ByteMask};
+use super::super::alloc::Allocator;
+use super::node::*;
+use super::super::ring::*;
+use super::dense_byte::{DenseByteNode, ByteNode, CoFree, OrdinaryCoFree, CellCoFree};
+use super::tiny::TinyRefNode;
 
 /// A LineListNode stores up to 2 children in a single cache line
 #[repr(C)]

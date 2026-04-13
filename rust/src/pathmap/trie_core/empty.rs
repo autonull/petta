@@ -2,10 +2,10 @@
 use core::fmt::Debug;
 use std::collections::HashMap;
 
-use super::alloc::Allocator;
-use super::trie_node::*;
-use super::ring::*;
-use super::utils::ByteMask;
+use super::super::alloc::Allocator;
+use super::node::*;
+use super::super::ring::*;
+use super::super::utils::ByteMask;
 
 #[derive(Clone, Copy, Default, Debug)]
 pub struct EmptyNode;

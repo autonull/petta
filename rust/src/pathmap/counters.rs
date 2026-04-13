@@ -1,6 +1,6 @@
 use super::super::PathMap;
 use super::zipper::{*, zipper_priv::ZipperPriv};
-use super::trie_node::{TaggedNodeRef, TrieNode};
+use super::trie_core::node::{TaggedNodeRef, TrieNode};
 
 /// Example usage of counters
 ///

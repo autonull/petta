@@ -17,20 +17,21 @@ use std::task::Poll;
 use std::time::Instant;
 use futures::StreamExt;
 use crate::pathmap::ring::{AlgebraicStatus, Lattice};
-use super::expr::{byte_item, Expr, ExprZipper, ExtractFailure, item_byte, parse, serialize, Tag, traverseh, ExprEnv, unify, UnificationFailure, apply, destruct};
-use super::frontend::bytestring_parser::{Parser, ParserError, Context};
-use super::interning::{WritePermit, SharedMapping, SharedMappingHandle};
+use super::super::expr::{byte_item, Expr, ExprZipper, ExtractFailure, item_byte, parse, serialize, Tag, traverseh, ExprEnv, unify, UnificationFailure, apply, destruct};
+use super::super::frontend::bytestring_parser::{Parser, ParserError, Context};
+use super::super::interning::{WritePermit, SharedMapping, SharedMappingHandle};
 use crate::pathmap::utils::{BitMask, ByteMask};
 use crate::pathmap::zipper::*;
-use super::frontend::json_parser::Transcriber;
+use super::super::frontend::json_parser::Transcriber;
 use log::*;
 use crate::pathmap::morphisms::Catamorphism;
 use crate::pathmap::PathMap;
 // use eval::EvalScope; // requires eval crate
 // use eval_ffi::{ExprSink, ExprSource}; // requires eval_ffi crate
-use super::expr::macros::SerializableExpr;
-use super::{expr, pure};
-use super::space::ACT_PATH;
+use super::super::expr::macros::SerializableExpr;
+use super::super::expr;
+use super::pure;
+use super::super::space::ACT_PATH;
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum WriteResourceRequest {
@@ -545,7 +546,7 @@ impl Sink for CountSink {
         let prz_ptr = (&prz) as *const OneFactor<_>;
         let mut changed = false;
         let mut buffer: Vec<u8> = Vec::with_capacity(1 << 32);
-        super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
+        super::super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
             let cnt = prz.val_count();
             trace!(target: "sink", "'{}' and under {}", serialize(prz.path()), cnt);
             let clen = prz.path().len();
@@ -624,8 +625,8 @@ impl Sink for HashSink {
         let prz_ptr = (&prz) as *const OneFactor<_>;
         let mut changed = false;
         let mut buffer: Vec<u8> = Vec::with_capacity(1 << 32);
-        super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
-            for b in prz.child_mask().and(&ByteMask(super::space::SIZES)).iter() {
+        super::super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
+            for b in prz.child_mask().and(&ByteMask(super::super::space::SIZES)).iter() {
                 let Tag::SymbolSize(size) = byte_item(b) else { unreachable!() };
                 // if size != 16 { trace!(target: "sink", "hash guard not 16 bytes {size}"); continue }
                 prz.descend_to_byte(b);
@@ -721,9 +722,9 @@ impl Sink for AndSink {
         let prz_ptr = (&prz) as *const OneFactor<_>;
         let mut changed = false;
         let mut buffer: Vec<u8> = Vec::with_capacity(1 << 32);
-        super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
+        super::super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
 
-            for b in prz.child_mask().and(&ByteMask(super::space::SIZES)).iter() {
+            for b in prz.child_mask().and(&ByteMask(super::super::space::SIZES)).iter() {
                 let Tag::SymbolSize(size) = byte_item(b) else { unreachable!() };
                 println!("and size {size}");
                 prz.descend_to_byte(b);
@@ -831,9 +832,9 @@ impl Sink for SumSink {
         let prz_ptr = (&prz) as *const OneFactor<_>;
         let mut changed = false;
         let mut buffer: Vec<u8> = Vec::with_capacity(1 << 32);
-        super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
+        super::super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
 
-            for b in prz.child_mask().and(&ByteMask(super::space::SIZES)).iter() {
+            for b in prz.child_mask().and(&ByteMask(super::super::space::SIZES)).iter() {
                 let Tag::SymbolSize(size) = byte_item(b) else { unreachable!() };
                 prz.descend_to_byte(b);
                 debug_assert!(prz.path_exists());
@@ -973,9 +974,9 @@ impl<Reduction : FloatReduction> Sink for FloatReductionSink<Reduction> {
         let prz_ptr = (&prz) as *const OneFactor<_>;
         let mut changed = false;
         let mut buffer: Vec<u8> = Vec::with_capacity(1 << 32);
-        super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
+        super::super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
 
-            for b in prz.child_mask().and(&ByteMask(super::space::SIZES)).iter() {
+            for b in prz.child_mask().and(&ByteMask(super::super::space::SIZES)).iter() {
                 let Tag::SymbolSize(size) = byte_item(b) else { unreachable!() };
                 prz.descend_to_byte(b);
                 debug_assert!(prz.path_exists());
@@ -1088,9 +1089,9 @@ impl<Reduction : FloatReduction> Sink for FloatReductionSink<Reduction> {
 //         let prz_ptr = (&prz) as *const OneFactor<_>;
 //         let mut changed = false;
 //         let mut buffer: Vec<u8> = Vec::with_capacity(1 << 32);
-//         super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
+//         super::super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
 // 
-//             for b in prz.child_mask().and(&ByteMask(super::space::SIZES)).iter() {
+//             for b in prz.child_mask().and(&ByteMask(super::super::space::SIZES)).iter() {
 //                 let Tag::SymbolSize(size) = byte_item(b) else { unreachable!() };
 //                 prz.descend_to_byte(b);
 //                 debug_assert!(prz.path_exists());
@@ -1110,7 +1111,7 @@ impl<Reduction : FloatReduction> Sink for FloatReductionSink<Reduction> {
 //                 if !prz.ascend_byte() { unreachable!() }
 //             }
 // 
-//             for b in prz.child_mask().and(&ByteMask(super::space::ARITIES)).iter() {
+//             for b in prz.child_mask().and(&ByteMask(super::super::space::ARITIES)).iter() {
 //                 todo!();
 //             }
 // 

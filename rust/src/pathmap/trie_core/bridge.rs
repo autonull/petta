@@ -3,11 +3,11 @@ use core::mem::{MaybeUninit, ManuallyDrop};
 use core::fmt::{Debug, Formatter};
 use std::collections::HashMap;
 
-use super::trie_node::*;
-use super::ring::*;
-use super::dense_byte_node::{DenseByteNode, CellByteNode, test_bit_in_mask};
-use super::tiny_node::TinyRefNode;
-use super::utils::starts_with;
+use super::node::*;
+use super::super::ring::*;
+use super::dense_byte::{DenseByteNode, CellByteNode, test_bit_in_mask};
+use super::tiny::TinyRefNode;
+use super::super::utils::starts_with;
 
 /// A node type that only has a single value or onward link
 pub struct BridgeNode<V> {

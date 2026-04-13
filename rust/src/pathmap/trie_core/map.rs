@@ -1,12 +1,13 @@
 use core::cell::UnsafeCell;
-use super::alloc::{Allocator, GlobalAlloc, global_alloc};
-use super::morphisms::{new_map_from_ana_in, TrieBuilder};
-use super::trie_node::*;
-use super::zipper::*;
-use super::merkleization::{MerkleizeResult, merkleize_impl};
-use super::ring::{AlgebraicResult, AlgebraicStatus, COUNTER_IDENT, SELF_IDENT, Lattice, LatticeRef, DistributiveLattice, DistributiveLatticeRef, Quantale};
+use super::super::alloc::{Allocator, GlobalAlloc, global_alloc};
+use super::super::morphisms::{new_map_from_ana_in, TrieBuilder};
+use super::node::*;
+use super::r#ref::*;
+use super::super::zipper::*;
+use super::super::merkleization::{MerkleizeResult, merkleize_impl};
+use super::super::ring::{AlgebraicResult, AlgebraicStatus, COUNTER_IDENT, SELF_IDENT, Lattice, LatticeRef, DistributiveLattice, DistributiveLatticeRef, Quantale};
 
-use super::gxhash;
+use super::super::gxhash;
 
 /// A map type that uses a trie based on byte slices (`&[u8]`) known as "paths"
 ///
@@ -54,7 +55,7 @@ impl<V: Clone + Send + Sync + Unpin + core::fmt::Debug, A: Allocator> core::fmt:
         let mut dbg_map = f.debug_map();
         let mut path_cnt = 0;
         while rz.to_next_val() && path_cnt < MAX_DEBUG_PATHS  {
-            if let Some(key) = super::utils::debug::render_debug_path(rz.path(), super::utils::debug::PathRenderMode::RequireAscii) {
+            if let Some(key) = super::super::utils::debug::render_debug_path(rz.path(), super::super::utils::debug::PathRenderMode::RequireAscii) {
                 dbg_map.entry(&key, rz.val().unwrap());
                 path_cnt += 1;
             } else {
@@ -71,7 +72,7 @@ impl<V: Clone + Send + Sync + Unpin + core::fmt::Debug, A: Allocator> core::fmt:
         let mut dbg_struct = f.debug_struct("PathMap");
         let mut path_cnt = 0;
         while rz.to_next_val() && path_cnt < MAX_DEBUG_PATHS  {
-            let key = super::utils::debug::render_debug_path(rz.path(), super::utils::debug::PathRenderMode::ByteList).unwrap();
+            let key = super::super::utils::debug::render_debug_path(rz.path(), super::super::utils::debug::PathRenderMode::ByteList).unwrap();
             dbg_struct.field(&key, rz.val().unwrap());
             path_cnt += 1;
         }
@@ -152,11 +153,11 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> PathMap<V, A> {
     #[cold]
     fn do_init_root(&self) {
         #[cfg(feature = "all_dense_nodes")]
-        let root = TrieNodeODRc::new_in(super::dense_byte_node::DenseByteNode::<V, A>::new_in(self.alloc.clone()), self.alloc.clone());
+        let root = TrieNodeODRc::new_in(super::dense_byte::DenseByteNode::<V, A>::new_in(self.alloc.clone()), self.alloc.clone());
         #[cfg(feature = "bridge_nodes")]
-        let root = TrieNodeODRc::new_in(super::bridge_node::BridgeNode::new_empty(), self.alloc.clone());
+        let root = TrieNodeODRc::new_in(super::bridge::BridgeNode::new_empty(), self.alloc.clone());
         #[cfg(not(any(feature = "all_dense_nodes", feature = "bridge_nodes")))]
-        let root = TrieNodeODRc::new_in(super::line_list_node::LineListNode::new_in(self.alloc.clone()), self.alloc.clone());
+        let root = TrieNodeODRc::new_in(super::line_list::LineListNode::new_in(self.alloc.clone()), self.alloc.clone());
 
         let root_ref = unsafe{ &mut *self.root.get() };
         *root_ref = Some(root);

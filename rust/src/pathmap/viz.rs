@@ -4,10 +4,10 @@ use std::hash::{Hash, DefaultHasher, Hasher};
 use std::io::{self, Write};
 use smallvec::{SmallVec, ToSmallVec};
 use super::alloc::Allocator;
-use super::trie_map::PathMap;
-use super::trie_node::{TaggedNodeRef, TrieNodeODRc, NODE_ITER_FINISHED};
+use super::PathMap;
+use super::trie_core::node::{TaggedNodeRef, TrieNodeODRc, NODE_ITER_FINISHED};
 use super::zipper::*;
-use super::trie_map::TrieValue;
+use super::TrieValue;
 use super::utils::debug::{render_debug_path, PathRenderMode};
 
 /// Rendering modes that can be used for visualization

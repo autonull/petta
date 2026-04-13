@@ -4,13 +4,13 @@ use core::ptr;
 use std::collections::HashMap;
 use std::hint::unreachable_unchecked;
 
-use super::alloc::Allocator;
-use super::ring::*;
-use super::utils::ByteMask;
+use super::super::alloc::Allocator;
+use super::super::ring::*;
+use super::super::utils::ByteMask;
 
-use super::utils::BitMask;
-use super::trie_node::*;
-use super::line_list_node::LineListNode;
+use super::super::utils::BitMask;
+use super::node::*;
+use super::line_list::LineListNode;
 
 //NOTE: This: `core::array::from_fn(|i| i as u8);` ought to work, but https://github.com/rust-lang/rust/issues/109341
 const ALL_BYTES: [u8; 256] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255];
@@ -572,7 +572,7 @@ impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V=V, A=A>> ByteNode<Cf, A>
         //DenseByteNodes hold one byte keys, so if the key is more than 1 byte we need to
         // make an intermediate node to hold the rest of the key
         if key.len() > 1 {
-            let bridge_node = super::bridge_node::BridgeNode::new(&key[1..], is_child, payload);
+            let bridge_node = super::bridge::BridgeNode::new(&key[1..], is_child, payload);
             self.set_child(key[0], TrieNodeODRc::new(bridge_node));
         } else {
             if is_child {
@@ -590,7 +590,7 @@ impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V=V, A=A>> ByteNode<Cf, A>
         //DenseByteNodes hold one byte keys, so if the key is more than 1 byte we need to
         // make an intermediate node to hold the rest of the key
         if key.len() > 1 {
-            let bridge_node = super::bridge_node::BridgeNode::new(&key[1..], is_child, payload);
+            let bridge_node = super::bridge::BridgeNode::new(&key[1..], is_child, payload);
             self.join_child_into(key[0], TrieNodeODRc::new(bridge_node));
         } else {
             if is_child {
@@ -764,13 +764,13 @@ impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V=V, A=A>> TrieNode<V, A> 
             if key.len() > 1 {
                 #[cfg(not(feature = "bridge_nodes"))]
                 {
-                    let mut child = super::line_list_node::LineListNode::new_in(self.alloc.clone());
+                    let mut child = super::line_list::LineListNode::new_in(self.alloc.clone());
                     child.node_set_val(&key[1..], val).unwrap_or_else(|_| panic!());
                     self.set_child(key[0], TrieNodeODRc::new_in(child, self.alloc.clone()));
                 }
                 #[cfg(feature = "bridge_nodes")]
                 {
-                    let child = super::bridge_node::BridgeNode::new(&key[1..], false, val.into());
+                    let child = super::bridge::BridgeNode::new(&key[1..], false, val.into());
                     self.set_child(key[0], TrieNodeODRc::new(child));
                 }
                 Ok((None, true))
@@ -803,7 +803,7 @@ impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V=V, A=A>> TrieNode<V, A> 
             //Split a new node to hold everything after the first byte of the key
             if key.len() > 1 {
                 {
-                    let mut child = super::line_list_node::LineListNode::new_in(self.alloc.clone());
+                    let mut child = super::line_list::LineListNode::new_in(self.alloc.clone());
                     child.node_create_dangling(&key[1..]).unwrap_or_else(|_| panic!());
                     self.set_child(key[0], TrieNodeODRc::new_in(child, self.alloc.clone()));
                 }
@@ -860,13 +860,13 @@ impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V=V, A=A>> TrieNode<V, A> 
             if key.len() > 1 {
                 #[cfg(not(feature = "bridge_nodes"))]
                 {
-                    let mut child = super::line_list_node::LineListNode::new_in(self.alloc.clone());
+                    let mut child = super::line_list::LineListNode::new_in(self.alloc.clone());
                     child.node_set_branch(&key[1..], new_node).unwrap_or_else(|_| panic!());
                     self.set_child(key[0], TrieNodeODRc::new_in(child, self.alloc.clone()));
                 }
                 #[cfg(feature = "bridge_nodes")]
                 {
-                    let child = super::bridge_node::BridgeNode::new(&key[1..], true, new_node.into());
+                    let child = super::bridge::BridgeNode::new(&key[1..], true, new_node.into());
                     self.set_child(key[0], TrieNodeODRc::new(child));
                 }
                 Ok(true)

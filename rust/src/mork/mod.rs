@@ -17,11 +17,7 @@ pub mod interning;
 #[cfg(feature = "mork")]
 pub mod space;
 #[cfg(feature = "mork")]
-mod sources;
-#[cfg(feature = "mork")]
-mod sinks;
-#[cfg(feature = "mork")]
-mod pure;
+pub mod execution;
 
 // Stub module when mork feature is not enabled (to keep the parent module valid)
 #[cfg(not(feature = "mork"))]

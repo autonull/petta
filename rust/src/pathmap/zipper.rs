@@ -11,11 +11,13 @@ use fast_slice_utils::find_prefix_overlap;
 
 use super::alloc::{Allocator, GlobalAlloc};
 use super::utils::ByteMask;
-use super::trie_node::*;
+use super::trie_core::node::*;
+use super::trie_core::node::{TrieNodeODRc, AbstractNodeRef, TaggedNodeRef, TaggedNodeRefMut, TaggedNodePtr, EMPTY_NODE_TAG, DENSE_BYTE_NODE_TAG, LINE_LIST_NODE_TAG, CELL_BYTE_NODE_TAG, TINY_REF_NODE_TAG, NODE_ITER_INVALID, NODE_ITER_FINISHED, MAX_NODE_KEY_BYTES, val_count_below_root};
+pub use super::trie_core::r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
+use super::trie_core::node::PayloadRef;
 use super::PathMap;
 
 pub use super::write_zipper::*;
-pub use super::trie_ref::*;
 pub use super::zipper_head::*;
 pub use super::product_zipper::{ProductZipper, ProductZipperG, ZipperProduct, OneFactor};
 pub use super::overlay_zipper::{OverlayZipper};
@@ -1275,8 +1277,9 @@ pub(crate) const EXPECTED_DEPTH: usize = 16;
 pub(crate) const EXPECTED_PATH_LEN: usize = 64;
 
 pub(crate) mod read_zipper_core {
-    use super::super::trie_node::*;
-    use super::PathMap;
+    use super::super::trie_core::node::*;
+    use super::super::trie_core::r#ref::*;
+    use super::super::PathMap;
     use super::*;
 
     /// A [Zipper] that is unable to modify the trie

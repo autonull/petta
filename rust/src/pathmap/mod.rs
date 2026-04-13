@@ -58,9 +58,9 @@ pub(crate) mod gxhash {
 /// operations on tries, such as union, intersection, and subtraction
 pub mod ring;
 
-/// A collection indexed by paths of bytes, supporting [algebraic](super::ring) operations
-mod trie_map;
-pub use trie_map::PathMap;
+/// Core trie types and the PathMap struct
+pub mod trie_core;
+pub use trie_core::PathMap;
 
 /// Cursors that can move over a trie, to inspect and modify contained elements or entire branches
 #[macro_use]
@@ -114,20 +114,16 @@ pub mod viz;
 #[cfg(any(feature = "serialization", feature = "mork"))]
 pub mod paths_serialization;
 
-mod trie_node;
+// Node types moved to core/
+// TrieRef moved to core/ref.rs
+
+// Zipper implementations (still flat files)
 mod write_zipper;
 mod product_zipper;
 mod empty_zipper;
 mod prefix_zipper;
 mod overlay_zipper;
 mod dependent_zipper;
-mod trie_ref;
-mod dense_byte_node;
-pub(crate) mod line_list_node;
-mod empty_node;
-mod tiny_node;
-#[cfg(feature = "bridge_nodes")]
-mod bridge_node;
 
 #[cfg(feature = "old_cursor")]
 mod old_cursor;
