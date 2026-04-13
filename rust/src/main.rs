@@ -53,53 +53,45 @@ fn main() {
 }
 
 fn find_project_root() -> std::path::PathBuf {
+    // Check if PETTA_PATH environment variable is set
+    if let Ok(path) = std::env::var("PETTA_PATH") {
+        let p = Path::new(&path);
+        if p.join("prolog").join("metta.pl").exists() {
+            return p.to_path_buf();
+        }
+    }
+
+    // Check current directory
     let cwd = std::env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf());
     if cwd.join("prolog").join("metta.pl").exists() {
         return cwd;
     }
-    // Backward compatibility: also check src/
-    if cwd.join("src").join("metta.pl").exists() {
-        return cwd;
-    }
+
+    // Check executable parent directory and its parent
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             if dir.join("prolog").join("metta.pl").exists() {
-                return dir.to_path_buf();
-            }
-            if dir.join("src").join("metta.pl").exists() {
                 return dir.to_path_buf();
             }
             if let Some(parent) = dir.parent() {
                 if parent.join("prolog").join("metta.pl").exists() {
                     return parent.to_path_buf();
                 }
-                if parent.join("src").join("metta.pl").exists() {
-                    return parent.to_path_buf();
-                }
             }
         }
     }
-    if let Ok(path) = std::env::var("PETTA_PATH") {
-        let p = Path::new(&path);
-        if p.join("prolog").join("metta.pl").exists() {
-            return p.to_path_buf();
-        }
-        if p.join("src").join("metta.pl").exists() {
-            return p.to_path_buf();
-        }
-    }
+
+    // Walk up the directory tree looking for prolog/metta.pl
     let mut current = cwd.clone();
     loop {
         if current.join("prolog").join("metta.pl").exists() {
-            return current;
-        }
-        if current.join("src").join("metta.pl").exists() {
             return current;
         }
         if !current.pop() {
             break;
         }
     }
+
     cwd
 }
 

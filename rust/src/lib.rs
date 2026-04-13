@@ -37,7 +37,17 @@ use std::time::{Duration, Instant};
 
 use tracing::{debug, info, trace, warn};
 
+/// Native Rust MeTTa parser (experimental).
+///
+/// This module provides a pure-Rust parser for MeTTa S-expressions,
+/// independent of the SWI-Prolog backend. It is gated behind the
+/// `pure-rust` feature flag and is not yet integrated into the
+/// main execution pipeline.
+#[cfg(feature = "pure-rust")]
 pub mod petta_parser;
+#[cfg(not(feature = "pure-rust"))]
+#[allow(dead_code)]
+mod petta_parser;
 pub mod profiler;
 
 /// Configuration options for the PeTTaEngine.
@@ -678,21 +688,6 @@ impl PeTTaEngine {
         }
     }
 
-    fn read_u32(&mut self) -> Result<u32, PeTTaError> {
-        let mut b = [0u8; 4];
-        let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
-            PeTTaError::ProtocolError("stdout pipe unavailable".into())
-        })?;
-        reader.read_exact(&mut b).map_err(|e| {
-            if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                PeTTaError::ProtocolError("child closed".into())
-            } else {
-                PeTTaError::ProtocolError(e.to_string())
-            }
-        })?;
-        Ok(u32::from_be_bytes(b))
-    }
-
     /// Check if the Prolog subprocess is alive and responsive.
     pub fn is_alive(&mut self) -> bool {
         self.stdin_pipe.is_some() && self.stdout_pipe.is_some()
@@ -824,6 +819,8 @@ impl PeTTaEngine {
         query_type: u8,
         payload: &str,
     ) -> Result<Vec<MettaResult>, PeTTaError> {
+        let start_time = Instant::now();
+
         let pb = payload.as_bytes();
         let len = pb.len() as u32;
         let sin = self.stdin_pipe.as_mut().ok_or_else(|| {
@@ -838,37 +835,41 @@ impl PeTTaEngine {
         sin.flush()
             .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
 
+        Self::check_timeout(start_time, &self.config)?;
+
         let status = {
             let mut b = [0u8; 1];
             let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
                 PeTTaError::ProtocolError("stdout pipe unavailable".into())
             })?;
-            reader
-                .read_exact(&mut b)
-                .map_err(|e| {
-                    if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                        PeTTaError::ProtocolError("child closed".into())
-                    } else {
-                        PeTTaError::ProtocolError(e.to_string())
-                    }
-                })?;
+            Self::read_exact_with_timeout(reader, &mut b, start_time, &self.config)?;
             b[0]
         };
 
         match status {
             0 => {
-                let count = self.read_u32()?;
+                let count = Self::read_u32_with_timeout(
+                    self.stdout_pipe.as_mut().ok_or_else(|| {
+                        PeTTaError::ProtocolError("stdout pipe unavailable".into())
+                    })?,
+                    start_time,
+                    &self.config,
+                )?;
                 trace!("Query succeeded: {} result(s)", count);
                 let mut results = Vec::with_capacity(count as usize);
                 for _ in 0..count {
-                    let len = self.read_u32()?;
+                    let len = Self::read_u32_with_timeout(
+                        self.stdout_pipe.as_mut().ok_or_else(|| {
+                            PeTTaError::ProtocolError("stdout pipe unavailable".into())
+                        })?,
+                        start_time,
+                        &self.config,
+                    )?;
                     let mut buf = vec![0u8; len as usize];
                     let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
                         PeTTaError::ProtocolError("stdout pipe unavailable".into())
                     })?;
-                    reader
-                        .read_exact(&mut buf)
-                        .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
+                    Self::read_exact_with_timeout(reader, &mut buf, start_time, &self.config)?;
                     let value = String::from_utf8(buf)
                         .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
                     results.push(MettaResult { value });
@@ -876,14 +877,18 @@ impl PeTTaEngine {
                 Ok(results)
             }
             1 => {
-                let len = self.read_u32()?;
+                let len = Self::read_u32_with_timeout(
+                    self.stdout_pipe.as_mut().ok_or_else(|| {
+                        PeTTaError::ProtocolError("stdout pipe unavailable".into())
+                    })?,
+                    start_time,
+                    &self.config,
+                )?;
                 let mut buf = vec![0u8; len as usize];
                 let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
                     PeTTaError::ProtocolError("stdout pipe unavailable".into())
                 })?;
-                reader
-                    .read_exact(&mut buf)
-                    .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
+                Self::read_exact_with_timeout(reader, &mut buf, start_time, &self.config)?;
                 let msg = String::from_utf8_lossy(&buf).to_string();
                 debug!("Prolog error response: {}", msg);
                 Err(PeTTaError::SwiplError(parse_swipl_error(&msg).into()))
@@ -893,6 +898,52 @@ impl PeTTaEngine {
                 status
             ))),
         }
+    }
+
+    /// Check if the query has exceeded its configured timeout.
+    fn check_timeout(start_time: Instant, config: &EngineConfig) -> Result<(), PeTTaError> {
+        if let Some(timeout) = config.query_timeout {
+            if start_time.elapsed() >= timeout {
+                return Err(PeTTaError::Timeout(timeout));
+            }
+        }
+        Ok(())
+    }
+
+    /// Read exactly `buf.len()` bytes, checking timeout before each read attempt.
+    fn read_exact_with_timeout<R: Read>(
+        reader: &mut R,
+        buf: &mut [u8],
+        start_time: Instant,
+        config: &EngineConfig,
+    ) -> Result<(), PeTTaError> {
+        let mut read_count = 0;
+        while read_count < buf.len() {
+            Self::check_timeout(start_time, config)?;
+            let n = reader.read(&mut buf[read_count..]).map_err(|e| {
+                if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                    PeTTaError::ProtocolError("child closed".into())
+                } else {
+                    PeTTaError::ProtocolError(e.to_string())
+                }
+            })?;
+            if n == 0 {
+                return Err(PeTTaError::ProtocolError("child closed".into()));
+            }
+            read_count += n;
+        }
+        Ok(())
+    }
+
+    /// Read a big-endian u32 with timeout checking.
+    fn read_u32_with_timeout<R: Read>(
+        reader: &mut R,
+        start_time: Instant,
+        config: &EngineConfig,
+    ) -> Result<u32, PeTTaError> {
+        let mut b = [0u8; 4];
+        Self::read_exact_with_timeout(reader, &mut b, start_time, config)?;
+        Ok(u32::from_be_bytes(b))
     }
 
     pub fn load_metta_file(&mut self, file_path: &Path) -> Result<Vec<MettaResult>, PeTTaError> {
@@ -1037,9 +1088,6 @@ impl PeTTaEngine {
     /// Execute multiple independent MeTTa strings in parallel using rayon.
     /// Each string gets its own engine instance for true parallelism.
     #[cfg(feature = "parallel")]
-    /// Execute multiple independent MeTTa strings in parallel using rayon.
-    /// Each string gets its own engine instance for true parallelism.
-    #[cfg(feature = "parallel")]
     pub fn process_metta_strings_parallel(
         &self,
         queries: &[&str],
@@ -1084,56 +1132,6 @@ impl Drop for PeTTaEngine {
     fn drop(&mut self) {
         self.shutdown();
     }
-}
-
-// ---------------------------------------------------------------------------
-// Output parsing (legacy, kept for test compatibility)
-// ---------------------------------------------------------------------------
-
-#[allow(dead_code)]
-fn parse_output(output: &str, _verbose: bool) -> Vec<MettaResult> {
-    output
-        .lines()
-        .filter_map(|line| {
-            let cleaned = strip_ansi(line.trim());
-            if cleaned.is_empty()
-                || cleaned.starts_with('%')
-                || cleaned.starts_with("?-")
-                || cleaned.starts_with(":-")
-                || cleaned.starts_with("-->")
-                || cleaned.starts_with("^^^")
-                || cleaned.starts_with('!')
-                || cleaned.contains("metta function")
-                || cleaned.contains("metta runnable")
-                || cleaned.contains("prolog clause")
-                || cleaned.contains("prolog goal")
-            {
-                return None;
-            }
-            Some(MettaResult { value: cleaned })
-        })
-        .collect()
-}
-
-#[allow(dead_code)]
-fn strip_ansi(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let mut in_esc = false;
-    for ch in s.chars() {
-        if ch == '\x1b' {
-            in_esc = true;
-        } else if in_esc {
-            if ch == '[' {
-                continue;
-            }
-            if (0x40..=0x7E).contains(&(ch as u32)) {
-                in_esc = false;
-            }
-        } else {
-            result.push(ch);
-        }
-    }
-    result.trim().to_string()
 }
 
 // ---------------------------------------------------------------------------
@@ -1184,9 +1182,9 @@ fn check_swipl_version(
     Ok(())
 }
 
-/// Check if SWI-Prolog is available with default settings.
-pub fn swipl_available() -> bool {
-    check_swipl_version(Path::new("swipl"), (9, 3)).is_ok()
+/// Check if SWI-Prolog is available at the given path.
+pub fn swipl_available(swipl_path: &Path) -> bool {
+    check_swipl_version(swipl_path, (9, 3)).is_ok()
 }
 
 // ---------------------------------------------------------------------------
@@ -1334,21 +1332,6 @@ mod tests {
         assert_eq!(r[0].value, "3");
     }
     #[test]
-    fn test_parse_output() {
-        let r = parse_output("42\n(a b c)\nhello", false);
-        assert_eq!(r.len(), 3);
-        assert_eq!(r[0].value, "42");
-    }
-    #[test]
-    fn test_parse_output_filters_debug() {
-        let r = parse_output(
-            "--> metta function -->\n42\n^^^^^^^^^^^^^^^^^^^\n\x1b[36m!(+ 1 2)\n\x1b[33m-->",
-            false,
-        );
-        assert_eq!(r.len(), 1);
-        assert_eq!(r[0].value, "42");
-    }
-    #[test]
     fn test_parse_int() {
         assert_eq!(
             MettaValue::parse("42"),
@@ -1464,6 +1447,6 @@ mod tests {
 
     #[test]
     fn test_swipl_available() {
-        assert!(swipl_available());
+        assert!(swipl_available(Path::new("swipl")));
     }
 }

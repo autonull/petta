@@ -1,12 +1,16 @@
 //! Native Rust MeTTa S-expression parser using `nom`.
-#![allow(clippy::collapsible_if)]
 //!
-//! This module provides a dual-mode parser that can operate independently
-//! of the SWI-Prolog backend, enabling the `pure-rust` feature path.
+//! **This module is experimental.** It provides a pure-Rust parser for MeTTa
+//! S-expressions, independent of the SWI-Prolog backend. It is not yet
+//! integrated into the main execution pipeline — the engine currently sends
+//! raw strings to Prolog for parsing.
+//!
+//! To enable this module publicly, use the `pure-rust` feature flag.
 //!
 //! # Design
 //! The parser mirrors the structure of `prolog/parser.pl` but uses `nom`
 //! combinators instead of DCG rules. It produces `MettaValue` AST nodes.
+#![allow(clippy::collapsible_if)]
 
 use nom::{
     branch::alt,
