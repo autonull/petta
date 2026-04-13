@@ -1,7 +1,15 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-/// Configuration options for the PeTTaEngine.
+/// Configuration options for the [`PeTTaEngine`](super::PeTTaEngine).
+///
+/// Uses the builder pattern:
+/// ```ignore
+/// let config = EngineConfig::new(&project_root)
+///     .verbose(true)
+///     .query_timeout(Duration::from_secs(30))
+///     .max_restarts(3);
+/// ```
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
     /// Path to the SWI-Prolog binary (defaults to "swipl").

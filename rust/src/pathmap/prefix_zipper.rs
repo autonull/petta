@@ -4,7 +4,7 @@ use super::alloc::Allocator;
 use super::utils::ByteMask;
 use super::PathMap;
 use super::trie_core::node::{AbstractNodeRef, TrieNodeODRc, TaggedNodeRef};
-use super::trie_core::r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
+use super::trie_core::r#ref::TrieRef;
 use super::zipper::*;
 
 #[derive(Clone)]

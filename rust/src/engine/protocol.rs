@@ -7,7 +7,6 @@ use tracing::{debug, trace, warn};
 use super::config::EngineConfig;
 use super::errors::PeTTaError;
 use super::values::MettaResult;
-use super::server::build_server_source;
 use crate::engine::errors::parse_swipl_error;
 
 pub fn send_query(
@@ -218,9 +217,4 @@ pub fn process_metta_string(
 ) -> Result<Vec<MettaResult>, PeTTaError> {
     debug!("Processing MeTTa string ({} bytes)", metta_code.len());
     send_query(stdin_pipe, stdout_pipe, b'S', metta_code, config)
-}
-
-/// Rebuild the server source (used during restart).
-pub fn rebuild_server_source(src_dir: &Path, verbose: bool) -> Result<String, PeTTaError> {
-    build_server_source(src_dir, verbose)
 }

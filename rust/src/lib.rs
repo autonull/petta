@@ -38,9 +38,7 @@
 /// main execution pipeline.
 #[cfg(feature = "pure-rust")]
 pub mod parser;
-#[cfg(not(feature = "pure-rust"))]
-#[allow(dead_code)]
-mod parser;
+#[cfg(feature = "profiling")]
 pub mod profiler;
 
 /// MORK (MeTTa Optimal Reduction Kernel) - Zipper-based execution backend.
@@ -57,6 +55,9 @@ mod mork;
 ///
 /// Inlined from <https://github.com/Adam-Vandervorst/PathMap>.
 pub mod pathmap;
+
+/// Shared fallback hasher for environments where gxhash is unavailable.
+mod hash_fallback;
 
 /// Engine module - contains PeTTaEngine and all supporting types.
 mod engine;

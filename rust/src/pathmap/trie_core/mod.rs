@@ -1,4 +1,8 @@
-//! Core trie types and the PathMap struct
+//! Core trie types: nodes, references, and the PathMap struct.
+//!
+//! This module contains the fundamental data structures for representing
+//! byte-path-indexed tries. Consumers should use [`PathMap`] from the
+//! parent module; the internal types are exposed for pathmap-internal use only.
 
 pub(crate) mod node;
 pub(crate) mod dense_byte;
@@ -11,16 +15,5 @@ pub(crate) mod bridge;
 pub(crate) mod map;
 pub(crate) mod r#ref;
 
-// Re-export the main types
+// Re-export the main PathMap type
 pub use map::PathMap;
-// Internal types re-exported for crate-internal use
-pub(crate) use node::{TrieNode, TrieNodeODRc, TaggedNodeRef, AbstractNodeRef, TrieNodeDowncast};
-pub(crate) use r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
-pub(crate) use node::PayloadRef;
-// Re-export node types that may be needed internally
-pub(crate) use dense_byte::{DenseByteNode, ByteNode, CellByteNode};
-pub(crate) use line_list::LineListNode;
-pub(crate) use empty::EmptyNode;
-pub(crate) use tiny::TinyRefNode;
-#[cfg(feature = "bridge_nodes")]
-pub(crate) use bridge::BridgeNode;

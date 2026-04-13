@@ -2563,10 +2563,6 @@ mod opaque_dyn_rc_trie_node {
             self.make_mut()
         }
         #[inline]
-        pub(crate) fn tag(&self) -> usize {
-            self.borrow().tag()
-        }
-        #[inline]
         pub(crate) fn borrow(&self) -> &dyn TrieNode<V, A> {
             &*self.0
         }

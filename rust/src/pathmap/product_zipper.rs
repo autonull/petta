@@ -2,8 +2,7 @@
 use super::alloc::{Allocator, GlobalAlloc};
 use super::utils::ByteMask;
 use super::trie_core::node::*;
-use super::trie_core::r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
-use super::trie_core::node::PayloadRef;
+use super::trie_core::r#ref::TrieRef;
 use super::zipper::*;
 use zipper_priv::*;
 

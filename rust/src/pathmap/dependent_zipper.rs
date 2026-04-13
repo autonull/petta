@@ -1,5 +1,4 @@
-use super::trie_core::r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
-use super::trie_core::node::PayloadRef;
+use super::trie_core::r#ref::TrieRef;
 
 use super::alloc::{GlobalAlloc, global_alloc};
 use super::PathMap;

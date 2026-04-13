@@ -33,7 +33,7 @@ path = "rust/src/lib.rs"
 tempfile = "3"
 thiserror = "2"
 tracing = "0.1"
-nom = "8"
+nom = { version = "8", optional = true }
 
 # MORK (inlined from repos/MORK, compiled conditionally via 'mork' feature)
 # MORK dependencies:
@@ -46,17 +46,13 @@ regex = "1.10"
 memmap2 = "0.9.5"
 rayon = { version = "1.10", optional = true }
 memchr = "2.7"
-glob = "0.3"
 zip = { version = "2.2", default-features = false }
-bstr = "1.10"
 futures = "0.3"
 rand = "0.9"
 itertools = "0.14"
 base64 = "0.22"
 hex = "0.4"
 subprocess = "0.2"
-serde = { version = "1.0", features = ["derive"] }
-clap = { version = "4.5", features = ["derive"] }
 log = "0.4.27"
 env_logger = "0.11.8"
 reusing-vec = { version = "0.2.0", features = ["smallvec"] }
@@ -70,16 +66,10 @@ libz-ng-sys = { version = "1.1", optional = true }
 # PathMap (inlined from repos/PathMap)
 pathmap-derive = { path = "rust/pathmap-derive" }
 
-# FAISS support (optional, enabled via 'faiss' feature)
-faiss = { version = "0.13", optional = true }
-
-# Profiling (enabled via 'profiling' feature)
-parking_lot = { version = "0.12", optional = true }
-
 [features]
 default = ["swipl"]
 swipl = []
-pure-rust = []
+pure-rust = ["dep:nom"]
 pathmap-internal-tests = []
 serialization = ["dep:libz-ng-sys"]
 # MORK zipper-based execution backend (requires nightly)
@@ -87,9 +77,8 @@ mork = [
     "swipl",
     "serialization",
 ]
-faiss = ["dep:faiss"]
 parallel = ["dep:rayon"]
-profiling = ["dep:parking_lot"]
+profiling = []
 
 # Workspace dependencies
 [workspace.dependencies]
@@ -105,20 +94,21 @@ regex = "1.10"
 memmap2 = "0.9.5"
 rayon = "1.10"
 memchr = "2.7"
-glob = "0.3"
 zip = { version = "2.2", default-features = false }
-bstr = "1.10"
 futures = "0.3"
 rand = "0.9"
 itertools = "0.14"
 base64 = "0.22"
 hex = "0.4"
 subprocess = "0.2"
-serde = { version = "1.0", features = ["derive"] }
-clap = { version = "4.5", features = ["derive"] }
 reusing-vec = { version = "0.2.0", features = ["smallvec"] }
 maybe-dangling = "0.1.1"
 dyn-clone = "1.0.17"
 local-or-heap = "0.1.0"
 arrayvec = "0.7.6"
 num-traits = "0.2"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("arena_compact", "zipper_tracking", "random", "counters", "viz", "old_cursor", "bridge_nodes", "slim_dispatch", "slim_ptrs", "all_dense_nodes", "graft_root_vals", "nightly", "zipper_alg", "wasm", "z3", "grounding", "neo4j", "interning", "no_search", "specialize_io", "periodic_merkleize", "debug_api", "gxhash", "serialization"))',
+] }

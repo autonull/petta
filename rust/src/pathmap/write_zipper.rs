@@ -5,8 +5,7 @@ use core::ptr::NonNull;
 use super::alloc::{Allocator, GlobalAlloc};
 use super::utils::{ByteMask, BitMask};
 use super::trie_core::node::*;
-use super::trie_core::r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
-use super::trie_core::node::PayloadRef;
+use super::trie_core::r#ref::{TrieRef, TrieRefOwned};
 use super::PathMap;
 use super::zipper::*;
 use super::zipper::zipper_priv::*;
@@ -1752,11 +1751,9 @@ impl <'a, 'path, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> WriteZipperC
             (None, None) => { (AlgebraicStatus::None, true) },
         };
 
-        let node_was_none;
         let node_status = match self.get_focus().try_as_tagged() {
             Some(self_node) => {
                 if !self_node.node_is_empty() {
-                    node_was_none = false;
                     let src = read_zipper.get_focus();
                     if src.is_none() {
                         self.graft_internal(None);
@@ -1789,12 +1786,10 @@ impl <'a, 'path, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> WriteZipperC
                         }
                     }
                 } else {
-                    node_was_none = true;
                     AlgebraicStatus::None
                 }
             },
             None => {
-                node_was_none = true;
                 AlgebraicStatus::None
             }
         };
@@ -1802,7 +1797,7 @@ impl <'a, 'path, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> WriteZipperC
         #[cfg(not(feature = "graft_root_vals"))]
         return node_status;
         #[cfg(feature = "graft_root_vals")]
-        return node_status.merge(val_status, node_was_none, val_was_none)
+        return node_status.merge(val_status, false, val_was_none)
     }
     /// See [WriteZipper::meet_2]
     pub fn meet_2<ZA: ZipperInfallibleSubtries<V, A>, ZB: ZipperInfallibleSubtries<V, A>>(&mut self, rz_a: &ZA, rz_b: &ZB) -> AlgebraicStatus where V: Lattice {
@@ -1863,7 +1858,6 @@ impl <'a, 'path, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> WriteZipperC
             (None, None) => { (AlgebraicStatus::None, true) },
         };
 
-        let node_was_none;
         let src = read_zipper.get_focus();
         let self_focus = self.get_focus();
         let self_focus = self_focus.try_as_tagged().and_then(|node| {
@@ -1874,16 +1868,13 @@ impl <'a, 'path, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> WriteZipperC
         });
         let node_status = if src.is_none() {
             if self_focus.is_none() {
-                node_was_none = true;
                 AlgebraicStatus::None
             } else {
-                node_was_none = false;
                 AlgebraicStatus::Identity
             }
         } else {
             match self_focus {
                 Some(self_node) => {
-                    node_was_none = false;
                     match self_node.psubtract_dyn(src.as_tagged()) {
                         AlgebraicResult::Element(diff) => {
                             self.graft_internal(Some(diff));
@@ -1903,7 +1894,6 @@ impl <'a, 'path, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> WriteZipperC
                     }
                 },
                 None => {
-                    node_was_none = true;
                     AlgebraicStatus::None
                 }
             }
@@ -1912,7 +1902,7 @@ impl <'a, 'path, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> WriteZipperC
         #[cfg(not(feature = "graft_root_vals"))]
         return node_status;
         #[cfg(feature = "graft_root_vals")]
-        return node_status.merge(val_status, node_was_none, val_was_none)
+        return node_status.merge(val_status, false, val_was_none)
     }
     /// See [WriteZipper::restrict]
     pub fn restrict<Z: ZipperInfallibleSubtries<V, A>>(&mut self, read_zipper: &Z) -> AlgebraicStatus {
@@ -2697,8 +2687,7 @@ mod tests {
     use super::utils::ByteMask;
     use super::zipper::{*, zipper_priv::*};
     use super::trie_core::node::*;
-use super::trie_core::r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
-use super::trie_core::node::PayloadRef;
+use super::trie_core::r#ref::{TrieRef, TrieRefOwned};
     use super::alloc::GlobalAlloc;
 
     #[test]

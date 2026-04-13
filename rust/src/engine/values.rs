@@ -2,6 +2,10 @@
 // Typed MeTTa values
 // ---------------------------------------------------------------------------
 
+/// Represents a parsed MeTTa value (AST node).
+///
+/// MeTTa values can be integers, floats, booleans, atoms,
+/// lists, or function applications (expressions).
 #[derive(Debug, Clone, PartialEq)]
 pub enum MettaValue {
     Integer(String),
@@ -132,6 +136,10 @@ fn split_top_level(s: &str) -> Vec<String> {
 // MeTTa result
 // ---------------------------------------------------------------------------
 
+/// A result from executing a MeTTa query.
+///
+/// Contains the raw string value returned by the Prolog backend.
+/// Use [`parsed_value`](Self::parsed_value) to get a typed [`MettaValue`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MettaResult {
     pub value: String,
