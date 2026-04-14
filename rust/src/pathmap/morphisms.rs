@@ -77,7 +77,7 @@ use super::trie_core::node::TrieNodeODRc;
 use super::zipper;
 use super::zipper::*;
 
-use super::gxhash::{self, HashMap, HashMapExt};
+use super::gxhash::{self, HashMap};
 
 /// Provides methods to perform a catamorphism on types that can reference or contain a trie
 pub trait Catamorphism<V> {

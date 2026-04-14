@@ -23,16 +23,12 @@ pub use crate::destruct;
 pub use crate::construct;
 pub use crate::construct_impl;
 
-#[cfg(gxhash)]
-use gxhash;
-
 #[cfg(feature="mork")]
 #[path="lib_nightly.rs"]
 mod lib_nightly;
 #[cfg(feature="mork")]
 pub use lib_nightly::*;
 
-#[cfg(not(gxhash))]
 mod gxhash {
     pub use crate::hash_fallback::*;
 }
