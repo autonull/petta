@@ -39,7 +39,7 @@ nom = { version = "8", optional = true }
 pathmap-derive = { path = "rust/pathmap-derive" }
 
 # PathMap internal dependencies (always compiled)
-dyn-clone = "1.0.17"
+dyn-clone = "1.0"
 local-or-heap = "0.1.0"
 arrayvec = "0.7.6"
 fast-slice-utils = "0.1.2"
@@ -63,8 +63,6 @@ itertools = { version = "0.14", optional = true }
 base64 = { version = "0.22", optional = true }
 hex = { version = "0.4", optional = true }
 subprocess = { version = "0.2", optional = true }
-log = { version = "0.4.27", optional = true }
-env_logger = { version = "0.11.8", optional = true }
 libz-ng-sys = { version = "1.1", optional = true }
 
 # Optional features
@@ -90,8 +88,6 @@ mork = [
     "dep:base64",
     "dep:hex",
     "dep:subprocess",
-    "dep:log",
-    "dep:env_logger",
 ]
 parallel = ["dep:rayon"]
 profiling = []
@@ -100,8 +96,6 @@ profiling = []
 [workspace.dependencies]
 pathmap-derive = { path = "rust/pathmap-derive" }
 gxhash = { version = "3.5" }
-log = { version = "0.4.27" }
-env_logger = { version = "0.11.8" }
 smallvec = { version = "1.13", features = ["union"] }
 xxhash-rust = { version = "0.8", features = ["xxh64", "xxh3", "const_xxh3"] }
 fast-slice-utils = "0.1.2"
@@ -119,7 +113,7 @@ hex = { version = "0.4" }
 subprocess = { version = "0.2" }
 reusing-vec = { version = "0.2.0", features = ["smallvec"] }
 maybe-dangling = "0.1.1"
-dyn-clone = "1.0.17"
+dyn-clone = "1.0"
 local-or-heap = "0.1.0"
 arrayvec = "0.7.6"
 num-traits = { version = "0.2" }

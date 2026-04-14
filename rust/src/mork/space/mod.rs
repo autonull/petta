@@ -22,15 +22,17 @@ use crate::pathmap::zipper::*;
 use crate::pathmap::arena_compact::ArenaCompactTree;
 use crate::pathmap::{zipper, PathMap};
 use super::frontend::json_parser::Transcriber;
-use log::*;
+use tracing::{trace, debug, info, warn, error};
 use subprocess::{Popen, PopenConfig, Redirection};
 use subprocess::unix::PopenExt;
 use super::execution::sinks::{WriteResource, WriteResourceRequest};
 use super::execution::sources::{AFactor, Resource, ResourceRequest};
 
-pub static mut transitions: usize = 0;
-pub static mut unifications: usize = 0;
-pub static mut writes: usize = 0;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+pub static transitions: AtomicUsize = AtomicUsize::new(0);
+pub static unifications: AtomicUsize = AtomicUsize::new(0);
+pub static writes: AtomicUsize = AtomicUsize::new(0);
 
 pub static ACT_PATH: &'static str = "/dev/shm/";
 // pub static ACT_PATH: &'static str = "/mnt/data/";
@@ -114,7 +116,7 @@ fn coreferential_transition<Z : ZipperMoving + Zipper + ZipperAbsolutePath + Zip
     trace!(target: "coref trans", "loc {}    len {}", serialize(loc.path()), loc.path().len());
     // trace!(target: "coref trans", "loc {} ({:?})    len {}    ops {:?} ({:?})", serialize(loc.path()), loc.path(), loc.path().len(), loc.child_mask(), loc.child_mask().iter().map(byte_item).collect::<Vec<_>>());
     trace!(target: "coref trans", "top {}", stack.last().map(|x| x.show()).unwrap_or_else(|| "empty".into()));
-    unsafe { transitions += 1 };
+    transitions.fetch_add(1, Ordering::Relaxed);
     match stack.pop() {
         None => { f(loc) }
         Some(e) => {
@@ -1161,7 +1163,7 @@ impl Space {
                 trace!(target: "query_multi_ref", "at {:?}",
                     Expr { ptr: unsafe { prz.origin_path().as_ptr().cast_mut().add(other_i) } });
             }
-            unsafe { unifications += 1; }
+            unifications.fetch_add(1, Ordering::Relaxed);
             // if e.variables() != 0 {
 
             let mut pairs = vec![(sources[0], ExprEnv::new(1, e))];
@@ -1225,7 +1227,7 @@ impl Space {
                         trace!(target: "query_multi", "at {:?}",
                             Expr { ptr: unsafe { loc.origin_path().as_ptr().cast_mut().add(other_i) } });
                     }
-                    unsafe { unifications += 1; }
+                    unifications.fetch_add(1, Ordering::Relaxed);
                     // if e.variables() != 0 {
                     if true {
                         let mut pairs = vec![(sources[0], ExprEnv::new(1, e))];
@@ -1359,7 +1361,7 @@ impl Space {
         let mut any_new = false;
         let touched = Self::query_multi(&read_copy, pat_expr, |refs_bindings, loc| {
             trace!(target: "transform", "data {}", serialize(unsafe { loc.span().as_ref().unwrap()}));
-            unsafe { writes += template_prefixes.len(); }
+            writes.fetch_add(template_prefixes.len(), Ordering::Relaxed);
             match refs_bindings {
                 Ok(refs) => {
                     unreachable!()
@@ -1440,7 +1442,7 @@ impl Space {
         let mut any_new = false;
         let touched = Self::query_multi_i(false, &mut self.mmaps, &mut self.z3s, &read_copy, pat_expr, |refs_bindings, _loc| {
             // trace!(target: "transform", "data {}", serialize(unsafe { loc.span().as_ref().unwrap()}));
-            unsafe { writes += template_prefixes.len(); }
+            writes.fetch_add(template_prefixes.len(), Ordering::Relaxed);
             match refs_bindings {
                 Ok(refs) => {
                     unreachable!()
@@ -1530,7 +1532,7 @@ impl Space {
         let mut any_new = false;
         let touched = Self::query_multi(&read_copy, pat_expr, |refs_bindings, loc| {
             trace!(target: "transform", "data {}", serialize(unsafe { loc.span().as_ref().unwrap()}));
-            unsafe { writes += template_prefixes.len(); }
+            writes.fetch_add(template_prefixes.len(), Ordering::Relaxed);
             match refs_bindings {
                 Ok(refs) => {
                     unreachable!()
@@ -1623,7 +1625,7 @@ impl Space {
         let mut any_new = false;
         let touched = Self::query_multi_i(no_source, &mut self.mmaps, &mut self.z3s, &read_copy, pat_expr, |refs_bindings, loc| {
             trace!(target: "transform", "data {}", serialize(unsafe { loc.span().as_ref().unwrap()}));
-            unsafe { writes += template_prefixes.len(); }
+            writes.fetch_add(template_prefixes.len(), Ordering::Relaxed);
             match refs_bindings {
                 Ok(refs) => {
                     unreachable!()

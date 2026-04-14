@@ -311,7 +311,9 @@ impl<'trie, V: Clone + Send + Sync + Unpin + 'trie, A: Allocator + 'trie> Zipper
     }
 }
 
-/// A [`witness`](ZipperReadOnlyConditionalValues::witness) type used by [`ProductZipper`]
+/// A [`witness`](ZipperReadOnlyConditionalValues::witness) type used by [`ProductZipper`].
+/// The inner tuple carries data for conditional value operations.
+#[allow(dead_code)]
 pub struct ProductZipperWitness<V: Clone + Send + Sync, A: Allocator>((ReadZipperWitness<V, A>, Vec<TrieRefOwned<V, A>>));
 
 impl<'factor_z, 'trie, V: Clone + Send + Sync + Unpin + 'trie, A: Allocator + 'trie> ZipperReadOnlyConditionalValues<'trie, V> for ProductZipper<'factor_z, 'trie, V, A> {

@@ -682,6 +682,9 @@ impl Stack {
     }
 }
 
+/// Build a new PathMap from an anamorphism (coalgebra).
+/// Used by experimental tree serialization.
+#[allow(dead_code)]
 pub(crate) fn new_map_from_ana_jumping<'a, V, A: Allocator, WZ, W, CoAlgF, I>(wz: &mut WZ, w: W, mut coalg_f: CoAlgF)
 where
     V: 'static + Clone + Send + Sync + Unpin,

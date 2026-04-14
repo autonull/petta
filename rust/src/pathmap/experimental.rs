@@ -1,4 +1,8 @@
-#![allow(warnings)] 
+//! Experimental zipper implementations for testing.
+//! 
+//! Contains `FullZipper` and `NullZipper` - test stubs with incomplete methods.
+
+#![allow(unused_variables, unreachable_code, unused_mut, dead_code, unused_imports)] 
 
 use super::alloc::Allocator;
 use super::utils::ByteMask;

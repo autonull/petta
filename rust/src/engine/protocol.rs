@@ -36,6 +36,17 @@ impl<'a> PipeManager<'a> {
     }
 }
 
+/// Extension trait for cleaner write-with-error handling.
+trait WriteExt {
+    fn write_checked(&mut self, data: &[u8]) -> Result<(), PeTTaError>;
+}
+
+impl<W: Write> WriteExt for W {
+    fn write_checked(&mut self, data: &[u8]) -> Result<(), PeTTaError> {
+        self.write_all(data).map_err(|e| PeTTaError::WriteError(e.to_string()))
+    }
+}
+
 pub fn send_query(
     stdin_pipe: &mut Option<std::process::ChildStdin>,
     stdout_pipe: &mut Option<BufReader<std::process::ChildStdout>>,
@@ -73,14 +84,10 @@ fn send_query_inner(
     let pb = payload.as_bytes();
     let len = pb.len() as u32;
     let sin = pipes.stdin()?;
-    sin.write_all(&[query_type])
-        .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
-    sin.write_all(&len.to_be_bytes())
-        .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
-    sin.write_all(pb)
-        .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
-    sin.flush()
-        .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
+    sin.write_checked(&[query_type])?;
+    sin.write_checked(&len.to_be_bytes())?;
+    sin.write_checked(pb)?;
+    sin.flush().map_err(|e| PeTTaError::WriteError(e.to_string()))?;
 
     check_timeout(start_time, config)?;
 

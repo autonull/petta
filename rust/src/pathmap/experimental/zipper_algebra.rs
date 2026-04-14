@@ -1,3 +1,10 @@
+//! Experimental zipper algebra operations.
+//! 
+//! Contains `ZipperAlgebraExt`, `zipper_join`, `zipper_meet`, and `zipper_subtract`.
+//! These are test stubs and may contain incomplete implementations.
+
+#![allow(unused_variables, dead_code)]
+
 use super::super::{
     alloc::{Allocator, GlobalAlloc},
     ring::{AlgebraicResult, COUNTER_IDENT, DistributiveLattice, Lattice, SELF_IDENT},

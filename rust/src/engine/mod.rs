@@ -221,32 +221,72 @@ impl PeTTaEngine {
     // Profiling methods
     // -----------------------------------------------------------------------
 
-    /// Execute a query with profiling enabled. Returns the results and profile data.
+    /// Build a profile for a query operation. Shared between string and file profiling.
     #[cfg(feature = "profiling")]
-    pub fn process_metta_string_profiled(
-        &mut self,
-        metta_code: &str,
-    ) -> Result<(Vec<MettaResult>, profiler::QueryProfile), PeTTaError> {
-        let mut profile = profiler::QueryProfile::new("process_metta_string", metta_code.len());
-        let total_start = Instant::now();
+    fn build_query_profile(
+        op_name: &str,
+        input_size: usize,
+        send_time: std::time::Duration,
+        parse_time: std::time::Duration,
+        total_time: std::time::Duration,
+        result_count: usize,
+    ) -> profiler::QueryProfile {
+        let mut profile = profiler::QueryProfile::new(op_name, input_size);
+        profile.serialization_time = send_time;
+        profile.parse_time = parse_time;
+        profile.round_trip_time = total_time;
+        profile.total_time = total_time;
+        profile.result_count = result_count;
+        profile
+    }
 
+    /// Execute an operation with profiling enabled. Shared profiling logic.
+    #[cfg(feature = "profiling")]
+    fn execute_profiled<F>(
+        &mut self,
+        op_name: &str,
+        input_size: usize,
+        operation: F,
+    ) -> Result<(Vec<MettaResult>, profiler::QueryProfile), PeTTaError>
+    where
+        F: FnOnce(&mut Self) -> Result<Vec<MettaResult>, PeTTaError>,
+    {
+        let total_start = Instant::now();
         let send_start = Instant::now();
-        let results = proto_process_metta_string(&mut self.stdin_pipe, &mut self.stdout_pipe, metta_code, &self.config);
-        profile.serialization_time = send_start.elapsed();
+        let results = operation(self);
+        let send_time = send_start.elapsed();
 
         let parse_start = Instant::now();
         let results = results?;
-        profile.parse_time = parse_start.elapsed();
+        let parse_time = parse_start.elapsed();
 
-        profile.round_trip_time = profile.serialization_time;
-        profile.total_time = total_start.elapsed();
-        profile.result_count = results.len();
+        let total_time = total_start.elapsed();
+        let profile = Self::build_query_profile(
+            op_name,
+            input_size,
+            send_time,
+            parse_time,
+            total_time,
+            results.len(),
+        );
 
         if self.config.profile {
             info!("{}", profile.summary());
         }
 
         Ok((results, profile))
+    }
+
+    /// Execute a query with profiling enabled. Returns the results and profile data.
+    #[cfg(feature = "profiling")]
+    pub fn process_metta_string_profiled(
+        &mut self,
+        metta_code: &str,
+    ) -> Result<(Vec<MettaResult>, profiler::QueryProfile), PeTTaError> {
+        let input_size = metta_code.len();
+        self.execute_profiled("process_metta_string", input_size, |engine| {
+            proto_process_metta_string(&mut engine.stdin_pipe, &mut engine.stdout_pipe, metta_code, &engine.config)
+        })
     }
 
     /// Execute a file query with profiling enabled.
@@ -261,32 +301,23 @@ impl PeTTaEngine {
         if !abs.exists() {
             return Err(PeTTaError::FileNotFound(abs));
         }
-        let path_str = abs.to_string_lossy();
-        let mut profile = profiler::QueryProfile::new("load_metta_file", path_str.len());
-        let total_start = Instant::now();
-
-        let send_start = Instant::now();
-        let results = proto_load_metta_file(&mut self.stdin_pipe, &mut self.stdout_pipe, &abs, &self.config);
-        profile.serialization_time = send_start.elapsed();
-
-        let parse_start = Instant::now();
-        let results = results?;
-        profile.parse_time = parse_start.elapsed();
-
-        profile.round_trip_time = profile.serialization_time;
-        profile.total_time = total_start.elapsed();
-        profile.result_count = results.len();
-
-        if self.config.profile {
-            info!("{}", profile.summary());
-        }
-
-        Ok((results, profile))
+        let input_size = abs.to_string_lossy().len();
+        self.execute_profiled("load_metta_file", input_size, |engine| {
+            proto_load_metta_file(&mut engine.stdin_pipe, &mut engine.stdout_pipe, &abs, &engine.config)
+        })
     }
 
     // -----------------------------------------------------------------------
     // Parallel batch execution (requires 'parallel' feature)
     // -----------------------------------------------------------------------
+
+    /// Create a non-verbose engine instance for parallel execution.
+    #[cfg(feature = "parallel")]
+    fn create_parallel_worker(config: &EngineConfig) -> Result<Self, PeTTaError> {
+        let mut worker_config = config.clone();
+        worker_config.verbose = false;
+        PeTTaEngine::with_config(&worker_config)
+    }
 
     /// Execute multiple independent MeTTa strings in parallel using rayon.
     /// Each string gets its own engine instance for true parallelism.
@@ -296,15 +327,10 @@ impl PeTTaEngine {
         queries: &[&str],
     ) -> Vec<Result<Vec<MettaResult>, PeTTaError>> {
         use rayon::prelude::*;
-        use std::sync::Arc;
-
-        let config = Arc::new(self.config.clone());
+        let config = self.config.clone();
 
         queries.par_iter().map(|&q| {
-            let cfg = Arc::clone(&config);
-            let mut c = (*cfg).clone();
-            c.verbose = false;
-            let mut engine = PeTTaEngine::with_config(&c)?;
+            let mut engine = Self::create_parallel_worker(&config)?;
             proto_process_metta_string(&mut engine.stdin_pipe, &mut engine.stdout_pipe, q, &engine.config)
         }).collect()
     }
@@ -316,17 +342,11 @@ impl PeTTaEngine {
         file_paths: &[PathBuf],
     ) -> Vec<Result<Vec<MettaResult>, PeTTaError>> {
         use rayon::prelude::*;
-        use std::sync::Arc;
-
-        let config = Arc::new(self.config.clone());
+        let config = self.config.clone();
 
         file_paths.par_iter().map(|path| {
-            let cfg = Arc::clone(&config);
-            let mut c = (*cfg).clone();
-            c.verbose = false;
-            let path = path.clone();
-            let mut engine = PeTTaEngine::with_config(&c)?;
-            proto_load_metta_file(&mut engine.stdin_pipe, &mut engine.stdout_pipe, &path, &engine.config)
+            let mut engine = Self::create_parallel_worker(&config)?;
+            proto_load_metta_file(&mut engine.stdin_pipe, &mut engine.stdout_pipe, path, &engine.config)
         }).collect()
     }
 }

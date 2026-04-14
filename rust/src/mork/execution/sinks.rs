@@ -23,7 +23,7 @@ use super::super::interning::{WritePermit, SharedMapping, SharedMappingHandle};
 use crate::pathmap::utils::{BitMask, ByteMask};
 use crate::pathmap::zipper::*;
 use super::super::frontend::json_parser::Transcriber;
-use log::*;
+use tracing::{trace, debug, info, warn, error};
 use crate::pathmap::morphisms::Catamorphism;
 use crate::pathmap::PathMap;
 // use eval::EvalScope; // requires eval crate
@@ -1052,152 +1052,9 @@ impl<Reduction : FloatReduction> Sink for FloatReductionSink<Reduction> {
 }
 
 
-// // (pure (result $x) $x (f32_from_string 0.2))
-// #[cfg(feature = "grounding")]
-// pub struct PureSink { e: Expr, unique: PathMap<()> , scope: EvalScope }
-// impl Sink for PureSink {
-//     fn new(e: Expr) -> Self {
-//         let mut scope = EvalScope::new();
-//         pure::register(&mut scope);
-//         PureSink { e, unique: PathMap::new(), scope }
-//     }
-//     fn request(&self) ->  impl Iterator<Item=WriteResourceRequest> {
-//         let p = &unsafe { self.e.prefix().unwrap_or_else(|x| { let s = self.e.span(); slice_from_raw_parts(self.e.ptr, s.len() - 1) }).as_ref().unwrap() }[6..];
-//         trace!(target: "sink", "count requesting {}", serialize(p));
-//         std::iter::once(WriteResourceRequest::BTM(p))
-//     }
-//     fn sink<'w, 'a, 'k, It : Iterator<Item=WriteResource<'w, 'a, 'k>>>(&mut self, mut it: It, path: &[u8]) where 'a : 'w, 'k : 'w {
-//         let WriteResource::BTM(wz) = it.next().unwrap() else { unreachable!() };
-//         let mpath = &path[6+wz.root_prefix_path().len()..];
-//         let ctx = unsafe { Expr { ptr: mpath.as_ptr().cast_mut() } };
-//         trace!(target: "sink", "pure at '{}' sinking raw '{}'", serialize(wz.root_prefix_path()), serialize(path));
-//         trace!(target: "sink", "pure registering in ctx {:?}", serialize(mpath));
-//         self.unique.insert(mpath, ());
-// 
-//     }
-//     fn finalize<'w, 'a, 'k, It : Iterator<Item=WriteResource<'w, 'a, 'k>>>(&mut self, mut it: It) -> bool where 'a : 'w, 'k : 'w {
-//         let WriteResource::BTM(wz) = it.next().unwrap() else { unreachable!() };
-//         wz.reset();
-//         trace!(target: "sink", "pure finalizing by reducing {} at '{}'", self.unique.val_count(), serialize(wz.origin_path()));
-// 
-//         let mut _to_swap = PathMap::new(); std::mem::swap(&mut self.unique, &mut _to_swap);
-//         let mut rooted_input = PathMap::new();
-//         rooted_input.write_zipper_at_path(wz.root_prefix_path()).graft_map(_to_swap);
-// 
-//         static v: &'static [u8] = &[item_byte(Tag::NewVar)];
-//         let mut prz = OneFactor::new(rooted_input.into_read_zipper(&[]));
-//         let prz_ptr = (&prz) as *const OneFactor<_>;
-//         let mut changed = false;
-//         let mut buffer: Vec<u8> = Vec::with_capacity(1 << 32);
-//         super::super::space::Space::query_multi_raw(unsafe { prz_ptr.cast_mut().as_mut().unwrap() }, &[ExprEnv::new(0, Expr{ ptr: v.as_ptr().cast_mut() })], |refs_bindings, loc| {
-// 
-//             for b in prz.child_mask().and(&ByteMask(super::super::space::SIZES)).iter() {
-//                 let Tag::SymbolSize(size) = byte_item(b) else { unreachable!() };
-//                 prz.descend_to_byte(b);
-//                 debug_assert!(prz.path_exists());
-//                 if !prz.descend_first_k_path(size as _) { unreachable!() }
-//                 loop {
-//                     let clen = prz.origin_path().len();
-// 
-//                     let mut rz = prz.fork_read_zipper();
-//                     'vals: while rz.to_next_val() {
-//                         let p = rz.origin_path();
-//                         trace!(target: "sink", "path number {:?}", serialize(&p[clen..]));
-//                         todo!();
-//                     }
-// 
-//                     if !prz.to_next_k_path(size as _) { break }
-//                 }
-//                 if !prz.ascend_byte() { unreachable!() }
-//             }
-// 
-//             for b in prz.child_mask().and(&ByteMask(super::super::space::ARITIES)).iter() {
-//                 todo!();
-//             }
-// 
-//             if prz.descend_to_existing_byte(item_byte(Tag::NewVar)) {
-//                 let ignored = &prz.path()[..prz.path().len()-1];
-//                 trace!(target: "sink", "ignored guard {}", serialize(ignored));
-//                 wz.move_to_path(ignored);
-//                 wz.set_val(());
-//                 changed |= true;
-//                 prz.ascend_byte();
-//             }
-//             if prz.descend_first_byte() {
-//                 if let Tag::VarRef(k) = byte_item(prz.path()[prz.path().len()-1]) {
-//                     let clen = prz.path().len();
-//                     let mut rz = prz.fork_read_zipper();
-//                     'vals: while rz.to_next_val() {
-//                         let p = rz.origin_path();
-//                         trace!(target: "sink", "path {:?}", serialize(p));
-//                         trace!(target: "sink", "path {:?}", serialize(&p[clen..]));
-// 
-//                         let mut res = match self.scope.eval(ExprSource::new(&p[clen])) {
-//                             Ok(res) => { res }
-//                             Err(er) => { trace!(target: "pure", "err {}", er); continue 'vals }
-//                         };
-// 
-//                         trace!(target: "sink", "result {:?}", serialize(&res[..]));
-// 
-//                         let varref = &prz.path()[..prz.path().len()-1];
-//                         let ie = Expr { ptr: (&varref[0] as *const u8).cast_mut() };
-//                         let mut oz = ExprZipper::new(Expr{ ptr: buffer.as_mut_ptr() });
-//                         trace!(target: "sink", "ref guard '{}' var {:?} with '{}'", serialize(varref), k, serialize(&res[..]));
-//                         let os = ie.substitute_one_de_bruijn(k, Expr{ ptr: res.as_mut_ptr() }, &mut oz);
-//                         unsafe { buffer.set_len(oz.loc) }
-//                         trace!(target: "sink", "ref guard subs '{:?}'", serialize(&buffer[..oz.loc]));
-//                         wz.move_to_path(&buffer[wz.root_prefix_path().len()..oz.loc]);
-//                         wz.set_val(());
-//                         changed |= true;
-//                         self.scope.return_alloc(res);
-//                     }
-//                 }
-//                 prz.ascend_byte();
-//             }
-//             true
-//         });
-//         changed
-//     }
-// }
-// 
-// // (z3 <instance> <declaration or assertion>)
-// #[cfg(feature = "z3")]
-// pub struct Z3Sink { e: Expr, buffer: Vec<u8>, ins: &'static str }
-// #[cfg(feature = "z3")]
-// impl Sink for Z3Sink {
-//     fn new(e: Expr) -> Self {
-//         destruct!(e, ("z3" {instance: &str} {decl: Expr}), {
-//             trace!(target: "sink", "z3 requesting instance {instance}");
-//             Z3Sink { e, buffer: vec![], ins: instance }
-//         }, _err => { unreachable!() })
-//     }
-//     fn request(&self) ->  impl Iterator<Item=WriteResourceRequest> {
-//         return std::iter::once(WriteResourceRequest::Z3(self.ins));
-//     }
-//     fn sink<'w, 'a, 'k, It : Iterator<Item=WriteResource<'w, 'a, 'k>>>(&mut self, mut it: It, path: &[u8]) where 'a : 'w, 'k : 'w {
-//         let spath = &path[1+1+2+1+self.ins.bytes().len()..];
-//         trace!(target: "sink", "z3 sinking '{}'", serialize(spath));
-//         let e = Expr { ptr: spath.as_ptr().cast_mut() };
-//         e.serialize(&mut self.buffer, |e| std::str::from_utf8(e).unwrap());
-//         self.buffer.push(b'\n');
-//     }
-//     fn finalize<'w, 'a, 'k, It : Iterator<Item=WriteResource<'w, 'a, 'k>>>(&mut self, mut it: It) -> bool where 'a : 'w, 'k : 'w {
-//         trace!(target: "sink", "z3 writing buffer {:?}", std::str::from_utf8(&self.buffer[..]).unwrap());
-//         let WriteResource::Z3(ref mut p) = it.next().unwrap() else { unreachable!() };
-//         let mut stdin = p.stdin.as_mut().unwrap();
-//         stdin.write(&self.buffer[..]).unwrap();
-//         stdin.flush().unwrap();
-//         true
-//     }
-// }
-// 
-
 pub enum ASink { AddSink(AddSink), RemoveSink(RemoveSink), HeadSink(HeadSink), CountSink(CountSink), HashSink(HashSink), SumSink(SumSink), AndSink(AndSink), ACTSink(ACTSink),
     #[cfg(feature = "wasm")]
     WASMSink(WASMSink),
-    // PureSink disabled (requires eval crate)
-    // #[cfg(feature = "grounding")]
-    // PureSink(PureSink),
     #[cfg(feature = "z3")]
     Z3Sink(Z3Sink),
     AUSink(AUSink),

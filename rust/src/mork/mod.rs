@@ -19,6 +19,7 @@ pub mod space;
 #[cfg(feature = "mork")]
 pub mod execution;
 
-// Stub module when mork feature is not enabled (to keep the parent module valid)
+// Empty stub module when mork feature is not enabled.
+// Cargo requires that declared modules exist, even if empty.
 #[cfg(not(feature = "mork"))]
-mod stub {}
+mod stub;

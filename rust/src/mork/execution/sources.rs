@@ -1,4 +1,4 @@
-use log::trace;
+use tracing::trace;
 use crate::pathmap::arena_compact::{ACTMmapZipper};
 use crate::pathmap::PathMap;
 use crate::pathmap::zipper::*;

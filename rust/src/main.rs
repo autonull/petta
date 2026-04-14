@@ -6,18 +6,10 @@ use std::time::Instant;
 fn ansi_color(s: &str, code: u8) -> String {
     format!("\x1b[{}m{}\x1b[0m", code, s)
 }
-fn green(s: &str) -> String {
-    ansi_color(s, 32)
-}
-fn red(s: &str) -> String {
-    ansi_color(s, 31)
-}
-fn yellow(s: &str) -> String {
-    ansi_color(s, 33)
-}
-fn cyan(s: &str) -> String {
-    ansi_color(s, 36)
-}
+fn green(s: &str) -> String { ansi_color(s, 32) }
+fn red(s: &str) -> String { ansi_color(s, 31) }
+fn yellow(s: &str) -> String { ansi_color(s, 33) }
+fn cyan(s: &str) -> String { ansi_color(s, 36) }
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -44,11 +36,7 @@ fn main() {
         std::process::exit(1);
     }
 
-    if show_time {
-        run_files_timed(&project_root, &files, verbose);
-    } else {
-        run_files(&project_root, &files, verbose);
-    }
+    run_files(&project_root, &files, verbose, show_time);
 }
 
 fn find_project_root() -> std::path::PathBuf {
@@ -91,6 +79,12 @@ fn find_project_root() -> std::path::PathBuf {
         }
     }
 
+    // Fallback to cwd with a warning
+    eprintln!(
+        "{}: Could not locate PeTTa installation (prolog/metta.pl not found).",
+        red("Warning")
+    );
+    eprintln!("Set PETTA_PATH or run from a directory containing prolog/metta.pl.");
     cwd
 }
 
@@ -161,14 +155,14 @@ fn run_engine_files(project_root: &Path, paths: &[&Path], verbose: bool) -> Resu
             Ok(results) => {
                 let stderr = engine.stderr_output();
                 if !stderr.is_empty() {
-                    eprintln!("{}", stderr);
+                    eprintln!("{}", red(&stderr));
                 }
                 for r in &results {
                     println!("{}", r.value);
                 }
             }
             Err(e) => {
-                eprintln!("Error processing {}: {}", path.display(), e);
+                eprintln!("{} {}: {}", red("Error processing"), path.display(), e);
                 had_failure = true;
             }
         }
@@ -180,31 +174,21 @@ fn run_engine_files(project_root: &Path, paths: &[&Path], verbose: bool) -> Resu
     }
 }
 
-fn run_files(project_root: &Path, files: &[&String], verbose: bool) {
-    let paths = filter_valid_paths(files);
-    if paths.is_empty() {
-        std::process::exit(1);
-    }
-    if run_engine_files(project_root, &paths, verbose).is_err() {
-        std::process::exit(1);
-    }
-}
-
-fn run_files_timed(project_root: &Path, files: &[&String], verbose: bool) {
-    let start = Instant::now();
+fn run_files(project_root: &Path, files: &[&String], verbose: bool, show_time: bool) {
+    let start = show_time.then(Instant::now);
     let paths = filter_valid_paths(files);
     if paths.is_empty() {
         std::process::exit(1);
     }
     let result = run_engine_files(project_root, &paths, verbose);
-    let elapsed = start.elapsed();
-    let elapsed_ms = elapsed.as_secs_f64() * 1000.0;
-    eprintln!(
-        "\n{} engine: {:.3}ms, total: {:.3}ms",
-        yellow("Timing:"),
-        elapsed_ms,
-        elapsed_ms
-    );
+    if let Some(start) = start {
+        let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+        eprintln!(
+            "\n{} engine: {:.3}ms",
+            yellow("Timing:"),
+            elapsed_ms
+        );
+    }
     if result.is_err() {
         std::process::exit(1);
     }
