@@ -17,8 +17,6 @@
 //!   If 1: [4 bytes: error msg len][N bytes: UTF-8 error]
 //! ```
 
-#![allow(clippy::collapsible_if)]
-#![allow(clippy::useless_conversion)]
 // MORK requires nightly Rust for coroutine/zipper features
 #![cfg_attr(feature = "mork", allow(internal_features))]
 #![cfg_attr(feature = "mork", feature(core_intrinsics))]
@@ -48,7 +46,6 @@ pub mod profiler;
 #[cfg(feature = "mork")]
 pub mod mork;
 #[cfg(not(feature = "mork"))]
-#[allow(dead_code)]
 mod mork;
 
 /// PathMap - Byte-path-indexed trie with algebraic operations.

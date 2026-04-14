@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{BufReader, Read, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -9,9 +9,36 @@ use super::errors::PeTTaError;
 use super::values::MettaResult;
 use crate::engine::errors::parse_swipl_error;
 
+/// Helper struct to manage pipes with unified error handling.
+struct PipeManager<'a> {
+    stdin_pipe: &'a mut Option<std::process::ChildStdin>,
+    stdout_pipe: &'a mut Option<BufReader<std::process::ChildStdout>>,
+}
+
+impl<'a> PipeManager<'a> {
+    fn new(
+        stdin_pipe: &'a mut Option<std::process::ChildStdin>,
+        stdout_pipe: &'a mut Option<BufReader<std::process::ChildStdout>>,
+    ) -> Self {
+        Self { stdin_pipe, stdout_pipe }
+    }
+
+    fn stdin(&mut self) -> Result<&mut std::process::ChildStdin, PeTTaError> {
+        self.stdin_pipe
+            .as_mut()
+            .ok_or_else(|| PeTTaError::ProtocolError("stdin pipe unavailable".into()))
+    }
+
+    fn stdout(&mut self) -> Result<&mut BufReader<std::process::ChildStdout>, PeTTaError> {
+        self.stdout_pipe
+            .as_mut()
+            .ok_or_else(|| PeTTaError::ProtocolError("stdout pipe unavailable".into()))
+    }
+}
+
 pub fn send_query(
     stdin_pipe: &mut Option<std::process::ChildStdin>,
-    stdout_pipe: &mut Option<std::io::BufReader<std::process::ChildStdout>>,
+    stdout_pipe: &mut Option<BufReader<std::process::ChildStdout>>,
     query_type: u8,
     payload: &str,
     config: &EngineConfig,
@@ -35,18 +62,17 @@ pub fn send_query(
 
 fn send_query_inner(
     stdin_pipe: &mut Option<std::process::ChildStdin>,
-    stdout_pipe: &mut Option<std::io::BufReader<std::process::ChildStdout>>,
+    stdout_pipe: &mut Option<BufReader<std::process::ChildStdout>>,
     query_type: u8,
     payload: &str,
     config: &EngineConfig,
 ) -> Result<Vec<MettaResult>, PeTTaError> {
     let start_time = Instant::now();
+    let mut pipes = PipeManager::new(stdin_pipe, stdout_pipe);
 
     let pb = payload.as_bytes();
     let len = pb.len() as u32;
-    let sin = stdin_pipe.as_mut().ok_or_else(|| {
-        PeTTaError::ProtocolError("stdin pipe unavailable".into())
-    })?;
+    let sin = pipes.stdin()?;
     sin.write_all(&[query_type])
         .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
     sin.write_all(&len.to_be_bytes())
@@ -60,36 +86,20 @@ fn send_query_inner(
 
     let status = {
         let mut b = [0u8; 1];
-        let reader = stdout_pipe.as_mut().ok_or_else(|| {
-            PeTTaError::ProtocolError("stdout pipe unavailable".into())
-        })?;
+        let reader = pipes.stdout()?;
         read_exact_with_timeout(reader, &mut b, start_time, config)?;
         b[0]
     };
 
     match status {
         0 => {
-            let count = read_u32_with_timeout(
-                stdout_pipe.as_mut().ok_or_else(|| {
-                    PeTTaError::ProtocolError("stdout pipe unavailable".into())
-                })?,
-                start_time,
-                config,
-            )?;
+            let count = read_u32_with_timeout(pipes.stdout()?, start_time, config)?;
             trace!("Query succeeded: {} result(s)", count);
             let mut results = Vec::with_capacity(count as usize);
             for _ in 0..count {
-                let len = read_u32_with_timeout(
-                    stdout_pipe.as_mut().ok_or_else(|| {
-                        PeTTaError::ProtocolError("stdout pipe unavailable".into())
-                    })?,
-                    start_time,
-                    config,
-                )?;
+                let len = read_u32_with_timeout(pipes.stdout()?, start_time, config)?;
                 let mut buf = vec![0u8; len as usize];
-                let reader = stdout_pipe.as_mut().ok_or_else(|| {
-                    PeTTaError::ProtocolError("stdout pipe unavailable".into())
-                })?;
+                let reader = pipes.stdout()?;
                 read_exact_with_timeout(reader, &mut buf, start_time, config)?;
                 let value = String::from_utf8(buf)
                     .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
@@ -98,21 +108,13 @@ fn send_query_inner(
             Ok(results)
         }
         1 => {
-            let len = read_u32_with_timeout(
-                stdout_pipe.as_mut().ok_or_else(|| {
-                    PeTTaError::ProtocolError("stdout pipe unavailable".into())
-                })?,
-                start_time,
-                config,
-            )?;
+            let len = read_u32_with_timeout(pipes.stdout()?, start_time, config)?;
             let mut buf = vec![0u8; len as usize];
-            let reader = stdout_pipe.as_mut().ok_or_else(|| {
-                PeTTaError::ProtocolError("stdout pipe unavailable".into())
-            })?;
+            let reader = pipes.stdout()?;
             read_exact_with_timeout(reader, &mut buf, start_time, config)?;
             let msg = String::from_utf8_lossy(&buf).to_string();
             debug!("Prolog error response: {}", msg);
-            Err(PeTTaError::SwiplError(parse_swipl_error(&msg).into()))
+            Err(PeTTaError::SwiplError(parse_swipl_error(&msg)))
         }
         _ => Err(PeTTaError::ProtocolError(format!(
             "unknown status: {}",
@@ -169,7 +171,7 @@ pub fn read_u32_with_timeout<R: Read>(
 
 pub fn load_metta_file(
     stdin_pipe: &mut Option<std::process::ChildStdin>,
-    stdout_pipe: &mut Option<std::io::BufReader<std::process::ChildStdout>>,
+    stdout_pipe: &mut Option<BufReader<std::process::ChildStdout>>,
     file_path: &Path,
     config: &EngineConfig,
 ) -> Result<Vec<MettaResult>, PeTTaError> {
@@ -185,7 +187,7 @@ pub fn load_metta_file(
 
 pub fn load_metta_files(
     stdin_pipe: &mut Option<std::process::ChildStdin>,
-    stdout_pipe: &mut Option<std::io::BufReader<std::process::ChildStdout>>,
+    stdout_pipe: &mut Option<BufReader<std::process::ChildStdout>>,
     file_paths: &[&Path],
     config: &EngineConfig,
 ) -> Result<Vec<MettaResult>, PeTTaError> {
@@ -211,7 +213,7 @@ pub fn load_metta_files(
 
 pub fn process_metta_string(
     stdin_pipe: &mut Option<std::process::ChildStdin>,
-    stdout_pipe: &mut Option<std::io::BufReader<std::process::ChildStdout>>,
+    stdout_pipe: &mut Option<BufReader<std::process::ChildStdout>>,
     metta_code: &str,
     config: &EngineConfig,
 ) -> Result<Vec<MettaResult>, PeTTaError> {

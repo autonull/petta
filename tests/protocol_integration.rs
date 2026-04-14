@@ -3,17 +3,10 @@
 //! These tests verify the full request/response cycle between Rust and SWI-Prolog,
 //! covering all message types ('F', 'S', 'Q') and edge cases.
 
-use petta::{MettaValue, PeTTaEngine, PeTTaError, SwiplErrorKind};
-use std::path::Path;
+use petta::{MettaValue, PeTTaError, SwiplErrorKind};
 
-fn project_root() -> std::path::PathBuf {
-    // CARGO_MANIFEST_DIR points to the crate root (where Cargo.toml is)
-    Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
-}
-
-fn make_engine() -> PeTTaEngine {
-    PeTTaEngine::new(&project_root(), false).expect("Failed to create engine")
-}
+mod test_utils;
+use test_utils::{make_engine, project_root};
 
 // ---------------------------------------------------------------------------
 // Protocol type 'S' (83): process_metta_string

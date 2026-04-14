@@ -10,7 +10,6 @@
 //! # Design
 //! The parser mirrors the structure of `prolog/parser.pl` but uses `nom`
 //! combinators instead of DCG rules. It produces `MettaValue` AST nodes.
-#![allow(clippy::collapsible_if)]
 
 use nom::{
     branch::alt,
