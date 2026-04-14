@@ -1,12 +1,6 @@
 
-#[cfg(not(any(miri, target_arch = "riscv64")))]
 pub(crate) mod gxhash {
-    pub use ::gxhash::*;
-}
-
-#[cfg(any(miri, target_arch="riscv64"))]
-pub(crate) mod gxhash {
-    pub use super::hash_fallback::*;
+    pub use crate::hash_fallback::*;
 }
 
 
