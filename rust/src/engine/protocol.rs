@@ -20,7 +20,10 @@ impl<'a> PipeManager<'a> {
         stdin_pipe: &'a mut Option<std::process::ChildStdin>,
         stdout_pipe: &'a mut Option<BufReader<std::process::ChildStdout>>,
     ) -> Self {
-        Self { stdin_pipe, stdout_pipe }
+        Self {
+            stdin_pipe,
+            stdout_pipe,
+        }
     }
 
     fn stdin(&mut self) -> Result<&mut std::process::ChildStdin, PeTTaError> {
@@ -43,7 +46,8 @@ trait WriteExt {
 
 impl<W: Write> WriteExt for W {
     fn write_checked(&mut self, data: &[u8]) -> Result<(), PeTTaError> {
-        self.write_all(data).map_err(|e| PeTTaError::WriteError(e.to_string()))
+        self.write_all(data)
+            .map_err(|e| PeTTaError::WriteError(e.to_string()))
     }
 }
 
@@ -63,8 +67,11 @@ pub fn send_query(
     match send_query_inner(stdin_pipe, stdout_pipe, query_type, payload, config) {
         Ok(results) => Ok(results),
         Err(PeTTaError::ProtocolError(ref msg)) if msg.contains("child closed") => {
-            warn!("Subprocess crashed during query (type={}), payload preview: {:?}",
-                query_type as char, &payload[..payload.len().min(120)]);
+            warn!(
+                "Subprocess crashed during query (type={}), payload preview: {:?}",
+                query_type as char,
+                &payload[..payload.len().min(120)]
+            );
             // The caller (engine) handles recovery/restart
             Err(PeTTaError::ProtocolError(format!(
                 "child closed (query type '{}', payload: {:?})",
@@ -92,7 +99,8 @@ fn send_query_inner(
     sin.write_checked(&[query_type])?;
     sin.write_checked(&len.to_be_bytes())?;
     sin.write_checked(pb)?;
-    sin.flush().map_err(|e| PeTTaError::WriteError(e.to_string()))?;
+    sin.flush()
+        .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
 
     check_timeout(start_time, config)?;
 
@@ -113,8 +121,8 @@ fn send_query_inner(
                 let mut buf = vec![0u8; len as usize];
                 let reader = pipes.stdout()?;
                 read_exact_with_timeout(reader, &mut buf, start_time, config)?;
-                let value = String::from_utf8(buf)
-                    .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
+                let value =
+                    String::from_utf8(buf).map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
                 results.push(MettaResult { value });
             }
             Ok(results)
@@ -137,10 +145,10 @@ fn send_query_inner(
 
 /// Check if the query has exceeded its configured timeout.
 pub fn check_timeout(start_time: Instant, config: &EngineConfig) -> Result<(), PeTTaError> {
-    if let Some(timeout) = config.query_timeout {
-        if start_time.elapsed() >= timeout {
-            return Err(PeTTaError::Timeout(timeout));
-        }
+    if let Some(timeout) = config.query_timeout
+        && start_time.elapsed() >= timeout
+    {
+        return Err(PeTTaError::Timeout(timeout));
     }
     Ok(())
 }
@@ -194,7 +202,13 @@ pub fn load_metta_file(
         return Err(PeTTaError::FileNotFound(abs));
     }
     debug!("Loading MeTTa file: {}", abs.display());
-    send_query(stdin_pipe, stdout_pipe, b'F', &abs.to_string_lossy(), config)
+    send_query(
+        stdin_pipe,
+        stdout_pipe,
+        b'F',
+        &abs.to_string_lossy(),
+        config,
+    )
 }
 
 pub fn load_metta_files(

@@ -1,4 +1,3 @@
-
 //GOAT, Internal discussion about the API we eventually want.
 //
 //It strikes me that "overlay" is *almost* join.  The main difference being the treatment of values. One
@@ -16,14 +15,14 @@
 // with ZipperValues, etc. because we don't have a place to store the newly created value
 //
 
-use fast_slice_utils::find_prefix_overlap;
 use super::utils::{BitMask, ByteMask};
-use super::zipper::{Zipper, ZipperMoving, ZipperIteration, ZipperValues};
+use super::zipper::{Zipper, ZipperIteration, ZipperMoving, ZipperValues};
+use fast_slice_utils::find_prefix_overlap;
 
 /// Zipper that traverses a virtual trie formed by fusing the tries of two other zippers
 pub struct OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
-    where
-        Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
+where
+    Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
 {
     a: AZipper,
     b: BZipper,
@@ -31,12 +30,22 @@ pub struct OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
     _marker: core::marker::PhantomData<(AV, BV, OutV)>,
 }
 
-fn identity_ref<'a, V>(a_val: Option<&'a V>, b_val: Option<&'a V>) -> Option<&'a V> { a_val.or(b_val) }
+fn identity_ref<'a, V>(a_val: Option<&'a V>, b_val: Option<&'a V>) -> Option<&'a V> {
+    a_val.or(b_val)
+}
 
-impl<V, AZipper, BZipper> OverlayZipper<V, V, V, AZipper, BZipper, for<'a> fn(Option<&'a V>, Option<&'a V>) -> Option<&'a V>>
-    where
-        AZipper: ZipperMoving,
-        BZipper: ZipperMoving,
+impl<V, AZipper, BZipper>
+    OverlayZipper<
+        V,
+        V,
+        V,
+        AZipper,
+        BZipper,
+        for<'a> fn(Option<&'a V>, Option<&'a V>) -> Option<&'a V>,
+    >
+where
+    AZipper: ZipperMoving,
+    BZipper: ZipperMoving,
 {
     /// Create a new `OverlayZipper` from two other zippers, using a default value mapping function
     ///
@@ -47,31 +56,30 @@ impl<V, AZipper, BZipper> OverlayZipper<V, V, V, AZipper, BZipper, for<'a> fn(Op
     }
 }
 
-impl<AV, BV, OutV, AZipper, BZipper, Mapping>
-    OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
-    where
-        AZipper: ZipperMoving,
-        BZipper: ZipperMoving,
-        Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
+impl<AV, BV, OutV, AZipper, BZipper, Mapping> OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
+where
+    AZipper: ZipperMoving,
+    BZipper: ZipperMoving,
+    Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
 {
     /// Create a new `OverlayZipper` from two other zippers, using a the supplied value mapping function
     pub fn with_mapping(mut a: AZipper, mut b: BZipper, mapping: Mapping) -> Self {
         a.reset();
         b.reset();
         Self {
-            a, b,
+            a,
+            b,
             mapping,
             _marker: core::marker::PhantomData,
         }
     }
 }
 
-impl<AV, BV, OutV, AZipper, BZipper, Mapping>
-    OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
-    where
-        AZipper: ZipperMoving + ZipperValues<AV>,
-        BZipper: ZipperMoving + ZipperValues<BV>,
-        Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
+impl<AV, BV, OutV, AZipper, BZipper, Mapping> OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
+where
+    AZipper: ZipperMoving + ZipperValues<AV>,
+    BZipper: ZipperMoving + ZipperValues<BV>,
+    Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
 {
     fn to_sibling(&mut self, next: bool) -> bool {
         let path = self.path();
@@ -96,10 +104,10 @@ impl<AV, BV, OutV, AZipper, BZipper, Mapping>
 
 impl<AV, BV, OutV, AZipper, BZipper, Mapping> ZipperValues<OutV>
     for OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
-    where
-        AZipper: ZipperValues<AV>,
-        BZipper: ZipperValues<BV>,
-        Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
+where
+    AZipper: ZipperValues<AV>,
+    BZipper: ZipperValues<BV>,
+    Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
 {
     fn val(&self) -> Option<&OutV> {
         (self.mapping)(self.a.val(), self.b.val())
@@ -108,10 +116,10 @@ impl<AV, BV, OutV, AZipper, BZipper, Mapping> ZipperValues<OutV>
 
 impl<AV, BV, OutV, AZipper, BZipper, Mapping> Zipper
     for OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
-    where
-        AZipper: Zipper + ZipperValues<AV>,
-        BZipper: Zipper + ZipperValues<BV>,
-        Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
+where
+    AZipper: Zipper + ZipperValues<AV>,
+    BZipper: Zipper + ZipperValues<BV>,
+    Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
 {
     fn path_exists(&self) -> bool {
         self.a.path_exists() || self.b.path_exists()
@@ -131,10 +139,10 @@ impl<AV, BV, OutV, AZipper, BZipper, Mapping> Zipper
 
 impl<AV, BV, OutV, AZipper, BZipper, Mapping> ZipperMoving
     for OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
-    where
-        AZipper: ZipperMoving + ZipperValues<AV>,
-        BZipper: ZipperMoving + ZipperValues<BV>,
-        Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
+where
+    AZipper: ZipperMoving + ZipperValues<AV>,
+    BZipper: ZipperMoving + ZipperValues<BV>,
+    Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
 {
     fn at_root(&self) -> bool {
         self.a.at_root() || self.b.at_root()
@@ -200,8 +208,8 @@ impl<AV, BV, OutV, AZipper, BZipper, Mapping> ZipperMoving
     }
 
     fn descend_to_byte(&mut self, k: u8) {
-        self.a.descend_to(&[k]);
-        self.b.descend_to(&[k]);
+        self.a.descend_to([k]);
+        self.b.descend_to([k]);
     }
 
     fn descend_first_byte(&mut self) -> bool {
@@ -309,11 +317,12 @@ impl<AV, BV, OutV, AZipper, BZipper, Mapping> ZipperMoving
 
 impl<AV, BV, OutV, AZipper, BZipper, Mapping> ZipperIteration
     for OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
-    where
-        AZipper: ZipperMoving + ZipperValues<AV>,
-        BZipper: ZipperMoving + ZipperValues<BV>,
-        Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
-{ }
+where
+    AZipper: ZipperMoving + ZipperValues<AV>,
+    BZipper: ZipperMoving + ZipperValues<BV>,
+    Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
+{
+}
 
 super::impl_name_only_debug!(
     impl<AV, BV, OutV, AZipper, BZipper, Mapping> core::fmt::Debug for OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
@@ -323,8 +332,8 @@ super::impl_name_only_debug!(
 
 #[cfg(all(test, feature = "pathmap-internal-tests"))]
 mod tests {
+    use super::OverlayZipper;
     use super::alloc::GlobalAlloc;
-use super::{OverlayZipper};
     use super::{
         PathMap,
         zipper::{
@@ -350,19 +359,28 @@ use super::{OverlayZipper};
     // }
 
     type Mapping = for<'a> fn(Option<&'a ()>, Option<&'a ()>) -> Option<&'a ()>;
-    type OZ<'a, V, A=GlobalAlloc> = OverlayZipper<
-        V, V, V,
+    type OZ<'a, V, A = GlobalAlloc> = OverlayZipper<
+        V,
+        V,
+        V,
         ReadZipperUntracked<'a, 'static, V, A>,
         ReadZipperUntracked<'a, 'static, V, A>,
-        Mapping
+        Mapping,
     >;
-    zipper_moving_tests::zipper_moving_tests!(overlay_zipper,
+    zipper_moving_tests::zipper_moving_tests!(
+        overlay_zipper,
         |keys: &[&[u8]]| {
             let cutoff = keys.len() / 3 * 2;
             // eprintln!("keys={:?}", &keys);
             eprintln!("a_keys={:?}\nb_keys={:?}", &keys[..cutoff], &keys[cutoff..]);
-            let a = keys[..cutoff].into_iter().map(|k| (k, ())).collect::<PathMap<()>>();
-            let b = keys[cutoff..].into_iter().map(|k| (k, ())).collect::<PathMap<()>>();
+            let a = keys[..cutoff]
+                .into_iter()
+                .map(|k| (k, ()))
+                .collect::<PathMap<()>>();
+            let b = keys[cutoff..]
+                .into_iter()
+                .map(|k| (k, ()))
+                .collect::<PathMap<()>>();
             (a, b)
         },
         |trie: &mut (PathMap<()>, PathMap<()>), path: &[u8]| -> OZ<'_, ()> {
@@ -373,12 +391,19 @@ use super::{OverlayZipper};
         }
     );
 
-    zipper_iteration_tests::zipper_iteration_tests!(overlay_zipper,
+    zipper_iteration_tests::zipper_iteration_tests!(
+        overlay_zipper,
         |keys: &[&[u8]]| {
             let cutoff = keys.len() / 3 * 2;
             // eprintln!("a_keys={:?}\nb_keys={:?}", &keys[..cutoff], &keys[cutoff..]);
-            let a = keys[..cutoff].into_iter().map(|k| (k, ())).collect::<PathMap<()>>();
-            let b = keys[cutoff..].into_iter().map(|k| (k, ())).collect::<PathMap<()>>();
+            let a = keys[..cutoff]
+                .into_iter()
+                .map(|k| (k, ()))
+                .collect::<PathMap<()>>();
+            let b = keys[cutoff..]
+                .into_iter()
+                .map(|k| (k, ()))
+                .collect::<PathMap<()>>();
             (a, b)
         },
         |trie: &mut (PathMap<()>, PathMap<()>), path: &[u8]| -> OZ<'_, ()> {

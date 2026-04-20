@@ -49,10 +49,10 @@ fn parse_sexpr(s: &str) -> Option<MettaValue> {
         }
         let parsed: Vec<MettaValue> = items.iter().filter_map(|x| parse_sexpr(x)).collect();
         if parsed.len() == items.len() && !parsed.is_empty() {
-            if let MettaValue::Atom(head) = &parsed[0] {
-                if parsed.len() > 1 {
-                    return Some(MettaValue::Expression(head.clone(), parsed[1..].to_vec()));
-                }
+            if let MettaValue::Atom(head) = &parsed[0]
+                && parsed.len() > 1
+            {
+                return Some(MettaValue::Expression(head.clone(), parsed[1..].to_vec()));
             }
             return Some(MettaValue::List(parsed));
         }

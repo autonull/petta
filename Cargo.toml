@@ -48,7 +48,6 @@ reusing-vec = { version = "0.2.0", features = ["smallvec"] }
 rand = "0.9"
 smallvec = { version = "1.13", features = ["union"] }
 memmap2 = "0.9.5"
-gxhash = "3.5"
 xxhash-rust = { version = "0.8", features = ["xxh64", "xxh3", "const_xxh3"] }
 num-traits = "0.2"
 
@@ -95,7 +94,6 @@ profiling = []
 # Workspace dependencies
 [workspace.dependencies]
 pathmap-derive = { path = "rust/pathmap-derive" }
-gxhash = { version = "3.5" }
 smallvec = { version = "1.13", features = ["union"] }
 xxhash-rust = { version = "0.8", features = ["xxh64", "xxh3", "const_xxh3"] }
 fast-slice-utils = "0.1.2"

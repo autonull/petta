@@ -76,14 +76,15 @@ pub enum PeTTaError {
 }
 
 pub(crate) fn parse_swipl_error(raw: &str) -> SwiplErrorKind {
-    if raw.contains("existence_error") && raw.contains("procedure") {
-        if let Some((name, arity)) = extract_name_arity(raw) {
-            return SwiplErrorKind::UndefinedFunction {
-                name,
-                arity,
-                suggestion: None,
-            };
-        }
+    if raw.contains("existence_error")
+        && raw.contains("procedure")
+        && let Some((name, arity)) = extract_name_arity(raw)
+    {
+        return SwiplErrorKind::UndefinedFunction {
+            name,
+            arity,
+            suggestion: None,
+        };
     }
     if raw.contains("type_error") {
         return SwiplErrorKind::TypeMismatch {
@@ -114,10 +115,10 @@ fn extract_name_arity(raw: &str) -> Option<(String, usize)> {
     for t in raw.split(&['(', ')', ',', '/']) {
         let t = t.trim();
         let p: Vec<&str> = t.split_whitespace().collect();
-        if p.len() == 2 {
-            if let Ok(a) = p[1].parse::<usize>() {
-                return Some((p[0].to_string(), a));
-            }
+        if p.len() == 2
+            && let Ok(a) = p[1].parse::<usize>()
+        {
+            return Some((p[0].to_string(), a));
         }
     }
     None
