@@ -53,14 +53,17 @@ mod mork;
 /// Inlined from <https://github.com/Adam-Vandervorst/PathMap>.
 pub mod pathmap;
 
-/// Shared fallback hasher for environments where gxhash is unavailable.
-mod hash_fallback;
+/// Shared fallback hasher
+mod xxhash_fallback;
 
 /// Engine module - contains PeTTaEngine and all supporting types.
 mod engine;
 
 // Re-export types that were previously top-level for backward compatibility.
-pub use engine::{EngineConfig, MettaValue, MettaResult, PeTTaError, SwiplErrorKind, PeTTaEngine, swipl_available, MIN_SWIPL_VERSION};
+pub use engine::{
+    EngineConfig, MIN_SWIPL_VERSION, MettaResult, MettaValue, PeTTaEngine, PeTTaError,
+    SwiplErrorKind, swipl_available,
+};
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -318,7 +321,7 @@ mod tests {
         assert!(!config.verbose);
         assert!(config.query_timeout.is_none());
         assert_eq!(config.max_restarts, 0);
-        assert_eq!(config.min_swipl_version, (9, 3));
+        assert_eq!(config.min_swipl_version, (9, 0));
     }
 
     #[test]

@@ -24,9 +24,7 @@ fn test_protocol_string_simple() {
 fn test_protocol_string_multiple_results() {
     let mut e = make_engine();
     // superpose produces multiple results
-    let results = e
-        .process_metta_string("!(superpose (1 2 3))")
-        .unwrap();
+    let results = e.process_metta_string("!(superpose (1 2 3))").unwrap();
     assert!(!results.is_empty());
     let values: Vec<&str> = results.iter().map(|r| r.value.as_str()).collect();
     assert!(values.contains(&"1"));
@@ -68,9 +66,7 @@ fn test_protocol_string_multiline() {
 #[test]
 fn test_protocol_string_lambda() {
     let mut e = make_engine();
-    let results = e
-        .process_metta_string("!(|-> $x $x 42)")
-        .unwrap();
+    let results = e.process_metta_string("!(|-> $x $x 42)").unwrap();
     assert!(!results.is_empty());
 }
 
@@ -174,7 +170,7 @@ fn test_protocol_error_type_mismatch() {
     // This may succeed in MeTTa (returning false) or produce a type error
     // Either way, the protocol should handle it gracefully
     match results {
-        Ok(_) => {} // Valid: returns false
+        Ok(_) => {}                          // Valid: returns false
         Err(PeTTaError::SwiplError(_)) => {} // Also valid: type error
         Err(e) => panic!("Unexpected error: {:?}", e),
     }

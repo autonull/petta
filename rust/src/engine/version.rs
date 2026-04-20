@@ -6,12 +6,9 @@ use tracing::debug;
 use super::errors::PeTTaError;
 
 /// Minimum supported SWI-Prolog version (major, minor).
-pub const MIN_SWIPL_VERSION: (u32, u32) = (9, 3);
+pub const MIN_SWIPL_VERSION: (u32, u32) = (9, 0);
 
-pub fn check_swipl_version(
-    swipl_path: &Path,
-    min_version: (u32, u32),
-) -> Result<(), PeTTaError> {
+pub fn check_swipl_version(swipl_path: &Path, min_version: (u32, u32)) -> Result<(), PeTTaError> {
     let output = Command::new(swipl_path)
         .arg("--version")
         .output()
@@ -31,21 +28,21 @@ pub fn check_swipl_version(
     let vs = String::from_utf8_lossy(&output.stdout);
     for part in vs.split_whitespace() {
         let p: Vec<&str> = part.split('.').collect();
-        if p.len() >= 2 {
-            if let (Ok(ma), Ok(mi)) = (p[0].parse::<u32>(), p[1].parse::<u32>()) {
-                if ma > min_version.0 || (ma == min_version.0 && mi >= min_version.1) {
-                    debug!(
-                        "SWI-Prolog version {}.{} meets minimum {}.{}",
-                        ma, mi, min_version.0, min_version.1
-                    );
-                    return Ok(());
-                }
-                if ma < min_version.0 {
-                    return Err(PeTTaError::SwiplVersionError(format!(
-                        "SWI-Prolog {}.{} found, need >= {}.{}",
-                        ma, mi, min_version.0, min_version.1
-                    )));
-                }
+        if p.len() >= 2
+            && let (Ok(ma), Ok(mi)) = (p[0].parse::<u32>(), p[1].parse::<u32>())
+        {
+            if ma > min_version.0 || (ma == min_version.0 && mi >= min_version.1) {
+                debug!(
+                    "SWI-Prolog version {}.{} meets minimum {}.{}",
+                    ma, mi, min_version.0, min_version.1
+                );
+                return Ok(());
+            }
+            if ma < min_version.0 {
+                return Err(PeTTaError::SwiplVersionError(format!(
+                    "SWI-Prolog {}.{} found, need >= {}.{}",
+                    ma, mi, min_version.0, min_version.1
+                )));
             }
         }
     }

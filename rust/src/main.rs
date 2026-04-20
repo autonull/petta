@@ -6,10 +6,18 @@ use std::time::Instant;
 fn ansi_color(s: &str, code: u8) -> String {
     format!("\x1b[{}m{}\x1b[0m", code, s)
 }
-fn green(s: &str) -> String { ansi_color(s, 32) }
-fn red(s: &str) -> String { ansi_color(s, 31) }
-fn yellow(s: &str) -> String { ansi_color(s, 33) }
-fn cyan(s: &str) -> String { ansi_color(s, 36) }
+fn green(s: &str) -> String {
+    ansi_color(s, 32)
+}
+fn red(s: &str) -> String {
+    ansi_color(s, 31)
+}
+fn yellow(s: &str) -> String {
+    ansi_color(s, 33)
+}
+fn cyan(s: &str) -> String {
+    ansi_color(s, 36)
+}
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -55,16 +63,16 @@ fn find_project_root() -> std::path::PathBuf {
     }
 
     // Check executable parent directory and its parent
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            if dir.join("prolog").join("metta.pl").exists() {
-                return dir.to_path_buf();
-            }
-            if let Some(parent) = dir.parent() {
-                if parent.join("prolog").join("metta.pl").exists() {
-                    return parent.to_path_buf();
-                }
-            }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        if dir.join("prolog").join("metta.pl").exists() {
+            return dir.to_path_buf();
+        }
+        if let Some(parent) = dir.parent()
+            && parent.join("prolog").join("metta.pl").exists()
+        {
+            return parent.to_path_buf();
         }
     }
 
@@ -172,11 +180,7 @@ fn run_engine_files(project_root: &Path, paths: &[&Path], verbose: bool) -> Resu
             }
         }
     }
-    if had_failure {
-        Err(())
-    } else {
-        Ok(())
-    }
+    if had_failure { Err(()) } else { Ok(()) }
 }
 
 fn run_files(project_root: &Path, files: &[&String], verbose: bool, show_time: bool) {
@@ -188,11 +192,7 @@ fn run_files(project_root: &Path, files: &[&String], verbose: bool, show_time: b
     let result = run_engine_files(project_root, &paths, verbose);
     if let Some(start) = start {
         let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
-        eprintln!(
-            "\n{} engine: {:.3}ms",
-            yellow("Timing:"),
-            elapsed_ms
-        );
+        eprintln!("\n{} engine: {:.3}ms", yellow("Timing:"), elapsed_ms);
     }
     if result.is_err() {
         std::process::exit(1);

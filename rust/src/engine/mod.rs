@@ -6,15 +6,15 @@
 
 mod config;
 pub(crate) mod errors;
+mod protocol;
 mod server;
 mod values;
-mod protocol;
 mod version;
 
 pub use config::EngineConfig;
-pub use errors::{SwiplErrorKind, PeTTaError};
-pub use values::{MettaValue, MettaResult};
-pub use version::{swipl_available, MIN_SWIPL_VERSION};
+pub use errors::{PeTTaError, SwiplErrorKind};
+pub use values::{MettaResult, MettaValue};
+pub use version::{MIN_SWIPL_VERSION, swipl_available};
 
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
@@ -27,12 +27,11 @@ use std::time::Instant;
 use tracing::{debug, info, trace};
 
 use self::protocol::{
-    load_metta_file as proto_load_metta_file,
-    load_metta_files as proto_load_metta_files,
+    load_metta_file as proto_load_metta_file, load_metta_files as proto_load_metta_files,
     process_metta_string as proto_process_metta_string,
 };
-use self::version::check_swipl_version;
 use self::server::build_server_source;
+use self::version::check_swipl_version;
 #[cfg(feature = "profiling")]
 use crate::profiler;
 
@@ -108,10 +107,7 @@ impl PeTTaEngine {
                     if n == 0 {
                         break;
                     }
-                    trace!(
-                        "Prolog stderr: {}",
-                        String::from_utf8_lossy(&buf[..n])
-                    );
+                    trace!("Prolog stderr: {}", String::from_utf8_lossy(&buf[..n]));
                     stderr_output_clone
                         .lock()
                         .unwrap()
@@ -150,9 +146,10 @@ impl PeTTaEngine {
 
     fn wait_for_ready(&mut self) -> Result<(), PeTTaError> {
         trace!("Waiting for Prolog ready signal (0xFF)");
-        let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
-            PeTTaError::ProtocolError("stdout pipe unavailable".into())
-        })?;
+        let reader = self
+            .stdout_pipe
+            .as_mut()
+            .ok_or_else(|| PeTTaError::ProtocolError("stdout pipe unavailable".into()))?;
         loop {
             let mut b = [0u8; 1];
             reader.read_exact(&mut b).map_err(|e| {
@@ -172,21 +169,36 @@ impl PeTTaEngine {
     }
 
     pub fn load_metta_file(&mut self, file_path: &Path) -> Result<Vec<MettaResult>, PeTTaError> {
-        proto_load_metta_file(&mut self.stdin_pipe, &mut self.stdout_pipe, file_path, &self.config)
+        proto_load_metta_file(
+            &mut self.stdin_pipe,
+            &mut self.stdout_pipe,
+            file_path,
+            &self.config,
+        )
     }
 
     pub fn load_metta_files(
         &mut self,
         file_paths: &[&Path],
     ) -> Result<Vec<MettaResult>, PeTTaError> {
-        proto_load_metta_files(&mut self.stdin_pipe, &mut self.stdout_pipe, file_paths, &self.config)
+        proto_load_metta_files(
+            &mut self.stdin_pipe,
+            &mut self.stdout_pipe,
+            file_paths,
+            &self.config,
+        )
     }
 
     pub fn process_metta_string(
         &mut self,
         metta_code: &str,
     ) -> Result<Vec<MettaResult>, PeTTaError> {
-        proto_process_metta_string(&mut self.stdin_pipe, &mut self.stdout_pipe, metta_code, &self.config)
+        proto_process_metta_string(
+            &mut self.stdin_pipe,
+            &mut self.stdout_pipe,
+            metta_code,
+            &self.config,
+        )
     }
 
     pub fn stderr_output(&self) -> String {
@@ -285,7 +297,12 @@ impl PeTTaEngine {
     ) -> Result<(Vec<MettaResult>, profiler::QueryProfile), PeTTaError> {
         let input_size = metta_code.len();
         self.execute_profiled("process_metta_string", input_size, |engine| {
-            proto_process_metta_string(&mut engine.stdin_pipe, &mut engine.stdout_pipe, metta_code, &engine.config)
+            proto_process_metta_string(
+                &mut engine.stdin_pipe,
+                &mut engine.stdout_pipe,
+                metta_code,
+                &engine.config,
+            )
         })
     }
 
@@ -303,7 +320,12 @@ impl PeTTaEngine {
         }
         let input_size = abs.to_string_lossy().len();
         self.execute_profiled("load_metta_file", input_size, |engine| {
-            proto_load_metta_file(&mut engine.stdin_pipe, &mut engine.stdout_pipe, &abs, &engine.config)
+            proto_load_metta_file(
+                &mut engine.stdin_pipe,
+                &mut engine.stdout_pipe,
+                &abs,
+                &engine.config,
+            )
         })
     }
 
@@ -329,10 +351,18 @@ impl PeTTaEngine {
         use rayon::prelude::*;
         let config = self.config.clone();
 
-        queries.par_iter().map(|&q| {
-            let mut engine = Self::create_parallel_worker(&config)?;
-            proto_process_metta_string(&mut engine.stdin_pipe, &mut engine.stdout_pipe, q, &engine.config)
-        }).collect()
+        queries
+            .par_iter()
+            .map(|&q| {
+                let mut engine = Self::create_parallel_worker(&config)?;
+                proto_process_metta_string(
+                    &mut engine.stdin_pipe,
+                    &mut engine.stdout_pipe,
+                    q,
+                    &engine.config,
+                )
+            })
+            .collect()
     }
 
     /// Execute multiple independent MeTTa files in parallel using rayon.
@@ -344,10 +374,18 @@ impl PeTTaEngine {
         use rayon::prelude::*;
         let config = self.config.clone();
 
-        file_paths.par_iter().map(|path| {
-            let mut engine = Self::create_parallel_worker(&config)?;
-            proto_load_metta_file(&mut engine.stdin_pipe, &mut engine.stdout_pipe, path, &engine.config)
-        }).collect()
+        file_paths
+            .par_iter()
+            .map(|path| {
+                let mut engine = Self::create_parallel_worker(&config)?;
+                proto_load_metta_file(
+                    &mut engine.stdin_pipe,
+                    &mut engine.stdout_pipe,
+                    path,
+                    &engine.config,
+                )
+            })
+            .collect()
     }
 }
 

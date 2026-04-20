@@ -1,5 +1,5 @@
 //! Experimental zipper algebra operations.
-//! 
+//!
 //! Contains `ZipperAlgebraExt`, `zipper_join`, `zipper_meet`, and `zipper_subtract`.
 //! These are test stubs and may contain incomplete implementations.
 
@@ -319,20 +319,20 @@ where
         ZR: ZipperValues<V>,
         Out: ZipperWriting<V, A>,
     {
-        if let Some(lv) = lhs.val() {
-            if let Some(rv) = rhs.val() {
-                match lv.pmeet(rv) {
-                    AlgebraicResult::None => {}
-                    AlgebraicResult::Identity(mask) => {
-                        if mask & SELF_IDENT != 0 {
-                            out.set_val(lv.clone());
-                        } else if mask & COUNTER_IDENT != 0 {
-                            out.set_val(rv.clone());
-                        }
+        if let Some(lv) = lhs.val()
+            && let Some(rv) = rhs.val()
+        {
+            match lv.pmeet(rv) {
+                AlgebraicResult::None => {}
+                AlgebraicResult::Identity(mask) => {
+                    if mask & SELF_IDENT != 0 {
+                        out.set_val(lv.clone());
+                    } else if mask & COUNTER_IDENT != 0 {
+                        out.set_val(rv.clone());
                     }
-                    AlgebraicResult::Element(v) => {
-                        out.set_val(v);
-                    }
+                }
+                AlgebraicResult::Element(v) => {
+                    out.set_val(v);
                 }
             }
         }
@@ -742,8 +742,8 @@ mod tests {
         (&[(&[], 1), (&[1], 10)], &[(&[], 2), (&[1], 20)]);
 
     mod join {
-        use super::*;
         use super::experimental::zipper_algebra::{ZipperAlgebraExt, zipper_join};
+        use super::*;
 
         #[test]
         fn test_disjoint() {
@@ -830,8 +830,8 @@ mod tests {
     }
 
     mod meet {
-        use super::*;
         use super::experimental::zipper_algebra::{ZipperAlgebraExt, zipper_meet};
+        use super::*;
 
         #[test]
         fn test_disjoint() {
@@ -910,8 +910,8 @@ mod tests {
     }
 
     mod subtract {
-        use super::*;
         use super::experimental::zipper_algebra::{ZipperAlgebraExt, zipper_subtract};
+        use super::*;
 
         #[test]
         fn test_disjoint() {
