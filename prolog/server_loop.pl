@@ -75,10 +75,38 @@ write_response(Results) :-
 
 write_error_response(Error) :-
     put_byte(user_output, 1),
+    % Emit structured JSON error payload to make Rust-side parsing deterministic.
     ( compound(Error) -> format(atom(Msg), '~q', [Error])
     ; atom(Error)     -> Msg = Error
     ; format(atom(Msg), '~w', [Error]) ),
-    atom_codes(Msg, Codes),
+    % If the error is the SWI canonical error(term, context) try to extract
+    % structured fields to emit in JSON. We include 'formal' and 'context'
+    % fields when present so the Rust side can parse them deterministically.
+    ( compound(Error), Error = error(Formal, Context) ->
+        % Best-effort structured extraction: include formal/context plus
+        % functor, arity, name/arity (when present), and suggestion if found.
+        term_to_atom(Formal, FormalAtom),
+        term_to_atom(Context, ContextAtom),
+        ( compound(Formal) -> functor(Formal, FunctorName, FunctorArity) ; (FunctorName = '', FunctorArity = 0) ),
+        % Try to locate a 'Name/Arity' term inside the formal term arguments.
+        ( Formal =.. Parts,
+          ( member(SlashTerm, Parts), functor(SlashTerm, '/', 2) ->
+              arg(1, SlashTerm, NameTerm), arg(2, SlashTerm, ArityTerm),
+              term_to_atom(NameTerm, NameAtom), term_to_atom(ArityTerm, NameArityAtom)
+          ; NameAtom = '', NameArityAtom = '' )
+        ; NameAtom = '', NameArityAtom = '' ),
+        % Detect a simple suggestion string if present in message text.
+        ( sub_atom(Msg, _, _, _, "Did you mean") -> Suggestion = Msg ; Suggestion = '' ),
+        format(atom(Json), '{"kind":"swipl","message":~q,"raw":~q,"formal":~q,"context":~q,"functor":~q,"functor_arity":~w,"name":~q,"name_arity":~q,"suggestion":~q}',
+               [Msg, Msg, FormalAtom, ContextAtom, FunctorName, FunctorArity, NameAtom, NameArityAtom, Suggestion])
+    ; compound(Error) ->
+        term_to_atom(Error, RawAtom),
+        ( compound(Error) -> functor(Error, FunctorName2, FunctorArity2) ; (FunctorName2 = '', FunctorArity2 = 0) ),
+        format(atom(Json), '{"kind":"swipl","message":~q,"raw":~q,"functor":~q,"functor_arity":~w}', [Msg, RawAtom, FunctorName2, FunctorArity2])
+    ;
+        format(atom(Json), '{"kind":"swipl","message":~q,"raw":~q}', [Msg, Msg])
+    ),
+    atom_codes(Json, Codes),
     length(Codes, Len),
     write_u32(Len),
     write_bytes(Codes).

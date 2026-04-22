@@ -24,7 +24,8 @@
 
 use super::alloc::Allocator;
 use super::trie_core::node::{TrieNodeODRc, NODE_ITER_FINISHED};
-use super::gxhash;
+// Use crate-level gxhash wrapper
+use crate::gxhash;
 
 /// Statistics created after merkleization
 #[derive(Default, Debug)]
@@ -41,7 +42,7 @@ pub struct MerkleizeResult {
 
 pub(crate) fn merkleize_impl<V, A>(
     counters: &mut MerkleizeResult,
-    memo: &mut gxhash::HashMap<u128, TrieNodeODRc<V, A>>,
+    memo: &mut crate::gxhash::HashMap<u128, TrieNodeODRc<V, A>>,
     node: &TrieNodeODRc<V, A>,
     value: Option<&V>,
 ) -> (u128, Option<TrieNodeODRc<V, A>>)
@@ -53,7 +54,7 @@ pub(crate) fn merkleize_impl<V, A>(
     use std::hash::{Hash};
     use std::collections::hash_map::Entry;
     const INITIAL_SEED: i64 = 0;
-    let mut hasher = gxhash::GxHasher::with_seed(INITIAL_SEED);
+    let mut hasher = crate::gxhash::GxHasher::with_seed(INITIAL_SEED);
     value.hash(&mut hasher);
     let mut replacement = None;
 
@@ -76,7 +77,7 @@ pub(crate) fn merkleize_impl<V, A>(
             }
         } else {
             // value and no child -> pretend there's an empty node
-            let mut hasher = gxhash::GxHasher::with_seed(INITIAL_SEED);
+            let mut hasher = crate::gxhash::GxHasher::with_seed(INITIAL_SEED);
             val.hash(&mut hasher);
             child_hash = hasher.finish_u128();
         }

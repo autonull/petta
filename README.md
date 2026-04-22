@@ -14,17 +14,18 @@ PeTTa is a high-performance, embeddable runtime for the [MeTTa](https://wiki.ope
 
 ### Prerequisites
 
-- **SWI-Prolog >= 9.3** (for the default SWI-Prolog backend)
-- **Rust nightly** (for the MORK backend and full feature set)
-- **`aes` + `sse2` CPU support** (required by gxhash; add `RUSTFLAGS="-C target-cpu=native"`)
+- **SWI-Prolog >= 9.3** (required for the default SWI-Prolog backend and for running tests)
+- **Rust (stable)** — the default configuration uses the SWI-Prolog subprocess backend and works on stable Rust
+- **Rust nightly** is only required if you explicitly enable the `mork` feature (native zipper backend)
+- **`aes` + `sse2` CPU support** (recommended when building with gxhash for MORK; use `RUSTFLAGS="-C target-cpu=native"`)
 
 ### Build
 
 ```bash
-# Default build (SWI-Prolog backend)
+# Default build (SWI-Prolog subprocess backend; stable Rust)
 cargo build --release
 
-# Full build with MORK + parallel execution + profiling
+# Full build with MORK + parallel execution + profiling (opt-in; requires nightly)
 RUSTFLAGS="-C target-cpu=native" cargo build --release --features mork,parallel,profiling
 ```
 
@@ -193,7 +194,7 @@ let results = engine.process_metta_strings_parallel(&[
 |---|---|---|
 | `swipl` (default) | SWI-Prolog subprocess backend | None (uses existing Prolog files) |
 | `pure-rust` | Future: disable Prolog fallback | — |
-| `mork` | MORK zipper-based execution backend | MORK crates, PathMap 0.3 (git), gxhash |
+| `mork` | MORK zipper-based execution backend (opt-in; requires nightly) | MORK crates, PathMap 0.3 (git), gxhash |
 | `parallel` | Rayon-based parallel batch execution | `rayon` |
 | `profiling` | Query timing & profiling support | `parking_lot` |
 | `faiss` | FAISS vector atom space support (future) | `faiss` |
@@ -418,4 +419,3 @@ PeTTa integrates several open-source components. Below is a complete list of all
 | **PLN** | Probabilistic Logic Networks | `trueagi-io/PLN` |
 | **chaining** | Forward/backward chaining | `trueagi-io/chaining` |
 | **metta-examples** | MeTTa example library | `trueagi-io/metta-examples` |
-

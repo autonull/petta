@@ -6,7 +6,7 @@ use crate::pathmap::{morphisms::Catamorphism, PathMap, zipper::{ZipperMoving, Zi
 extern crate alloc;
 use alloc::collections::BTreeMap;
 
-use crate::pathmap::gxhash::GxHasher;
+use crate::gxhash::GxHasher;
 
 macro_rules! hex { () => { b'A'..=b'F' | b'0'..=b'9'}; }
 

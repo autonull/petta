@@ -1,15 +1,13 @@
 
 
 
-#[cfg(not(any(miri, target_arch = "riscv64")))]
-pub(crate) mod gxhash {
-    pub use ::gxhash::*;
-}
-
-#[cfg(any(miri, target_arch="riscv64"))]
-pub(crate) mod gxhash {
-    pub use super::hash_fallback::*;
-}
+// Use the crate-level gxhash wrapper as the single canonical entrypoint.
+// The wrapper re-exports the external `gxhash` crate when the feature is
+// enabled and the platform supports it; otherwise it re-exports the
+// local `hash_fallback` implementation. This avoids direct references to
+// ::gxhash throughout the codebase which caused platform-specific compile
+// failures.
+pub(crate) use crate::gxhash as gxhash;
 
 
 /// Traits to implement [ring](https://en.wikipedia.org/wiki/Ring_(mathematics)) and other algebraic

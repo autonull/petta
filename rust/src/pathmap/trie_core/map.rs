@@ -7,7 +7,9 @@ use super::super::zipper::*;
 use super::super::merkleization::{MerkleizeResult, merkleize_impl};
 use super::super::ring::{AlgebraicResult, AlgebraicStatus, COUNTER_IDENT, SELF_IDENT, Lattice, LatticeRef, DistributiveLattice, DistributiveLatticeRef, Quantale};
 
-use super::super::gxhash;
+// Use the crate-level gxhash wrapper directly. This module references it via
+// the crate root to avoid private re-export issues.
+use crate::gxhash;
 
 /// A map type that uses a trie based on byte slices (`&[u8]`) known as "paths"
 ///
@@ -589,7 +591,7 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> PathMap<V, A> {
             return MerkleizeResult::default();
         };
         let mut result = MerkleizeResult::default();
-        let mut memo = gxhash::HashMap::default();
+        let mut memo = crate::gxhash::HashMap::default();
         let (hash, new_root) = merkleize_impl(&mut result, &mut memo, root, self.root_val());
         result.hash = hash;
         if let Some(new_root) = new_root {

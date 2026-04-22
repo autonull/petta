@@ -148,6 +148,74 @@ impl PeTTaEngine {
         Ok(engine)
     }
 
+    // Attempt to restart the subprocess. This is used when the child process
+    // unexpectedly closes; we recreate the temporary server source and spawn
+    // a fresh swipl process. On success, stdin/stdout/stderr buffers are reset
+    // and restart_count is incremented.
+    fn restart_subprocess(&mut self) -> Result<(), PeTTaError> {
+        info!("Attempting to restart SWI-Prolog subprocess");
+        let config = &self.config;
+
+        check_swipl_version(&config.swipl_path, config.min_swipl_version)?;
+        let src_dir = config
+            .src_dir
+            .as_ref()
+            .ok_or_else(|| PeTTaError::PathError("No source directory configured".into()))?;
+        let server_source = build_server_source(src_dir, config.verbose)?;
+        let tmp = tempfile::Builder::new()
+            .prefix("petta_srv_")
+            .suffix(".pl")
+            .tempfile()
+            .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
+        let tmp_path = tmp.path().to_path_buf();
+        std::fs::write(&tmp_path, &server_source).map_err(|e| PeTTaError::WriteError(e.to_string()))?;
+
+        let mut child = Command::new(&config.swipl_path)
+            .arg("-q")
+            .arg("-t")
+            .arg("halt")
+            .arg(&tmp_path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| PeTTaError::SpawnSwipl(e.to_string()))?;
+
+        let stderr = child.stderr.take();
+        let stderr_output = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let stderr_output_clone = std::sync::Arc::clone(&stderr_output);
+        std::thread::spawn(move || {
+            if let Some(mut s) = stderr {
+                let mut buf = [0u8; 4096];
+                while let Ok(n) = s.read(&mut buf) {
+                    if n == 0 { break; }
+                    trace!("Prolog stderr: {}", String::from_utf8_lossy(&buf[..n]));
+                    stderr_output_clone.lock().unwrap().extend_from_slice(&buf[..n]);
+                }
+            }
+        });
+
+        let stdin = child.stdin.take().ok_or_else(|| PeTTaError::SpawnSwipl("no stdin".into()))?;
+        let stdout = BufReader::new(child.stdout.take().ok_or_else(|| PeTTaError::SpawnSwipl("no stdout".into()))?);
+        std::mem::forget(tmp);
+
+        // replace old child and pipes
+        if let Some(mut old_child) = self.child.take() {
+            let _ = old_child.kill();
+            let _ = old_child.wait();
+        }
+        self.child = Some(child);
+        self.stdin_pipe = Some(stdin);
+        self.stdout_pipe = Some(stdout);
+        self.stderr_output = stderr_output;
+        self.restart_count = self.restart_count.saturating_add(1);
+
+        // wait for ready signal
+        self.wait_for_ready()?;
+        info!("SWI-Prolog subprocess restarted successfully");
+        Ok(())
+    }
+
     fn wait_for_ready(&mut self) -> Result<(), PeTTaError> {
         trace!("Waiting for Prolog ready signal (0xFF)");
         let reader = self.stdout_pipe.as_mut().ok_or_else(|| {
@@ -172,21 +240,64 @@ impl PeTTaEngine {
     }
 
     pub fn load_metta_file(&mut self, file_path: &Path) -> Result<Vec<MettaResult>, PeTTaError> {
-        proto_load_metta_file(&mut self.stdin_pipe, &mut self.stdout_pipe, file_path, &self.config)
+        // Wrap protocol call and attempt restart on child-closed errors up to max_restarts
+        let mut attempts = 0u32;
+        loop {
+            let r = proto_load_metta_file(&mut self.stdin_pipe, &mut self.stdout_pipe, file_path, &self.config);
+            match r {
+                Err(PeTTaError::ProtocolError(ref msg)) if msg.contains("child closed") => {
+                    if attempts >= self.config.max_restarts {
+                        return Err(PeTTaError::SubprocessCrashed { restarts: self.restart_count });
+                    }
+                    attempts += 1;
+                    self.restart_subprocess()?;
+                    continue;
+                }
+                other => return other,
+            }
+        }
     }
 
     pub fn load_metta_files(
         &mut self,
         file_paths: &[&Path],
     ) -> Result<Vec<MettaResult>, PeTTaError> {
-        proto_load_metta_files(&mut self.stdin_pipe, &mut self.stdout_pipe, file_paths, &self.config)
+        let mut attempts = 0u32;
+        loop {
+            let r = proto_load_metta_files(&mut self.stdin_pipe, &mut self.stdout_pipe, file_paths, &self.config);
+            match r {
+                Err(PeTTaError::ProtocolError(ref msg)) if msg.contains("child closed") => {
+                    if attempts >= self.config.max_restarts {
+                        return Err(PeTTaError::SubprocessCrashed { restarts: self.restart_count });
+                    }
+                    attempts += 1;
+                    self.restart_subprocess()?;
+                    continue;
+                }
+                other => return other,
+            }
+        }
     }
 
     pub fn process_metta_string(
         &mut self,
         metta_code: &str,
     ) -> Result<Vec<MettaResult>, PeTTaError> {
-        proto_process_metta_string(&mut self.stdin_pipe, &mut self.stdout_pipe, metta_code, &self.config)
+        let mut attempts = 0u32;
+        loop {
+            let r = proto_process_metta_string(&mut self.stdin_pipe, &mut self.stdout_pipe, metta_code, &self.config);
+            match r {
+                Err(PeTTaError::ProtocolError(ref msg)) if msg.contains("child closed") => {
+                    if attempts >= self.config.max_restarts {
+                        return Err(PeTTaError::SubprocessCrashed { restarts: self.restart_count });
+                    }
+                    attempts += 1;
+                    self.restart_subprocess()?;
+                    continue;
+                }
+                other => return other,
+            }
+        }
     }
 
     pub fn stderr_output(&self) -> String {

@@ -96,7 +96,7 @@ use super::{
 use super::trie_core::r#ref::{TrieRef, TrieRefBorrowed, TrieRefOwned};
 use super::trie_core::node::PayloadRef;
 
-use super::gxhash::{GxHasher, HashMap, HashMapExt};
+use crate::gxhash::{GxHasher, HashMap, HashMapExt};
 
 /// The identifier of a node (branch node or line node)
 ///

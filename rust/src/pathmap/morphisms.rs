@@ -77,7 +77,7 @@ use super::trie_core::node::TrieNodeODRc;
 use super::zipper;
 use super::zipper::*;
 
-use super::gxhash::{self, HashMap, HashMapExt};
+use crate::hash_fallback::{HashMap, GxHasher};
 
 /// Provides methods to perform a catamorphism on types that can reference or contain a trie
 pub trait Catamorphism<V> {
@@ -239,7 +239,7 @@ pub trait Catamorphism<V> {
         V: std::hash::Hash
     {
         self.hash_with(|v| {
-            let mut hasher = gxhash::GxHasher::with_seed(0);
+            let mut hasher = GxHasher::with_seed(0);
             v.hash(&mut hasher);
             hasher.finish_u128()
         })
@@ -252,7 +252,7 @@ pub trait Catamorphism<V> {
         F: Fn(&V) -> u128
     {
         self.into_cata_cached(|bm, hs, mv| {
-            let mut hasher = gxhash::GxHasher::with_seed(0b0100001010101101111110010110100110000010011000100100100111110111i64);
+            let mut hasher = GxHasher::with_seed(0b0100001010101101111110010110100110000010011000100100100111110111i64);
             hasher.write(unsafe { slice_from_raw_parts(bm.0.as_ptr() as *const u8, 32).as_ref().unwrap_unchecked() });
             hasher.write(unsafe { slice_from_raw_parts(hs.as_ptr() as *const u8, 16*hs.len()).as_ref().unwrap_unchecked() });
             if let Some(v) = mv { hasher.write_u128(val_hash(v)) };

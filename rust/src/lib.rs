@@ -58,6 +58,12 @@ pub mod pathmap;
 /// Shared fallback hasher for environments where gxhash is unavailable.
 mod hash_fallback;
 
+/// Crate-level wrapper for gxhash. This file re-exports either the external
+/// `gxhash` crate or our local `hash_fallback` implementation depending on
+/// platform/feature availability. It allows existing code that refers to
+/// `gxhash::...` to compile against the fallback.
+pub mod gxhash;
+
 #[cfg(feature = "mork")]
 #[doc(hidden)]
 pub use mork::expr::compute_length;

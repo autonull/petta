@@ -67,7 +67,7 @@ fn main() {
                 eprintln!("       petta --repl             (start interactive REPL)");
                 eprintln!("  -v, --verbose    Show debug output");
                 eprintln!("  -t, --time       Show execution time");
-                eprintln!("  -b, --backend    Backend to use: mork (default) or prolog");
+                eprintln!("  -b, --backend    Backend to use: mork (opt-in) or prolog (default)");
                 eprintln!("  -i, --repl       Start interactive REPL");
                 run_repl(&project_root, backend);
                 return;

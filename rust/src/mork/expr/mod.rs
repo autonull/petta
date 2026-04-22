@@ -1,7 +1,6 @@
 
 #![cfg_attr(test, allow(implicit_autoref))]
 
-#[allow(unused_imports)]
 use std::{
     fmt::{format, Debug, Formatter, Write},
     hash::Hasher,
@@ -11,6 +10,7 @@ use std::{
 };
 use std::collections::{BTreeMap, HashMap};
 use smallvec::SmallVec;
+use crate::gxhash;
 
 pub mod macros;
 
@@ -218,7 +218,7 @@ impl Expr {
 
     pub fn hash(self) -> u128 {
         let s = unsafe { self.span().as_ref().unwrap() };
-        gxhash::gxhash128(s, 0)
+        crate::gxhash::gxhash128(s, 0)
     }
 
     pub fn size(self) -> usize {
@@ -1848,10 +1848,10 @@ pub fn apply(n: u8, mut original_intros: u8, mut new_intros: u8, ez: &mut ExprZi
 
 #[inline(never)]
 pub fn unify(mut stack: Vec<(ExprEnv, ExprEnv)>) -> Result<BTreeMap<ExprVar, ExprEnv>, UnificationFailure> {
-    use crate::pathmap::gxhash::HashSetExt;
+    use crate::gxhash::HashSetExt;
     let mut bindings: BTreeMap<ExprVar, ExprEnv> = BTreeMap::new();
     let mut iterations = 0;
-    let mut encountered: gxhash::HashSet<(ExprEnv, ExprEnv)> = gxhash::HashSet::new();
+    let mut encountered: crate::gxhash::HashSet<(ExprEnv, ExprEnv)> = crate::gxhash::HashSet::new();
 
     macro_rules! step {
         (occurs $x:expr, $e:expr) => {{
@@ -2195,7 +2195,7 @@ fn anti_unify_apply(
 
 mod tests {
     use std::hash::{Hasher, Hash};
-    use crate::pathmap::gxhash::GxHasher;
+    use crate::gxhash::GxHasher;
     use super::*;
     #[test]
     fn test_unify() {

@@ -26,9 +26,8 @@ pub enum BackendErrorKind {
         detail: String,
     },
 
-    #[error("Variable {var} is not bound")]
+    #[error("Variable is not bound")]
     UnboundVariable {
-        var: String,
         location: Option<String>,
     },
 
@@ -106,7 +105,7 @@ impl From<BackendErrorKind> for SwiplErrorKind {
             BackendErrorKind::ExistenceError { error_type, term } => SwiplErrorKind::ExistenceError { error_type, term },
             BackendErrorKind::StackOverflow { limit } => SwiplErrorKind::StackOverflow { limit },
             BackendErrorKind::EvaluationError(msg) => SwiplErrorKind::Generic(msg),
-            BackendErrorKind::UnboundVariable { var, location } => SwiplErrorKind::UninstantiatedArgument { location },
+            BackendErrorKind::UnboundVariable { location } => SwiplErrorKind::UninstantiatedArgument { location },
             BackendErrorKind::Generic(msg) => SwiplErrorKind::Generic(msg),
         }
     }
@@ -186,7 +185,77 @@ fn extract_between(s: &str, start: &str, end: &str) -> Option<String> {
     Some(rest[..ei].to_string())
 }
 
+fn parse_json_error(raw: &str) -> Option<BackendErrorKind> {
+    // Quick check: must start with '{' (allow whitespace)
+    if raw.trim_start().starts_with('{') {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(raw) {
+            if let Some(obj) = v.as_object() {
+                // message/raw fields
+                let message = obj.get("message").and_then(|m| m.as_str()).map(|s| s.to_string());
+                let raw_field = obj.get("raw").and_then(|m| m.as_str()).map(|s| s.to_string());
+                // Additional structured fields we may emit from Prolog
+                let functor = obj.get("functor").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let _functor_arity = obj.get("functor_arity").and_then(|v| v.as_u64()).map(|n| n as usize);
+                let name = obj.get("name").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let name_arity = obj.get("name_arity").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let suggestion = obj.get("suggestion").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let context = obj.get("context").and_then(|v| v.as_str()).map(|s| s.to_string());
+                // kind-based parsing (for now treat as swipl-like)
+                if let Some(kind) = obj.get("kind").and_then(|k| k.as_str()) {
+                match kind {
+                    "swipl" | "prolog" => {
+                        // Use explicit structured fields when present to construct
+                        // precise BackendErrorKind variants.
+                        if let (Some(n), Some(a)) = (name.clone(), name_arity.clone()) {
+                            // Try to parse name_arity as an arity number
+                            if let Ok(arity) = a.parse::<usize>() {
+                                return Some(BackendErrorKind::UndefinedFunction { name: n, arity, suggestion });
+                            }
+                        }
+                        if let Some(f) = functor.clone() {
+                            // Map some known functors heuristically
+                            if f.contains("syntax_error") {
+                                return Some(BackendErrorKind::SyntaxError {
+                                    location: context.clone(),
+                                    line: None,
+                                    column: None,
+                                    detail: message.clone().unwrap_or_else(|| "syntax error".into()),
+                                });
+                            }
+                            if f.contains("existence_error") {
+                                return Some(BackendErrorKind::ExistenceError {
+                                    error_type: f,
+                                    term: raw_field.clone().unwrap_or_default(),
+                                });
+                            }
+                        }
+                        // Prefer the 'formal' or 'raw' fields if available; fall back to message.
+                        if let Some(formal) = obj.get("formal").and_then(|v| v.as_str()) {
+                            // Try parsing the formal representation first
+                            if let Ok(k) = parse_error_kind(formal) { return Some(k); }
+                        }
+                        let probe = raw_field.as_deref().or(message.as_deref()).unwrap_or(raw);
+                        return parse_error_kind(probe).ok();
+                    }
+                    _ => {}
+                }
+                }
+                // fallback: use message/raw or raw text
+                if let Some(msg) = message.or(raw_field) {
+                    return Some(BackendErrorKind::Generic(msg));
+                }
+            }
+        }
+    }
+    None
+}
+
 fn parse_error_kind(raw: &str) -> Result<BackendErrorKind, String> {
+    // Try JSON structured error first. Prolog may emit a JSON object with
+    // deterministic fields when available. Example: {"kind":"swipl","message":"...","raw":"..."}
+    if let Some(kind) = parse_json_error(raw) {
+        return Ok(kind);
+    }
     if raw.contains("existence_error") && raw.contains("procedure") {
         if let Some((name, arity)) = extract_name_arity(raw) {
             return Ok(BackendErrorKind::UndefinedFunction { name, arity, suggestion: None });
@@ -214,7 +283,6 @@ fn parse_error_kind(raw: &str) -> Result<BackendErrorKind, String> {
     }
     if raw.contains("uninstantiated") {
         return Ok(BackendErrorKind::UnboundVariable {
-            var: "unknown".into(),
             location: extract_between(raw, "in ", " at"),
         });
     }
