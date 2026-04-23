@@ -130,9 +130,7 @@ impl PeTTaEngine {
             match r {
                 Err(PeTTaError::ProtocolError(ref msg)) if msg.contains("child closed") => {
                     if attempts >= self.config.max_restarts {
-                        return Err(PeTTaError::SubprocessCrashed {
-                            restarts: self.restart_count,
-                        });
+                        return Err(PeTTaError::SubprocessCrashed { restarts: self.restart_count });
                     }
                     attempts += 1;
                     self.restart_subprocess()?;
@@ -159,9 +157,7 @@ impl PeTTaEngine {
             match r {
                 Err(PeTTaError::ProtocolError(ref msg)) if msg.contains("child closed") => {
                     if attempts >= self.config.max_restarts {
-                        return Err(PeTTaError::SubprocessCrashed {
-                            restarts: self.restart_count,
-                        });
+                        return Err(PeTTaError::SubprocessCrashed { restarts: self.restart_count });
                     }
                     attempts += 1;
                     self.restart_subprocess()?;
@@ -173,7 +169,10 @@ impl PeTTaEngine {
     }
 
     /// Process a MeTTa string
-    pub fn process_metta_string(&mut self, metta_code: &str) -> Result<Vec<MettaResult>, PeTTaError> {
+    pub fn process_metta_string(
+        &mut self,
+        metta_code: &str,
+    ) -> Result<Vec<MettaResult>, PeTTaError> {
         let mut attempts = 0u32;
         loop {
             let r = process_metta_string(
@@ -185,9 +184,7 @@ impl PeTTaEngine {
             match r {
                 Err(PeTTaError::ProtocolError(ref msg)) if msg.contains("child closed") => {
                     if attempts >= self.config.max_restarts {
-                        return Err(PeTTaError::SubprocessCrashed {
-                            restarts: self.restart_count,
-                        });
+                        return Err(PeTTaError::SubprocessCrashed { restarts: self.restart_count });
                     }
                     attempts += 1;
                     self.restart_subprocess()?;
@@ -310,20 +307,13 @@ impl PeTTaEngine {
         &mut self,
         file_path: &Path,
     ) -> Result<(Vec<MettaResult>, profiler::QueryProfile), PeTTaError> {
-        let abs = file_path
-            .canonicalize()
-            .map_err(|e| PeTTaError::PathError(e.to_string()))?;
+        let abs = file_path.canonicalize().map_err(|e| PeTTaError::PathError(e.to_string()))?;
         if !abs.exists() {
             return Err(PeTTaError::FileNotFound(abs));
         }
         let input_size = abs.to_string_lossy().len();
         self.execute_profiled("load_metta_file", input_size, |engine| {
-            load_metta_file(
-                &mut engine.stdin_pipe,
-                &mut engine.stdout_pipe,
-                &abs,
-                &engine.config,
-            )
+            load_metta_file(&mut engine.stdin_pipe, &mut engine.stdout_pipe, &abs, &engine.config)
         })
     }
 

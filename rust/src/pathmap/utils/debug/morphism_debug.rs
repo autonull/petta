@@ -53,7 +53,7 @@ impl<V: 'static + Clone + Send + Sync + Unpin, A: Allocator + 'static> Catamorph
         W: Clone,
         AlgF: Fn(&ByteMask, &mut [W], Option<&V>, &[u8], &[u8]) -> Result<W, E>,
     {
-        let rz = self.into_read_zipper(&[]);
+        let rz = self.into_read_zipper([]);
         rz.into_cata_jumping_cached_fallible_debug(alg_f)
     }
 }

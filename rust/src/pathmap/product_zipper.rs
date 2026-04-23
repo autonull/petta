@@ -185,7 +185,7 @@ impl<'trie, V: Clone + Send + Sync + Unpin + 'trie, A: Allocator + 'trie> Zipper
     for ProductZipper<'_, 'trie, V, A>
 {
     fn at_root(&self) -> bool {
-        self.path().len() == 0
+        self.path().is_empty()
     }
     fn reset(&mut self) {
         self.factor_paths.clear();
@@ -212,7 +212,7 @@ impl<'trie, V: Clone + Send + Sync + Unpin + 'trie, A: Allocator + 'trie> Zipper
 
             if self.has_next_factor() {
                 if self.z.child_count() == 0
-                    && self.factor_paths.last().map(|l| *l).unwrap_or(0) < self.path().len()
+                    && self.factor_paths.last().copied().unwrap_or(0) < self.path().len()
                 {
                     self.enroll_next_factor();
                 }
@@ -241,34 +241,31 @@ impl<'trie, V: Clone + Send + Sync + Unpin + 'trie, A: Allocator + 'trie> Zipper
     #[inline]
     fn descend_to_byte(&mut self, k: u8) {
         self.z.descend_to_byte(k);
-        if self.z.child_count() == 0 {
-            if self.has_next_factor() {
-                if self.z.path_exists() {
+        if self.z.child_count() == 0
+            && self.has_next_factor()
+                && self.z.path_exists() {
                     debug_assert!(
-                        self.factor_paths.last().map(|l| *l).unwrap_or(0) < self.path().len()
+                        self.factor_paths.last().copied().unwrap_or(0) < self.path().len()
                     );
                     self.enroll_next_factor();
-                    if self.z.node_key().len() > 0 {
+                    if !self.z.node_key().is_empty() {
                         self.z.regularize();
                     }
                 }
-            }
-        }
     }
     #[inline]
     fn descend_to_existing_byte(&mut self, k: u8) -> bool {
         let descended = self.z.descend_to_existing_byte(k);
-        if descended && self.z.child_count() == 0 {
-            if self.has_next_factor() {
+        if descended && self.z.child_count() == 0
+            && self.has_next_factor() {
                 debug_assert!(
-                    self.factor_paths.last().map(|l| *l).unwrap_or(0) < self.path().len()
+                    self.factor_paths.last().copied().unwrap_or(0) < self.path().len()
                 );
                 self.enroll_next_factor();
-                if self.z.node_key().len() > 0 {
+                if !self.z.node_key().is_empty() {
                     self.z.regularize();
                 }
             }
-        }
         descended
     }
     fn descend_indexed_byte(&mut self, child_idx: usize) -> bool {

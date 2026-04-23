@@ -199,8 +199,8 @@ where
     }
 
     fn descend_to_byte(&mut self, k: u8) {
-        self.a.descend_to(&[k]);
-        self.b.descend_to(&[k]);
+        self.a.descend_to([k]);
+        self.b.descend_to([k]);
     }
 
     fn descend_first_byte(&mut self) -> bool {

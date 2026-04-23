@@ -484,11 +484,11 @@ impl core::ops::BitAndAssign for ByteMask {
 impl Lattice for ByteMask {
     #[inline]
     fn pjoin(&self, other: &Self) -> AlgebraicResult<Self> {
-        self.0.pjoin(&other.0).map(|mask| Self(mask))
+        self.0.pjoin(&other.0).map(Self)
     }
     #[inline]
     fn pmeet(&self, other: &Self) -> AlgebraicResult<Self> {
-        self.0.pmeet(&other.0).map(|mask| Self(mask))
+        self.0.pmeet(&other.0).map(Self)
     }
 }
 
@@ -498,7 +498,7 @@ impl DistributiveLattice for ByteMask {
     where
         Self: Sized,
     {
-        self.0.psubtract(&other.0).map(|mask| Self(mask))
+        self.0.psubtract(&other.0).map(Self)
     }
 }
 
@@ -577,10 +577,10 @@ pub trait BitMask {
 impl BitMask for [u64; 4] {
     #[inline]
     fn count_bits(&self) -> usize {
-        return (self[0].count_ones()
+        (self[0].count_ones()
             + self[1].count_ones()
             + self[2].count_ones()
-            + self[3].count_ones()) as usize;
+            + self[3].count_ones()) as usize
     }
     #[inline]
     fn is_empty_mask(&self) -> bool {
@@ -754,7 +754,7 @@ fn bitmask_algebraic_result(
     if result == *other_mask {
         mask |= COUNTER_IDENT;
     }
-    if mask > 0 { return AlgebraicResult::Identity(mask) } else { AlgebraicResult::Element(result) }
+    if mask > 0 { AlgebraicResult::Identity(mask) } else { AlgebraicResult::Element(result) }
 }
 
 /// Returns a new empty mask

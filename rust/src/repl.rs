@@ -8,8 +8,8 @@ use std::path::PathBuf;
 #[cfg(feature = "repl")]
 use rustyline::DefaultEditor;
 
-use petta::{Backend, EngineConfig, PeTTaEngine};
 use crate::utils::{cyan, green, red, yellow};
+use petta::{Backend, EngineConfig, PeTTaEngine};
 
 /// REPL configuration
 #[derive(Debug, Clone)]
@@ -33,10 +33,7 @@ impl Default for ReplConfig {
 
 impl ReplConfig {
     pub fn new(project_root: impl Into<PathBuf>) -> Self {
-        Self {
-            project_root: project_root.into(),
-            ..Default::default()
-        }
+        Self { project_root: project_root.into(), ..Default::default() }
     }
 
     pub fn verbose(mut self, verbose: bool) -> Self {
@@ -49,18 +46,18 @@ impl ReplConfig {
         self
     }
 
-    pub fn history_file(mut self, path: impl Into<PathBuf>) -> Self {
-        self.history_file = path.into();
-        self
-    }
+#[allow(dead_code)]
+pub fn history_file(mut self, path: impl Into<PathBuf>) -> Self {
+    self.history_file = path.into();
+    self
+}
 }
 
 /// Start the interactive REPL
 #[cfg(feature = "repl")]
 pub fn run_repl(config: &ReplConfig) {
-    let engine_config = EngineConfig::new(&config.project_root)
-        .verbose(config.verbose)
-        .backend(config.backend);
+    let engine_config =
+        EngineConfig::new(&config.project_root).verbose(config.verbose).backend(config.backend);
 
     let mut engine = match PeTTaEngine::with_config(&engine_config) {
         Ok(e) => e,
@@ -80,11 +77,7 @@ pub fn run_repl(config: &ReplConfig) {
         let _ = rl.load_history(&config.history_file);
     }
 
-    println!(
-        "{} - {} backend",
-        cyan("PeTTa REPL"),
-        yellow(&config.backend.to_string())
-    );
+    println!("{} - {} backend", cyan("PeTTa REPL"), yellow(&config.backend.to_string()));
     println!("Type {} for available commands.\n", cyan(":help"));
 
     loop {
@@ -123,51 +116,37 @@ pub fn run_repl(config: &ReplConfig) {
 
 /// Handle REPL commands (returns true to quit)
 #[cfg(feature = "repl")]
-fn handle_repl_command(
-    line: &str,
-    engine: &mut PeTTaEngine,
-    backend: Backend,
-) -> bool {
+fn handle_repl_command(line: &str, engine: &mut PeTTaEngine, backend: Backend) -> bool {
     match line {
         ":quit" | ":q" => {
             println!("{}", green("Goodbye!"));
-            return true;
+            true
         }
 
         ":help" | ":h" => {
             print_help();
-            return false;
+            false
         }
 
         ":clear" | ":cl" => {
             print!("\x1b[2J\x1b[1;1H");
-            println!(
-                "{} - {} backend",
-                cyan("PeTTa REPL"),
-                yellow(&backend.to_string())
-            );
-            return false;
+            println!("{} - {} backend", cyan("PeTTa REPL"), yellow(&backend.to_string()));
+            false
         }
 
         ":backend" | ":b" => {
             println!("Current backend: {}", yellow(&backend.to_string()));
-            return false;
+            false
         }
 
         ":info" | ":i" => {
             println!("Backend: {}", yellow(&backend.to_string()));
-            println!(
-                "Engine alive: {}",
-                green(if engine.is_alive() { "yes" } else { "no" })
-            );
-            return false;
+            println!("Engine alive: {}", green(if engine.is_alive() { "yes" } else { "no" }));
+            false
         }
 
         _ if line.starts_with(":load ") || line.starts_with(":l ") => {
-            let path = line
-                .trim_start_matches(":load")
-                .trim_start_matches(":l")
-                .trim();
+            let path = line.trim_start_matches(":load").trim_start_matches(":l").trim();
             let path_buf = PathBuf::from(path);
             if !path_buf.exists() {
                 eprintln!("{}: file not found: {}", red("Error"), path);
@@ -182,7 +161,7 @@ fn handle_repl_command(
                 }
                 Err(e) => eprintln!("{}: {}", red("Error"), e),
             }
-            return false;
+            false
         }
 
         _ if line.starts_with(':') => {
@@ -192,7 +171,7 @@ fn handle_repl_command(
                 line,
                 cyan(":help")
             );
-            return false;
+            false
         }
 
         // Execute MeTTa expression
@@ -209,7 +188,7 @@ fn handle_repl_command(
                 }
                 Err(e) => eprintln!(" {}", red(&e.to_string())),
             }
-            return false;
+            false
         }
     }
 }

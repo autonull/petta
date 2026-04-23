@@ -9,7 +9,7 @@ use std::time::Instant;
 use tracing::{debug, trace, warn};
 
 use super::config::EngineConfig;
-use super::errors::{parse_backend_error, PeTTaError};
+use super::errors::{PeTTaError, parse_backend_error};
 use crate::engine::values::MettaResult;
 
 /// Manages communication pipes for protocol operations
@@ -23,10 +23,7 @@ impl<'a> PipeManager<'a> {
         stdin_pipe: &'a mut Option<std::process::ChildStdin>,
         stdout_pipe: &'a mut Option<BufReader<std::process::ChildStdout>>,
     ) -> Self {
-        Self {
-            stdin_pipe,
-            stdout_pipe,
-        }
+        Self { stdin_pipe, stdout_pipe }
     }
 
     fn stdin(&mut self) -> Result<&mut std::process::ChildStdin, PeTTaError> {
@@ -49,8 +46,7 @@ trait WriteExt {
 
 impl<W: Write> WriteExt for W {
     fn write_checked(&mut self, data: &[u8]) -> Result<(), PeTTaError> {
-        self.write_all(data)
-            .map_err(|e| PeTTaError::WriteError(e.to_string()))
+        self.write_all(data).map_err(|e| PeTTaError::WriteError(e.to_string()))
     }
 }
 
@@ -66,11 +62,7 @@ impl ProtocolClient {
         payload: &str,
         config: &EngineConfig,
     ) -> Result<Vec<MettaResult>, PeTTaError> {
-        trace!(
-            "Sending query: type={}, payload_len={}",
-            query_type,
-            payload.len()
-        );
+        trace!("Sending query: type={}, payload_len={}", query_type, payload.len());
 
         match send_query_inner(stdin_pipe, stdout_pipe, query_type, payload, config) {
             Ok(results) => Ok(results),
@@ -108,8 +100,7 @@ fn send_query_inner(
     sin.write_checked(&[query_type])?;
     sin.write_checked(&len.to_be_bytes())?;
     sin.write_checked(pb)?;
-    sin.flush()
-        .map_err(|e| PeTTaError::WriteError(e.to_string()))?;
+    sin.flush().map_err(|e| PeTTaError::WriteError(e.to_string()))?;
 
     check_timeout(start_time, config)?;
 
@@ -172,15 +163,13 @@ pub fn read_exact_with_timeout<R: Read>(
     let mut read_count = 0;
     while read_count < buf.len() {
         check_timeout(start_time, config)?;
-        let n = reader
-            .read(&mut buf[read_count..])
-            .map_err(|e| {
-                if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                    PeTTaError::ProtocolError("child closed".into())
-                } else {
-                    PeTTaError::ProtocolError(e.to_string())
-                }
-            })?;
+        let n = reader.read(&mut buf[read_count..]).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                PeTTaError::ProtocolError("child closed".into())
+            } else {
+                PeTTaError::ProtocolError(e.to_string())
+            }
+        })?;
         if n == 0 {
             return Err(PeTTaError::ProtocolError("child closed".into()));
         }
@@ -207,9 +196,7 @@ pub fn load_metta_file(
     file_path: &std::path::Path,
     config: &EngineConfig,
 ) -> Result<Vec<MettaResult>, PeTTaError> {
-    let abs = file_path
-        .canonicalize()
-        .map_err(|e| PeTTaError::PathError(e.to_string()))?;
+    let abs = file_path.canonicalize().map_err(|e| PeTTaError::PathError(e.to_string()))?;
     if !abs.exists() {
         return Err(PeTTaError::FileNotFound(abs));
     }
@@ -231,9 +218,7 @@ pub fn load_metta_files(
     let combined: String = file_paths
         .iter()
         .map(|p| {
-            let abs = p
-                .canonicalize()
-                .map_err(|e| PeTTaError::PathError(e.to_string()))?;
+            let abs = p.canonicalize().map_err(|e| PeTTaError::PathError(e.to_string()))?;
             if !abs.exists() {
                 return Err(PeTTaError::FileNotFound(abs));
             }

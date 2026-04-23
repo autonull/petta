@@ -55,7 +55,8 @@ pub struct TrieRefBorrowed<'a, V: Clone + Send + Sync, A: Allocator = GlobalAllo
 
 impl<V: Clone + Send + Sync> Default for TrieRefBorrowed<'_, V> {
     fn default() -> Self {
-        Self::new_invalid_in(global_alloc())
+        global_alloc();
+        Self::new_invalid_in(())
     }
 }
 
@@ -208,7 +209,7 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> Zipper for TrieRefBorrowed<'_
     fn path_exists(&self) -> bool {
         if self.is_valid() {
             let key = self.node_key();
-            if key.len() > 0 {
+            if !key.is_empty() {
                 self.focus_node.unwrap().as_tagged().node_contains_partial_key(key)
             } else {
                 true
@@ -299,10 +300,10 @@ impl<V: Clone + Send + Sync, A: Allocator> zipper_priv::ZipperPriv for TrieRefBo
     fn get_focus(&self) -> AbstractNodeRef<'_, Self::V, Self::A> {
         if self.is_valid() {
             let node_key = self.node_key();
-            if node_key.len() > 0 {
+            if !node_key.is_empty() {
                 self.focus_node.unwrap().as_tagged().get_node_at_key(self.node_key())
             } else {
-                AbstractNodeRef::BorrowedRc(&self.focus_node.as_ref().unwrap())
+                AbstractNodeRef::BorrowedRc(self.focus_node.as_ref().unwrap())
             }
         } else {
             AbstractNodeRef::None
@@ -311,7 +312,7 @@ impl<V: Clone + Send + Sync, A: Allocator> zipper_priv::ZipperPriv for TrieRefBo
     fn try_borrow_focus(&self) -> Option<&TrieNodeODRc<Self::V, Self::A>> {
         if self.is_valid() {
             let node_key = self.node_key();
-            if node_key.len() == 0 {
+            if node_key.is_empty() {
                 self.focus_node
             } else {
                 match self.focus_node.unwrap().as_tagged().node_get_child(node_key) {
@@ -335,7 +336,7 @@ impl<'a, V: Clone + Send + Sync + Unpin + 'a, A: Allocator + 'a> ZipperReadOnlyV
     fn get_val(&self) -> Option<&'a V> {
         if self.is_valid() {
             let key = self.node_key();
-            if key.len() > 0 {
+            if !key.is_empty() {
                 self.focus_node.unwrap().as_tagged().node_get_val(key)
             } else {
                 unsafe {
@@ -357,7 +358,7 @@ impl<'a, V: Clone + Send + Sync + Unpin + 'a, A: Allocator + 'a> ZipperReadOnlyS
         if self.is_valid() {
             let path = path.as_ref();
             let node_key = self.node_key();
-            if node_key.len() > 0 {
+            if !node_key.is_empty() {
                 Self::new_with_key_and_path_in(
                     self.focus_node.unwrap(),
                     None,
@@ -467,7 +468,7 @@ impl<V: Clone + Send + Sync, A: Allocator> TrieRefOwned<V, A> {
     ) -> Self {
         match focus_node {
             Some(_) => Self {
-                focus_node: focus_node,
+                focus_node,
                 val_or_key: ValOrKey { val: (VAL_SENTINEL, core::mem::ManuallyDrop::new(val)) },
                 alloc,
             },
@@ -512,9 +513,9 @@ impl<V: Clone + Send + Sync, A: Allocator> TrieRefOwned<V, A> {
     }
 
     /// Internal function to implement [ZipperReadOnlySubtries::trie_ref_at_path] for all the types that need it
-    pub(crate) fn new_with_key_and_path_in<'a, 'paths>(
+    pub(crate) fn new_with_key_and_path_in<'paths>(
         mut node: &TrieNodeODRc<V, A>,
-        root_val: Option<&'a V>,
+        root_val: Option<&V>,
         node_key: &'paths [u8],
         mut path: &'paths [u8],
         alloc: A,
@@ -609,7 +610,7 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> Zipper for TrieRefOwned<V, A>
     fn path_exists(&self) -> bool {
         if self.is_valid() {
             let key = self.node_key();
-            if key.len() > 0 {
+            if !key.is_empty() {
                 self.focus_node.as_ref().unwrap().as_tagged().node_contains_partial_key(key)
             } else {
                 true
@@ -641,7 +642,7 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> ZipperValues<V> for TrieRefOw
     fn val(&self) -> Option<&V> {
         if self.is_valid() {
             let key = self.node_key();
-            if key.len() > 0 {
+            if !key.is_empty() {
                 self.focus_node.as_ref().unwrap().as_tagged().node_get_val(key)
             } else {
                 unsafe {
@@ -711,10 +712,10 @@ impl<V: Clone + Send + Sync, A: Allocator> zipper_priv::ZipperPriv for TrieRefOw
     fn get_focus(&self) -> AbstractNodeRef<'_, Self::V, Self::A> {
         if self.is_valid() {
             let node_key = self.node_key();
-            if node_key.len() > 0 {
+            if !node_key.is_empty() {
                 self.focus_node.as_ref().unwrap().as_tagged().get_node_at_key(self.node_key())
             } else {
-                AbstractNodeRef::BorrowedRc(&self.focus_node.as_ref().unwrap())
+                AbstractNodeRef::BorrowedRc(self.focus_node.as_ref().unwrap())
             }
         } else {
             AbstractNodeRef::None
@@ -723,7 +724,7 @@ impl<V: Clone + Send + Sync, A: Allocator> zipper_priv::ZipperPriv for TrieRefOw
     fn try_borrow_focus(&self) -> Option<&TrieNodeODRc<Self::V, Self::A>> {
         if self.is_valid() {
             let node_key = self.node_key();
-            if node_key.len() == 0 {
+            if node_key.is_empty() {
                 self.focus_node.as_ref()
             } else {
                 match self.focus_node.as_ref().unwrap().as_tagged().node_get_child(node_key) {

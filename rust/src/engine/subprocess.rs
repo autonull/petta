@@ -3,11 +3,10 @@
 //! Handles spawning, restarting, and monitoring the Prolog subprocess.
 
 use std::io::{BufReader, Read};
-use std::process::{Child, Command, Stdio};
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
-
-use tracing::{debug, info, trace};
+use tracing::{debug, trace};
 
 use super::config::EngineConfig;
 use super::errors::PeTTaError;
@@ -31,10 +30,7 @@ pub struct SubprocessManager {
 impl SubprocessManager {
     /// Create a new subprocess manager
     pub fn new(config: EngineConfig) -> Self {
-        Self {
-            config,
-            stderr_output: Arc::new(Mutex::new(Vec::new())),
-        }
+        Self { config, stderr_output: Arc::new(Mutex::new(Vec::new())) }
     }
 
     /// Spawn the SWI-Prolog child process
@@ -91,33 +87,29 @@ impl SubprocessManager {
             }
         });
 
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| PeTTaError::SpawnSwipl("no stdin".into()))?;
+        let stdin = child.stdin.take().ok_or_else(|| PeTTaError::SpawnSwipl("no stdin".into()))?;
         let stdout = BufReader::new(
-            child
-                .stdout
-                .take()
-                .ok_or_else(|| PeTTaError::SpawnSwipl("no stdout".into()))?,
+            child.stdout.take().ok_or_else(|| PeTTaError::SpawnSwipl("no stdout".into()))?,
         );
 
         std::mem::forget(tmp);
         Ok((child, stdin, stdout, self.stderr_output.clone()))
     }
 
-    /// Get the stderr output buffer
-    pub fn stderr_output(&self) -> String {
-        match self.stderr_output.lock() {
-            Ok(data) => String::from_utf8_lossy(&data).to_string(),
-            Err(e) => format!("<stderr buffer poisoned: {}>", e),
-        }
+/// Get the stderr output buffer
+#[allow(dead_code)]
+pub fn stderr_output(&self) -> String {
+    match self.stderr_output.lock() {
+        Ok(data) => String::from_utf8_lossy(&data).to_string(),
+        Err(e) => format!("<stderr buffer poisoned: {}>", e),
     }
+}
 
-    /// Get the configuration
-    pub fn config(&self) -> &EngineConfig {
-        &self.config
-    }
+/// Get the configuration
+#[allow(dead_code)]
+pub fn config(&self) -> &EngineConfig {
+    &self.config
+}
 }
 
 /// Waits for the Prolog ready signal (0xFF)
@@ -125,9 +117,9 @@ pub fn wait_for_ready<R: Read>(reader: &mut R) -> Result<(), PeTTaError> {
     trace!("Waiting for Prolog ready signal (0xFF)");
     loop {
         let mut b = [0u8; 1];
-        reader
-            .read_exact(&mut b)
-            .map_err(|e| PeTTaError::ProtocolError(format!("failed to read ready signal: {}", e)))?;
+        reader.read_exact(&mut b).map_err(|e| {
+            PeTTaError::ProtocolError(format!("failed to read ready signal: {}", e))
+        })?;
         if b[0] == 0xFF {
             debug!("Prolog ready signal received");
             return Ok(());

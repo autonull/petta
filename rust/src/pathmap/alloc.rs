@@ -11,9 +11,7 @@ pub type GlobalAlloc = ();
 
 /// Instantiates the GlobalAlloc type, to work around the "type alias can't use a type alias as a constructor" error
 #[cfg(not(feature = "nightly"))]
-pub const fn global_alloc() -> GlobalAlloc {
-    ()
-}
+pub const fn global_alloc() -> GlobalAlloc {}
 
 /// Wrapper around `std::alloc::Allocator` trait, shims to the `allocator_api` on nightly, does nothing on `stable`
 #[cfg(feature = "nightly")]

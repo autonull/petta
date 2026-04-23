@@ -100,10 +100,10 @@ pub(crate) trait TrieNode<V: Clone + Send + Sync, A: Allocator>:
     ///
     /// NOTE: It perfectly fine for multiple keys to share a prefix, and sometimes that means multiple
     /// results will be identical if the node represents only the prefix portion of the key.
-    fn node_get_payloads<'node, 'res>(
+    fn node_get_payloads<'node>(
         &'node self,
         keys: &[(&[u8], bool)],
-        results: &'res mut [(usize, PayloadRef<'node, V, A>)],
+        results: &mut [(usize, PayloadRef<'node, V, A>)],
     ) -> bool;
 
     /// Returns `true` if the node contains a value at the specified key, otherwise returns `false`
@@ -405,7 +405,9 @@ pub const NODE_ITER_INVALID: u128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 pub const NODE_ITER_FINISHED: u128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE;
 
 /// Internal.  A pointer to an onward link or a value contained within a node
+#[derive(Default)]
 pub(crate) enum PayloadRef<'a, V: Clone + Send + Sync, A: Allocator> {
+    #[default]
     None,
     Val(&'a V),
     Child(&'a TrieNodeODRc<V, A>),
@@ -446,11 +448,6 @@ impl<V: Clone + Send + Sync, A: Allocator> PartialEq for PayloadRef<'_, V, A> {
 }
 impl<V: Clone + Send + Sync, A: Allocator> Eq for PayloadRef<'_, V, A> {}
 
-impl<V: Clone + Send + Sync, A: Allocator> Default for PayloadRef<'_, V, A> {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 impl<'a, V: Clone + Send + Sync, A: Allocator> PayloadRef<'a, V, A> {
     pub fn is_none(&self) -> bool {
@@ -620,7 +617,7 @@ pub(crate) fn node_count_branches_recursive<V: Clone + Send + Sync, A: Allocator
     node: TaggedNodeRef<V, A>,
     key: &[u8],
 ) -> usize {
-    if key.len() == 0 {
+    if key.is_empty() {
         return node.count_branches(b"");
     }
     match node.node_get_child(key) {
@@ -675,8 +672,7 @@ where
                 //Continue to grow range, or do the recursive call, depending on whether
                 // we have the same node as the previous time through the loop
                 if cur_group.is_some() {
-                    if (cur_group.as_ref().unwrap().1 as *const TrieNodeODRc<V, A>)
-                        != (child as *const TrieNodeODRc<V, A>)
+                    if !std::ptr::eq(cur_group.as_ref().unwrap().1, child)
                     {
                         pmeet_generic_recursive_reset::<MAX_PAYLOAD_CNT, V, A>(
                             &mut cur_group,
@@ -801,22 +797,19 @@ fn pmeet_generic_recursive_reset<'trie, const MAX_PAYLOAD_CNT: usize, V, A: Allo
 ) where
     V: Clone + Send + Sync + Lattice,
 {
-    match core::mem::take(cur_group) {
-        Some((group_start, next_node)) => {
-            let group_keys = &mut keys[group_start..idx];
-            let group_results = &mut results[group_start..idx];
-            let group_self_payloads = &self_payloads[group_start..idx];
-            if !pmeet_generic_internal::<MAX_PAYLOAD_CNT, V, A>(
-                group_self_payloads,
-                group_keys,
-                request_results,
-                group_results,
-                next_node.as_tagged(),
-            ) {
-                *is_exhaustive = false;
-            }
+    if let Some((group_start, next_node)) = core::mem::take(cur_group) {
+        let group_keys = &mut keys[group_start..idx];
+        let group_results = &mut results[group_start..idx];
+        let group_self_payloads = &self_payloads[group_start..idx];
+        if !pmeet_generic_internal::<MAX_PAYLOAD_CNT, V, A>(
+            group_self_payloads,
+            group_keys,
+            request_results,
+            group_results,
+            next_node.as_tagged(),
+        ) {
+            *is_exhaustive = false;
         }
-        None => {}
     }
 }
 
@@ -3041,13 +3034,13 @@ pub(crate) fn node_along_path_mut<'a, 'k, V: Clone + Send + Sync, A: Allocator>(
 
     //Step until we get to the end of the key or find a leaf node
     let mut node_ptr: *mut TrieNodeODRc<V, A> = node; //Work-around for lack of polonius
-    if key.len() > 0 {
+    if !key.is_empty() {
         while let Some((consumed_byte_cnt, next_node)) = node.make_mut().node_into_child_mut(key) {
             if consumed_byte_cnt < key.len() || !stop_early {
                 node = next_node;
                 node_ptr = node;
                 key = &key[consumed_byte_cnt..];
-                if key.len() == 0 {
+                if key.is_empty() {
                     break;
                 }
             } else {
@@ -3190,7 +3183,7 @@ mod opaque_dyn_rc_trie_node {
         }
         #[inline]
         pub(crate) fn make_unique(&mut self) {
-            if !Arc::get_mut(&mut self.0).is_some() {
+            if Arc::get_mut(&mut self.0).is_none() {
                 let cloned = self.borrow().clone_self();
                 self.0 = cloned.0;
             }
@@ -3779,7 +3772,7 @@ impl<V: Lattice + Clone + Send + Sync, A: Allocator> Lattice for Option<TrieNode
             },
             Some(l) => match other {
                 None => AlgebraicResult::Identity(SELF_IDENT),
-                Some(r) => l.pjoin(r).map(|result| Some(result)),
+                Some(r) => l.pjoin(r).map(Some),
             },
         }
     }
@@ -3805,7 +3798,7 @@ impl<V: Lattice + Clone + Send + Sync, A: Allocator> Lattice for Option<TrieNode
             None => AlgebraicResult::None,
             Some(l) => match other {
                 None => AlgebraicResult::None,
-                Some(r) => l.pmeet(r).map(|result| Some(result)),
+                Some(r) => l.pmeet(r).map(Some),
             },
         }
     }
@@ -3821,7 +3814,7 @@ impl<V: Lattice + Clone + Send + Sync, A: Allocator> LatticeRef for Option<&Trie
             },
             Some(l) => match other {
                 None => AlgebraicResult::Identity(SELF_IDENT),
-                Some(r) => l.pjoin(r).map(|result| Some(result)),
+                Some(r) => l.pjoin(r).map(Some),
             },
         }
     }
@@ -3833,7 +3826,7 @@ impl<V: Lattice + Clone + Send + Sync, A: Allocator> LatticeRef for Option<&Trie
             None => AlgebraicResult::None,
             Some(l) => match other {
                 None => AlgebraicResult::None,
-                Some(r) => l.pmeet(r).map(|result| Some(result)),
+                Some(r) => l.pmeet(r).map(Some),
             },
         }
     }
@@ -3847,7 +3840,7 @@ impl<V: DistributiveLattice + Clone + Send + Sync, A: Allocator> DistributiveLat
             None => AlgebraicResult::None,
             Some(s) => match other {
                 None => AlgebraicResult::Identity(SELF_IDENT),
-                Some(o) => s.psubtract(o).map(|v| Some(v)),
+                Some(o) => s.psubtract(o).map(Some),
             },
         }
     }
@@ -3862,7 +3855,7 @@ impl<V: DistributiveLattice + Clone + Send + Sync, A: Allocator> DistributiveLat
             None => AlgebraicResult::None,
             Some(s) => match other {
                 None => AlgebraicResult::Identity(SELF_IDENT),
-                Some(o) => s.psubtract(o).map(|v| Some(v)),
+                Some(o) => s.psubtract(o).map(Some),
             },
         }
     }

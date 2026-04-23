@@ -447,7 +447,7 @@ where
                 let cf = unsafe { self_node.values.get_unchecked(cf_idx) };
 
                 //If there is a comparable value in other, keep the whole cf
-                if let Some(_) = other.node_get_val(&[key_byte]) {
+                if other.node_get_val(&[key_byte]).is_some() {
                     new_node.mask.set_bit(key_byte);
                     new_node.values.push(cf.clone());
                 } else {
@@ -645,7 +645,7 @@ where
     }
     #[inline(always)]
     fn node_contains_partial_key(&self, key: &[u8]) -> bool {
-        debug_assert!(key.len() > 0);
+        debug_assert!(!key.is_empty());
         if key.len() == 1 { self.mask.test_bit(key[0]) } else { false }
     }
     #[inline(always)]
@@ -653,7 +653,7 @@ where
         self.get(key[0]).and_then(|cf| cf.rec().map(|child_node| (1, child_node)))
     }
     fn node_get_child_mut(&mut self, key: &[u8]) -> Option<(usize, &mut TrieNodeODRc<V, A>)> {
-        debug_assert!(key.len() > 0);
+        debug_assert!(!key.is_empty());
         self.get_child_mut(key[0]).map(|child_node_ptr| (1, child_node_ptr))
     }
     fn node_replace_child(&mut self, key: &[u8], new_node: TrieNodeODRc<V, A>) {
@@ -661,10 +661,10 @@ where
         let cf = self.get_mut(key[0]).unwrap();
         *cf.rec_mut().unwrap() = new_node;
     }
-    fn node_get_payloads<'node, 'res>(
+    fn node_get_payloads<'node>(
         &'node self,
         keys: &[(&[u8], bool)],
-        results: &'res mut [(usize, PayloadRef<'node, V, A>)],
+        results: &mut [(usize, PayloadRef<'node, V, A>)],
     ) -> bool {
         //DISCUSSION: This function appears overly complicated primarily because it needs to track
         // whether or not a both the val and the rec each cofree are requested, but we don't have a bitmask
@@ -683,73 +683,58 @@ where
         // as soon as the value is requested.
         let mut last_byte: Option<u8> = None;
         //Tracks which CoFrees have yet to be requested from the node
-        let mut requested_mask = ByteMask::from(self.mask);
+        let mut requested_mask = self.mask;
 
         debug_assert!(results.len() >= keys.len());
         for ((key, expect_val), (result_key_len, payload_ref)) in
-            keys.into_iter().zip(results.iter_mut())
+            keys.iter().zip(results.iter_mut())
         {
-            if key.len() > 0 {
+            if !key.is_empty() {
                 let byte = key[0];
 
                 //Check to see if we had a Val from the CoFree that we aren't going to request
-                match &last_byte {
-                    Some(prev_byte) => {
-                        if byte != *prev_byte {
-                            if stashed_val.is_some() {
-                                unrequested_cofree_half = true;
-                            }
-                            stashed_val = None;
-                            last_byte = None;
+                if let Some(prev_byte) = &last_byte {
+                    if byte != *prev_byte {
+                        if stashed_val.is_some() {
+                            unrequested_cofree_half = true;
                         }
+                        stashed_val = None;
+                        last_byte = None;
                     }
-                    None => {}
                 }
 
                 //Check to see if this trip through the loop is the request for the stashed val
-                match stashed_val {
-                    Some(val) => {
-                        if key.len() == 1 && *expect_val {
-                            *result_key_len = 1;
-                            *payload_ref = PayloadRef::Val(val);
-                            stashed_val = None;
-                            continue;
-                        }
+                if let Some(val) = stashed_val {
+                    if key.len() == 1 && *expect_val {
+                        *result_key_len = 1;
+                        *payload_ref = PayloadRef::Val(val);
+                        stashed_val = None;
+                        continue;
                     }
-                    None => {}
                 }
 
                 requested_mask.clear_bit(byte);
-                match self.get(byte) {
-                    Some(cf) => {
-                        //A key longer than 1 byte or an explicit request for a rec link can be answered with a Child
-                        if key.len() > 1 || !*expect_val {
-                            match cf.rec() {
-                                Some(rec) => {
-                                    *result_key_len = 1;
-                                    *payload_ref = PayloadRef::Child(rec);
-                                }
-                                None => {}
-                            }
-                        }
-                        match cf.val() {
-                            Some(val) => {
-                                //Answer an explicit request for this val, or stash the val for
-                                if key.len() == 1 && *expect_val {
-                                    debug_assert!(stashed_val.is_none());
-                                    *result_key_len = 1;
-                                    *payload_ref = PayloadRef::Val(val);
-                                } else {
-                                    if last_byte.is_none() {
-                                        stashed_val = Some(val);
-                                        last_byte = Some(byte);
-                                    }
-                                }
-                            }
-                            None => {}
+                if let Some(cf) = self.get(byte) {
+                    //A key longer than 1 byte or an explicit request for a rec link can be answered with a Child
+                    if key.len() > 1 || !*expect_val {
+                        if let Some(rec) = cf.rec() {
+                            *result_key_len = 1;
+                            *payload_ref = PayloadRef::Child(rec);
                         }
                     }
-                    None => {}
+                    if let Some(val) = cf.val() {
+                        //Answer an explicit request for this val, or stash the val for
+                        if key.len() == 1 && *expect_val {
+                            debug_assert!(stashed_val.is_none());
+                            *result_key_len = 1;
+                            *payload_ref = PayloadRef::Val(val);
+                        } else {
+                            if last_byte.is_none() {
+                                stashed_val = Some(val);
+                                last_byte = Some(byte);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -777,7 +762,7 @@ where
         key: &[u8],
         val: V,
     ) -> Result<(Option<V>, bool), TrieNodeODRc<V, A>> {
-        debug_assert!(key.len() > 0);
+        debug_assert!(!key.is_empty());
         #[cfg(not(feature = "all_dense_nodes"))]
         {
             //Split a new node to hold everything after the first byte of the key
@@ -813,7 +798,7 @@ where
         if key.len() == 1 { self.remove_val(key[0], prune) } else { None }
     }
     fn node_create_dangling(&mut self, key: &[u8]) -> Result<(bool, bool), TrieNodeODRc<V, A>> {
-        debug_assert!(key.len() > 0);
+        debug_assert!(!key.is_empty());
         #[cfg(not(feature = "all_dense_nodes"))]
         {
             //Split a new node to hold everything after the first byte of the key
@@ -840,7 +825,7 @@ where
         }
     }
     fn node_remove_dangling(&mut self, key: &[u8]) -> usize {
-        debug_assert!(key.len() > 0);
+        debug_assert!(!key.is_empty());
         if key.len() == 1 {
             let k = key[0];
             if self.mask.test_bit(k) {
@@ -852,19 +837,16 @@ where
                     return 1;
                 }
                 //Clean up empty nodes too, which may have been left by a ZipperHead
-                match cf.rec() {
-                    Some(node) => {
-                        if node.as_tagged().node_is_empty() {
-                            if cf.has_val() {
-                                cf.set_rec_option(None);
-                            } else {
-                                self.mask.clear_bit(k);
-                                self.values.remove(ix);
-                                return 1;
-                            }
+                if let Some(node) = cf.rec() {
+                    if node.as_tagged().node_is_empty() {
+                        if cf.has_val() {
+                            cf.set_rec_option(None);
+                        } else {
+                            self.mask.clear_bit(k);
+                            self.values.remove(ix);
+                            return 1;
                         }
                     }
-                    None => {}
                 }
             }
         }
@@ -875,7 +857,7 @@ where
         key: &[u8],
         new_node: TrieNodeODRc<V, A>,
     ) -> Result<bool, TrieNodeODRc<V, A>> {
-        debug_assert!(key.len() > 0);
+        debug_assert!(!key.is_empty());
         #[cfg(not(feature = "all_dense_nodes"))]
         {
             //Make a new ListNode to hold everything after the first byte of the key
@@ -940,7 +922,7 @@ where
         }
     }
     fn node_is_empty(&self) -> bool {
-        self.values.len() == 0
+        self.values.is_empty()
     }
     #[inline(always)]
     fn new_iter_token(&self) -> u128 {
@@ -956,7 +938,7 @@ where
             let bit_i = k & 0b00111111;
             debug_assert!(idx < 4);
             let mask: u64 = if bit_i + 1 < 64 {
-                (0xFFFFFFFFFFFFFFFF << bit_i + 1) & unsafe { self.mask.0.get_unchecked(idx) }
+                (0xFFFFFFFFFFFFFFFF << (bit_i + 1)) & unsafe { self.mask.0.get_unchecked(idx) }
             } else {
                 0
             };
@@ -1006,29 +988,23 @@ where
         // result
 
         //IMPL B "Arithmetic"
-        return self.values.iter().rfold(0, |t, cf| {
+        self.values.iter().rfold(0, |t, cf| {
             t + cf.has_val() as usize
                 + cf.rec().map(|r| val_count_below_node(r, cache)).unwrap_or(0)
-        });
+        })
     }
     fn node_goat_val_count(&self) -> usize {
-        return self.values.iter().rfold(0, |t, cf| t + cf.has_val() as usize);
+        self.values.iter().rfold(0, |t, cf| t + cf.has_val() as usize)
     }
     fn node_child_iter_start(&self) -> (u64, Option<&TrieNodeODRc<V, A>>) {
         for (pos, cf) in self.values.iter().enumerate() {
-            match cf.rec() {
-                Some(child) => return ((pos + 1) as u64, Some(child)),
-                None => {}
-            }
+            if let Some(child) = cf.rec() { return ((pos + 1) as u64, Some(child)) }
         }
         (0, None)
     }
     fn node_child_iter_next(&self, token: u64) -> (u64, Option<&TrieNodeODRc<V, A>>) {
         for (pos, cf) in self.values[(token as usize)..].iter().enumerate() {
-            match cf.rec() {
-                Some(child) => return ((pos + 1) as u64 + token, Some(child)),
-                None => {}
-            }
+            if let Some(child) = cf.rec() { return ((pos + 1) as u64 + token, Some(child)) }
         }
         (0, None)
     }
@@ -1042,7 +1018,7 @@ where
         cnt
     }
     fn node_first_val_depth_along_key(&self, key: &[u8]) -> Option<usize> {
-        debug_assert!(key.len() > 0);
+        debug_assert!(!key.is_empty());
         self.get(key[0]).and_then(|cf| if cf.has_val() { Some(0) } else { None })
     }
     fn nth_child_from_key(
@@ -1050,7 +1026,7 @@ where
         key: &[u8],
         n: usize,
     ) -> (Option<u8>, Option<TaggedNodeRef<'_, V, A>>) {
-        if key.len() > 0 {
+        if !key.is_empty() {
             return (None, None);
         }
 
@@ -1080,7 +1056,7 @@ where
 
     fn first_child_from_key(&self, key: &[u8]) -> (Option<&[u8]>, Option<TaggedNodeRef<'_, V, A>>) {
         debug_assert_eq!(key.len(), 0);
-        debug_assert!(self.values.len() > 0);
+        debug_assert!(!self.values.is_empty());
 
         let cf = unsafe { self.values.get_unchecked(0) };
         let prefix = self.mask.indexed_bit::<true>(0).unwrap() as usize;
@@ -1088,7 +1064,7 @@ where
     }
 
     fn node_remove_unmasked_branches(&mut self, key: &[u8], mask: ByteMask, _prune: bool) {
-        debug_assert!(key.len() == 0);
+        debug_assert!(key.is_empty());
         // in the future we can use `drain_filter`, but that's experimental
         let mut lead = 0;
         let mut differs = false;
@@ -1154,7 +1130,7 @@ where
     }
 
     fn prior_branch_key<'key>(&self, key: &'key [u8]) -> &'key [u8] {
-        debug_assert!(key.len() >= 1);
+        debug_assert!(!key.is_empty());
         if key.len() == 1 {
             &[]
         } else {
@@ -1186,7 +1162,7 @@ where
                 } else {
                     mask_i -= 1
                 };
-                if !(mask_i < 4) {
+                if mask_i >= 4  {
                     return (None, None);
                 }
                 if self.mask.0[mask_i] == 0 {
@@ -1208,7 +1184,7 @@ where
 
     fn get_node_at_key(&self, key: &[u8]) -> AbstractNodeRef<'_, V, A> {
         if key.len() < 2 {
-            if key.len() == 0 {
+            if key.is_empty() {
                 if !self.node_is_empty() {
                     AbstractNodeRef::BorrowedDyn(self.as_tagged())
                 } else {
@@ -1357,12 +1333,9 @@ where
                     } else {
                         cf.into_rec()
                     };
-                    match child {
-                        Some(child) => {
-                            let (_status, result) = new_node.join_into_dyn(child);
-                            debug_assert!(result.is_ok());
-                        }
-                        None => {}
+                    if let Some(child) = child {
+                        let (_status, result) = new_node.join_into_dyn(child);
+                        debug_assert!(result.is_ok());
                     }
                 }
 
@@ -1603,11 +1576,11 @@ impl<V: Clone + Send + Sync, A: Allocator> CoFree for OrdinaryCoFree<V, A> {
     type V = V;
     type A = A;
     fn new(rec: Option<TrieNodeODRc<V, A>>, val: Option<V>) -> Self {
-        Self { rec: rec, value: val }
+        Self { rec, value: val }
     }
     fn from_cf<OtherCf: CoFree<V = Self::V, A = Self::A>>(cf: OtherCf) -> Self {
         let (rec, val) = cf.into_both();
-        Self { rec: rec, value: val }
+        Self { rec, value: val }
     }
     fn rec(&self) -> Option<&TrieNodeODRc<V, A>> {
         self.rec.as_ref()
@@ -1943,10 +1916,10 @@ impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V = V, A = A>, OtherCf: Co
             }
             (AlgebraicResult::None, AlgebraicResult::Identity(val_mask)) => {
                 let mut new_mask = val_mask;
-                if !self.rec().is_none() {
+                if self.rec().is_some() {
                     new_mask &= !SELF_IDENT;
                 }
-                if !other.rec().is_none() {
+                if other.rec().is_some() {
                     new_mask &= !COUNTER_IDENT;
                 }
                 if new_mask > 0 {
@@ -1957,10 +1930,10 @@ impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V = V, A = A>, OtherCf: Co
             }
             (AlgebraicResult::Identity(rec_mask), AlgebraicResult::None) => {
                 let mut new_mask = rec_mask;
-                if !self.val().is_none() {
+                if self.val().is_some() {
                     new_mask &= !SELF_IDENT;
                 }
-                if !other.val().is_none() {
+                if other.val().is_some() {
                     new_mask &= !COUNTER_IDENT;
                 }
                 if new_mask > 0 {

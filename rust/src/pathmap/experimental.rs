@@ -59,7 +59,7 @@ impl ZipperPathBuffer for FullZipper {
 
 impl ZipperMoving for FullZipper {
     fn at_root(&self) -> bool {
-        self.path.len() == 0
+        self.path.is_empty()
     }
     fn reset(&mut self) {
         self.path.clear()
@@ -123,7 +123,7 @@ impl FullZipper {
         if next {
             let last = self.path.last_mut().unwrap();
             if *last != 255 {
-                *last = *last + 1;
+                *last += 1;
                 true
             } else {
                 false
@@ -131,7 +131,7 @@ impl FullZipper {
         } else {
             let first = self.path.first_mut().unwrap();
             if *first != 0 {
-                *first = *first - 1;
+                *first -= 1;
                 true
             } else {
                 false

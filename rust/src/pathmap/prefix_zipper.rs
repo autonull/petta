@@ -80,7 +80,7 @@ where
     }
 
     pub fn with_origin(mut self, origin: &[u8]) -> Result<Self, &'static str> {
-        if !starts_with(&*self.prefix, origin) {
+        if !starts_with(&self.prefix, origin) {
             return Err("set_origin must be called within prefix");
         }
         self.origin_depth = origin.len();
@@ -93,7 +93,7 @@ where
     /// The remaining portion of the `prefix` will be part of the [`path`](ZipperMoving::path).
     /// This method resets the zipper, and typically it is called immediately after creating the `PrefixZipper`.
     pub fn set_root_prefix_path(&mut self, root_prefix_path: &[u8]) -> Result<(), &'static str> {
-        if !starts_with(&*self.prefix, root_prefix_path) {
+        if !starts_with(&self.prefix, root_prefix_path) {
             return Err("zipper's prefix must begin with root_prefix_path");
         }
         self.origin_depth = root_prefix_path.len();
@@ -372,7 +372,7 @@ where
         if path.is_empty() {
             return;
         }
-        self.path.extend_from_slice(&path);
+        self.path.extend_from_slice(path);
         self.position = match self.position {
             PrefixPos::Prefix { valid } => PrefixPos::PrefixOff { valid, invalid: path.len() },
             PrefixPos::PrefixOff { valid, invalid } => {
@@ -550,12 +550,12 @@ where
     } //Not sure how we'd implement borrow_raw_parts for a PrefixZipper, in the general case
     fn take_core(&mut self) -> Option<read_zipper_core::ReadZipperCore<'a, 'static, V, A>> {
         if let Some(prefix_path) = self.prefix_path_below_focus() {
-            if prefix_path.len() > 0 {
+            if !prefix_path.is_empty() {
                 let temp_map = self.try_make_map();
-                return temp_map.and_then(|map| {
+                temp_map.and_then(|map| {
                     let mut owned_z: ReadZipperOwned<V, A> = map.into_read_zipper(b"");
                     owned_z.take_core()
-                });
+                })
             } else {
                 self.source.take_core()
             }
@@ -580,7 +580,7 @@ where
         let leaf_map = self.source.try_make_map();
         match self.prefix_path_below_focus() {
             Some(prefix_path) => {
-                if prefix_path.len() > 0 {
+                if !prefix_path.is_empty() {
                     let mut new_map = PathMap::new_in(self.source.alloc());
                     let mut wz = new_map.write_zipper_at_path(prefix_path);
                     let leaf_map = match leaf_map {
@@ -601,10 +601,10 @@ where
             return None;
         }
         if let Some(prefix_path) = self.prefix_path_below_focus() {
-            if prefix_path.len() > 0 {
-                return self.try_make_map().map(|temp_map| TrieRef::from(temp_map));
+            if !prefix_path.is_empty() {
+                self.try_make_map().map(TrieRef::from)
             } else {
-                return self.source.trie_ref();
+                self.source.trie_ref()
             }
         } else {
             Some(TrieRefOwned::new_invalid_in(self.source.alloc()).into())
@@ -624,7 +624,7 @@ where
         let leaf_map = self.source.make_map();
         match self.prefix_path_below_focus() {
             Some(prefix_path) => {
-                if prefix_path.len() > 0 {
+                if !prefix_path.is_empty() {
                     let mut new_map = PathMap::new_in(leaf_map.alloc.clone());
                     let mut wz = new_map.write_zipper_at_path(prefix_path);
                     wz.graft_map(leaf_map);
@@ -638,11 +638,11 @@ where
     }
     fn get_trie_ref(&self) -> TrieRef<'_, V, A> {
         if let Some(prefix_path) = self.prefix_path_below_focus() {
-            if prefix_path.len() > 0 {
+            if !prefix_path.is_empty() {
                 let temp_map = self.make_map();
-                return TrieRef::from(temp_map);
+                TrieRef::from(temp_map)
             } else {
-                return self.source.get_trie_ref();
+                self.source.get_trie_ref()
             }
         } else {
             TrieRefOwned::new_invalid_in(self.source.alloc()).into()

@@ -517,7 +517,7 @@ impl<V> FatAlgebraicResult<V> {
     {
         match self.element {
             None => Self::new(self.identity_mask | 1 << arg_idx, Some(arg.clone())),
-            Some(self_element) => match self_element.pjoin(&arg) {
+            Some(self_element) => match self_element.pjoin(arg) {
                 AlgebraicResult::None => Self::none(),
                 AlgebraicResult::Element(e) => Self::element(e),
                 AlgebraicResult::Identity(mask) => {
@@ -570,7 +570,7 @@ pub trait Lattice {
     where
         Self: Sized + Clone,
     {
-        let mut iter = xs.as_ref().into_iter().enumerate();
+        let mut iter = xs.as_ref().iter().enumerate();
         let mut result = match iter.next() {
             None => return AlgebraicResult::None,
             Some((_, first)) => FatAlgebraicResult::new(SELF_IDENT, Some(first.as_ref().clone())),
@@ -1020,48 +1020,48 @@ pub trait SetLattice {
 #[macro_export]
 macro_rules! set_lattice {
     ( $type_ident:ident $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ >)? ) => {
-        impl $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? crate::pathmap::ring::Lattice for $type_ident $(< $( $lt ),+ >)? where Self: crate::pathmap::ring::SetLattice, <Self as crate::pathmap::ring::SetLattice>::V: crate::pathmap::ring::Lattice {
-            fn pjoin(&self, other: &Self) -> crate::pathmap::ring::AlgebraicResult<Self> {
-                let self_len = crate::pathmap::ring::SetLattice::len(self);
-                let other_len = crate::pathmap::ring::SetLattice::len(other);
-                let mut result = <Self as crate::pathmap::ring::SetLattice>::with_capacity(self_len.max(other_len));
+        impl $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::pathmap::ring::Lattice for $type_ident $(< $( $lt ),+ >)? where Self: $crate::pathmap::ring::SetLattice, <Self as crate::pathmap::ring::SetLattice>::V: crate::pathmap::ring::Lattice {
+            fn pjoin(&self, other: &Self) -> $crate::pathmap::ring::AlgebraicResult<Self> {
+                let self_len = $crate::pathmap::ring::SetLattice::len(self);
+                let other_len = $crate::pathmap::ring::SetLattice::len(other);
+                let mut result = <Self as $crate::pathmap::ring::SetLattice>::with_capacity(self_len.max(other_len));
                 let mut is_ident = self_len >= other_len;
                 let mut is_counter_ident = self_len <= other_len;
-                for (key, self_val) in crate::pathmap::ring::SetLattice::iter(self) {
-                    if let Some(other_val) = crate::pathmap::ring::SetLattice::get(other, key) {
+                for (key, self_val) in $crate::pathmap::ring::SetLattice::iter(self) {
+                    if let Some(other_val) = $crate::pathmap::ring::SetLattice::get(other, key) {
                         // A key in both sets
                         let inner_result = self_val.pjoin(other_val);
-                        crate::pathmap::ring::set_lattice_update_ident_flags_with_result(
+                        $crate::pathmap::ring::set_lattice_update_ident_flags_with_result(
                             &mut result, inner_result, key, self_val, other_val, &mut is_ident, &mut is_counter_ident
                         );
                     } else {
                         // A key in self, but not in other
-                        crate::pathmap::ring::SetLattice::insert(&mut result, key.clone(), self_val.clone());
+                        $crate::pathmap::ring::SetLattice::insert(&mut result, key.clone(), self_val.clone());
                         is_counter_ident = false;
                     }
                 }
                 for (key, value) in SetLattice::iter(other) {
-                    if !crate::pathmap::ring::SetLattice::contains_key(self, key) {
+                    if !$crate::pathmap::ring::SetLattice::contains_key(self, key) {
                         // A key in other, but not in self
-                        crate::pathmap::ring::SetLattice::insert(&mut result, key.clone(), value.clone());
+                        $crate::pathmap::ring::SetLattice::insert(&mut result, key.clone(), value.clone());
                         is_ident = false;
                     }
                 }
-                crate::pathmap::ring::set_lattice_integrate_into_result(result, is_ident, is_counter_ident, self_len, other_len)
+                $crate::pathmap::ring::set_lattice_integrate_into_result(result, is_ident, is_counter_ident, self_len, other_len)
             }
-            fn pmeet(&self, other: &Self) -> crate::pathmap::ring::AlgebraicResult<Self> {
-                let mut result = <Self as crate::pathmap::ring::SetLattice>::with_capacity(0);
+            fn pmeet(&self, other: &Self) -> $crate::pathmap::ring::AlgebraicResult<Self> {
+                let mut result = <Self as $crate::pathmap::ring::SetLattice>::with_capacity(0);
                 let mut is_ident = true;
                 let mut is_counter_ident = true;
-                let (smaller, larger, switch) = if crate::pathmap::ring::SetLattice::len(self) < crate::pathmap::ring::SetLattice::len(other) {
+                let (smaller, larger, switch) = if $crate::pathmap::ring::SetLattice::len(self) < $crate::pathmap::ring::SetLattice::len(other) {
                     (self, other, false)
                 } else {
                     (other, self, true)
                 };
-                for (key, self_val) in crate::pathmap::ring::SetLattice::iter(smaller) {
-                    if let Some(other_val) = crate::pathmap::ring::SetLattice::get(larger, key) {
+                for (key, self_val) in $crate::pathmap::ring::SetLattice::iter(smaller) {
+                    if let Some(other_val) = $crate::pathmap::ring::SetLattice::get(larger, key) {
                         let inner_result = self_val.pmeet(other_val);
-                        crate::pathmap::ring::set_lattice_update_ident_flags_with_result(
+                        $crate::pathmap::ring::set_lattice_update_ident_flags_with_result(
                             &mut result, inner_result, key, self_val, other_val, &mut is_ident, &mut is_counter_ident
                         );
                     } else {
@@ -1071,7 +1071,7 @@ macro_rules! set_lattice {
                 if switch {
                     core::mem::swap(&mut is_ident, &mut is_counter_ident);
                 }
-                crate::pathmap::ring::set_lattice_integrate_into_result(result, is_ident, is_counter_ident, self.len(), other.len())
+                $crate::pathmap::ring::set_lattice_integrate_into_result(result, is_ident, is_counter_ident, self.len(), other.len())
             }
         }
     }
@@ -1149,31 +1149,31 @@ pub fn set_lattice_integrate_into_result<S: SetLattice>(
 #[macro_export]
 macro_rules! set_dist_lattice {
     ( $type_ident:ident $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ >)? ) => {
-        impl $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? crate::pathmap::ring::DistributiveLattice for $type_ident $(< $( $lt ),+ >)? where Self: crate::pathmap::ring::SetLattice + Clone, <Self as crate::pathmap::ring::SetLattice>::V: crate::pathmap::ring::DistributiveLattice {
-            fn psubtract(&self, other: &Self) -> crate::pathmap::ring::AlgebraicResult<Self> {
+        impl $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::pathmap::ring::DistributiveLattice for $type_ident $(< $( $lt ),+ >)? where Self: $crate::pathmap::ring::SetLattice + Clone, <Self as crate::pathmap::ring::SetLattice>::V: crate::pathmap::ring::DistributiveLattice {
+            fn psubtract(&self, other: &Self) -> $crate::pathmap::ring::AlgebraicResult<Self> {
                 let mut is_ident = true;
                 let mut result = self.clone();
                 //Two code paths, so that we only iterate over the smaller set
-                if crate::pathmap::ring::SetLattice::len(self) > crate::pathmap::ring::SetLattice::len(other) {
-                    for (key, other_val) in crate::pathmap::ring::SetLattice::iter(other) {
-                        if let Some(self_val) = crate::pathmap::ring::SetLattice::get(self, key) {
+                if $crate::pathmap::ring::SetLattice::len(self) > $crate::pathmap::ring::SetLattice::len(other) {
+                    for (key, other_val) in $crate::pathmap::ring::SetLattice::iter(other) {
+                        if let Some(self_val) = $crate::pathmap::ring::SetLattice::get(self, key) {
                             set_lattice_subtract_element(&mut result, key, self_val, other_val, &mut is_ident)
                         }
                     }
                 } else {
-                    for (key, self_val) in crate::pathmap::ring::SetLattice::iter(self) {
-                        if let Some(other_val) = crate::pathmap::ring::SetLattice::get(other, key) {
+                    for (key, self_val) in $crate::pathmap::ring::SetLattice::iter(self) {
+                        if let Some(other_val) = $crate::pathmap::ring::SetLattice::get(other, key) {
                             set_lattice_subtract_element(&mut result, key, self_val, other_val, &mut is_ident)
                         }
                     }
                 }
-                if crate::pathmap::ring::SetLattice::len(&result) == 0 {
-                    crate::pathmap::ring::AlgebraicResult::None
+                if $crate::pathmap::ring::SetLattice::len(&result) == 0 {
+                    $crate::pathmap::ring::AlgebraicResult::None
                 } else if is_ident {
-                    crate::pathmap::ring::AlgebraicResult::Identity(SELF_IDENT)
+                    $crate::pathmap::ring::AlgebraicResult::Identity(SELF_IDENT)
                 } else {
-                    crate::pathmap::ring::SetLattice::shrink_to_fit(&mut result);
-                    crate::pathmap::ring::AlgebraicResult::Element(result)
+                    $crate::pathmap::ring::SetLattice::shrink_to_fit(&mut result);
+                    $crate::pathmap::ring::AlgebraicResult::Element(result)
                 }
             }
         }

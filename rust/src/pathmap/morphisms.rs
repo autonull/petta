@@ -325,7 +325,7 @@ impl SplitCata {
     {
         move |mask, children, val, path| -> W {
             // println!("STEPPING path=\"{path:?}\", mask={mask:?}, children_cnt={}, val={}", children.len(), val.is_some());
-            if children.len() == 0 {
+            if children.is_empty() {
                 return match val {
                     Some(val) => map_f(val, path),
                     None => {
@@ -370,7 +370,7 @@ impl SplitCataJumping {
     {
         move |mask, children, jump_len, val, path| -> W {
             // println!("JUMPING  path=\"{path:?}\", mask={mask:?}, jump_len={jump_len}, children_cnt={}, val={}", children.len(), val.is_some());
-            let w = if children.len() == 0 {
+            let w = if children.is_empty() {
                 match val {
                     Some(val) => map_f(val, path),
                     None => {
@@ -393,13 +393,13 @@ impl SplitCataJumping {
             debug_assert!(jump_len <= path.len());
             let jump_dst_path = &path[..(path.len() - jump_len)];
             let stem = &path[(path.len() - jump_len)..];
-            let w = if jump_len > 0 && jump_dst_path.len() > 0 || jump_len > 1 {
+            let w = if jump_len > 0 && !jump_dst_path.is_empty() || jump_len > 1 {
                 jump_f(stem, w, jump_dst_path)
             } else {
                 w
             };
             //If we jumped all the way to the root, run the alg one last time on the root to match the old behavior
-            if jump_dst_path.len() == 0 && stem.len() > 0 {
+            if jump_dst_path.is_empty() && !stem.is_empty() {
                 let mut temp_mask = ByteMask::EMPTY;
                 temp_mask.set_bit(stem[0]);
                 let mut temp_children = [w];
@@ -472,14 +472,14 @@ impl<V: 'static + Clone + Send + Sync + Unpin, A: Allocator + 'static> Catamorph
     where
         AlgF: FnMut(&ByteMask, &mut [W], Option<&V>, &[u8]) -> Result<W, Err>,
     {
-        let rz = self.into_read_zipper(&[]);
+        let rz = self.into_read_zipper([]);
         rz.into_cata_side_effect_fallible(alg_f)
     }
     fn into_cata_jumping_side_effect_fallible<W, Err, AlgF>(self, alg_f: AlgF) -> Result<W, Err>
     where
         AlgF: FnMut(&ByteMask, &mut [W], usize, Option<&V>, &[u8]) -> Result<W, Err>,
     {
-        let rz = self.into_read_zipper(&[]);
+        let rz = self.into_read_zipper([]);
         rz.into_cata_jumping_side_effect_fallible(alg_f)
     }
     fn into_cata_cached_fallible<W, E, AlgF>(self, alg_f: AlgF) -> Result<W, E>
@@ -487,7 +487,7 @@ impl<V: 'static + Clone + Send + Sync + Unpin, A: Allocator + 'static> Catamorph
         W: Clone,
         AlgF: Fn(&ByteMask, &mut [W], Option<&V>) -> Result<W, E>,
     {
-        let rz = self.into_read_zipper(&[]);
+        let rz = self.into_read_zipper([]);
         rz.into_cata_cached_fallible(alg_f)
     }
     fn into_cata_jumping_cached_fallible<W, E, AlgF>(self, alg_f: AlgF) -> Result<W, E>
@@ -495,7 +495,7 @@ impl<V: 'static + Clone + Send + Sync + Unpin, A: Allocator + 'static> Catamorph
         W: Clone,
         AlgF: Fn(&ByteMask, &mut [W], Option<&V>, &[u8]) -> Result<W, E>,
     {
-        let rz = self.into_read_zipper(&[]);
+        let rz = self.into_read_zipper([]);
         rz.into_cata_jumping_cached_fallible(alg_f)
     }
 }
@@ -546,7 +546,7 @@ where
                     //See if we need to run the aggregate function on the root before returning
                     let stack_frame = &mut stack[0];
                     let val = z.val();
-                    let child_mask = ByteMask::from(z.child_mask());
+                    let child_mask = z.child_mask();
                     debug_assert_eq!(stack_frame.child_idx, stack_frame.child_cnt);
                     debug_assert_eq!(stack_frame.child_cnt as usize, children.len());
                     let w = if stack_frame.child_cnt != 1 || val.is_some() || !JUMPING {
@@ -597,7 +597,7 @@ where
 {
     let z_witness = z.witness();
     let mut w;
-    let mut child_mask = ByteMask::from(z.child_mask());
+    let mut child_mask = z.child_mask();
     let mut children = &mut children[..];
     if JUMPING {
         //This loop runs until we got to a fork or the root.  We will take a spin through the loop
@@ -615,7 +615,7 @@ where
                 old_path_len - z.origin_path().len()
             };
 
-            w = alg_f(&child_mask, children, jump_len, old_val, origin_path, &z)?;
+            w = alg_f(&child_mask, children, jump_len, old_val, origin_path, z)?;
 
             if z.child_count() != 1 || z.at_root() {
                 return Ok(w);
@@ -635,7 +635,7 @@ where
             let origin_path = z.origin_path();
             let byte = origin_path.last().copied().unwrap_or(0);
             let val = z.val();
-            w = alg_f(&child_mask, children, 0, val, origin_path, &z)?;
+            w = alg_f(&child_mask, children, 0, val, origin_path, z)?;
 
             let ascended = z.ascend_byte();
             debug_assert!(ascended);
@@ -749,7 +749,7 @@ pub(crate) fn new_map_from_ana_jumping<'a, V, A: Allocator, WZ, W, CoAlgF, I>(
     let (prefix, bm, ws, mv) = coalg_f(w, wz.path());
     let prefix_len = prefix.len();
 
-    wz.descend_to(&prefix[..]);
+    wz.descend_to(prefix);
     if let Some(v) = mv {
         wz.set_val(v);
     }
@@ -909,7 +909,7 @@ where
             // Final branch
             debug_assert!(zipper.at_root(), "must be at root when cata is done");
             let value = zipper.val();
-            let child_mask = ByteMask::from(zipper.child_mask());
+            let child_mask = zipper.child_mask();
             return if JUMPING && *child_cnt == 1 && value.is_none() {
                 Ok(children.pop().unwrap())
             } else {
@@ -1162,7 +1162,7 @@ impl<V: Clone + Send + Sync, W: Default, A: Allocator> TrieBuilder<V, W, A> {
     }
     /// Internal method to get the next child from the builder in the push order.  Used by the anamorphism
     fn take_next(&mut self) -> Option<WOrNode<V, W, A>> {
-        self.child_structs.pop_front().map(|element| core::mem::take(element))
+        self.child_structs.pop_front().map(core::mem::take)
     }
     /// Internal method.  After [Self::take_next] returns `Some`, this method will return the first byte of the
     /// associated path.
@@ -1179,7 +1179,7 @@ impl<V: Clone + Send + Sync, W: Default, A: Allocator> TrieBuilder<V, W, A> {
     /// Internal method.  After [Self::take_next] returns `Some`, this method will return the associated path
     /// beyond the first byte, or `None` if the path is only 1-byte long
     fn taken_child_remaining_path(&mut self, byte: u8) -> Option<&[u8]> {
-        if self.child_paths.get(0).map(|path| path[0]) != Some(byte) {
+        if self.child_paths.first().map(|path| path[0]) != Some(byte) {
             None
         } else {
             self.child_paths.pop_front().map(|v| &v.as_slice()[1..])
@@ -1194,7 +1194,7 @@ impl<V: Clone + Send + Sync, W: Default, A: Allocator> TrieBuilder<V, W, A> {
     /// Panics if existing children have already been set / pushed, or if the number of bits set in `mask`
     /// doesn't match `children.len()`.
     pub fn set_child_mask<C: AsMut<[W]>>(&mut self, mask: [u64; 4], mut children: C) {
-        if self.child_structs.len() != 0 {
+        if !self.child_structs.is_empty() {
             panic!("set_mask called over existing children")
         }
         let children = children.as_mut();
@@ -1202,7 +1202,7 @@ impl<V: Clone + Send + Sync, W: Default, A: Allocator> TrieBuilder<V, W, A> {
             mask.iter().fold(0, |sum, word| sum + word.count_ones() as usize),
             children.len()
         );
-        if children.len() == 0 {
+        if children.is_empty() {
             return;
         }
         self.child_structs.clear();
@@ -1247,7 +1247,7 @@ impl<V: Clone + Send + Sync, W: Default, A: Allocator> TrieBuilder<V, W, A> {
     // Not sure if it would make any difference.  Feels unlikely, but might be worth a try after we've implemented
     // the other speedup ideas
     pub fn push(&mut self, sub_path: &[u8], w: W) {
-        assert!(sub_path.len() > 0);
+        assert!(!sub_path.is_empty());
 
         //Push the remaining path
         if sub_path.len() > 1 {

@@ -28,13 +28,7 @@ fn main() {
     }
 
     // Execute files
-    run_files(
-        &find_project_root(),
-        &cli.files,
-        cli.verbose,
-        cli.time,
-        cli.backend,
-    );
+    run_files(&find_project_root(), &cli.files, cli.verbose, cli.time, cli.backend);
 }
 
 /// Find the project root directory
@@ -91,9 +85,8 @@ fn find_project_root() -> std::path::PathBuf {
 fn run_demo(project_root: &Path, backend: BackendArg) {
     use petta::PeTTaEngine;
 
-    let config = petta::EngineConfig::new(project_root)
-        .verbose(false)
-        .backend(backend.to_backend());
+    let config =
+        petta::EngineConfig::new(project_root).verbose(false).backend(backend.to_backend());
 
     match PeTTaEngine::with_config(&config) {
         Ok(mut engine) => {
@@ -156,9 +149,8 @@ fn run_engine_files(
 ) -> Result<(), ()> {
     use petta::PeTTaEngine;
 
-    let config = petta::EngineConfig::new(project_root)
-        .verbose(verbose)
-        .backend(backend.to_backend());
+    let config =
+        petta::EngineConfig::new(project_root).verbose(verbose).backend(backend.to_backend());
 
     let mut engine = match PeTTaEngine::with_config(&config) {
         Ok(e) => e,
@@ -191,11 +183,7 @@ fn run_engine_files(
         }
     }
 
-    if had_failure {
-        Err(())
-    } else {
-        Ok(())
-    }
+    if had_failure { Err(()) } else { Ok(()) }
 }
 
 /// Main file execution function
@@ -217,12 +205,7 @@ fn run_files(
 
     if let Some(start) = start {
         let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
-        eprintln!(
-            "\n{} {} backend: {:.3}ms",
-            yellow("Timing:"),
-            backend,
-            elapsed_ms
-        );
+        eprintln!("\n{} {} backend: {:.3}ms", yellow("Timing:"), backend, elapsed_ms);
     }
 
     if result.is_err() {
@@ -232,8 +215,6 @@ fn run_files(
 
 /// Run REPL mode
 fn run_repl_mode(project_root: &Path, backend: BackendArg, verbose: bool) {
-    let config = repl::ReplConfig::new(project_root)
-        .verbose(verbose)
-        .backend(backend.to_backend());
+    let config = repl::ReplConfig::new(project_root).verbose(verbose).backend(backend.to_backend());
     repl::run_repl(&config);
 }

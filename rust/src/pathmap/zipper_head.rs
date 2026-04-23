@@ -209,7 +209,7 @@ impl<'parent, 'trie: 'parent, V: Clone + Send + Sync + Unpin, A: Allocator> Zipp
     /// Internal method to create a new `ZipperHeadOwned` from a `WriteZipperOwned`
     pub(crate) fn new(mut z: WriteZipperOwned<V, A>) -> Self {
         // Make sure the zipper's path buffers are initialized if the path is non-zero length
-        debug_assert!(z.core().key.node_key().len() == 0 || z.core().key.prefix_buf.capacity() > 0);
+        debug_assert!(z.core().key.node_key().is_empty() || z.core().key.prefix_buf.capacity() > 0);
         Self { z: std::sync::Mutex::new(z), tracker_paths: SharedTrackerPaths::default() }
     }
     /// Consumes the `ZipperHeadOwned` and returns a map containing the trie created by the zippers from
@@ -222,7 +222,7 @@ impl<'parent, 'trie: 'parent, V: Clone + Send + Sync + Unpin, A: Allocator> Zipp
 impl<V: Clone + Send + Sync + Unpin, A: Allocator> ZipperCreationPriv<'static, V, A>
     for ZipperHeadOwned<V, A>
 {
-    fn with_inner_core_z<'a, Out, F>(&'a self, func: F) -> Out
+    fn with_inner_core_z<Out, F>(&self, func: F) -> Out
     where
         F: FnOnce(&mut WriteZipperCore<'static, 'static, V, A>) -> Out,
         V: 'static,
@@ -261,12 +261,12 @@ where
             // lifetime.  We need to do this because the ZipperHead internally uses a WriteZipper, which must
             // remain &mut accessible.  Safety is upheld by the fact that the ZipperHead exclusivity runtime
             // logic makes sure conflicting paths aren't permitted, so we should not get aliased &mut borrows
-            let root_node: &'trie TrieNodeODRc<V, A> = unsafe { core::mem::transmute(root_node) };
+            let root_node: &'trie TrieNodeODRc<V, A> = unsafe { &*root_node };
             let root_val: Option<&'trie V> = root_val.map(|v| unsafe { &*v.as_ptr() });
             let new_zipper = ReadZipperTracked::new_with_node_and_path_in(
                 root_node,
                 true,
-                path.as_ref(),
+                path,
                 path.len(),
                 0,
                 root_val,
@@ -288,7 +288,7 @@ where
 
             //SAFETY: The user is asserting that the paths won't conflict.
             // See identical code in `read_zipper_at_borrowed_path` for more discussion
-            let root_node: &'trie TrieNodeODRc<V, A> = unsafe { core::mem::transmute(root_node) };
+            let root_node: &'trie TrieNodeODRc<V, A> = unsafe { &*root_node };
             let root_val: Option<&'trie V> = root_val.map(|v| unsafe { &*v.as_ptr() });
 
             #[cfg(debug_assertions)]
@@ -305,7 +305,7 @@ where
             ReadZipperTracked::new_with_node_and_path_in(
                 root_node,
                 true,
-                path.as_ref(),
+                path,
                 path.len(),
                 0,
                 root_val,
@@ -328,13 +328,13 @@ where
             let (root_node, root_val) = z.splitting_borrow_focus();
 
             //SAFETY: See identical code in `read_zipper_at_borrowed_path` for more discussion
-            let root_node: &'trie TrieNodeODRc<V, A> = unsafe { core::mem::transmute(root_node) };
+            let root_node: &'trie TrieNodeODRc<V, A> = unsafe { &*root_node };
             let root_val: Option<&'trie V> = root_val.map(|v| unsafe { &*v.as_ptr() });
 
             let new_zipper = ReadZipperTracked::new_with_node_and_cloned_path_in(
                 root_node,
                 true,
-                path.as_ref(),
+                path,
                 path.len(),
                 0,
                 root_val,
@@ -357,7 +357,7 @@ where
 
             //SAFETY: The user is asserting that the paths won't conflict.
             // See identical code in `read_zipper_at_borrowed_path` for more discussion
-            let root_node: &'trie TrieNodeODRc<V, A> = unsafe { core::mem::transmute(root_node) };
+            let root_node: &'trie TrieNodeODRc<V, A> = unsafe { &*root_node };
             let root_val: Option<&'trie V> = root_val.map(|v| unsafe { &*v.as_ptr() });
 
             #[cfg(debug_assertions)]
@@ -374,7 +374,7 @@ where
             ReadZipperTracked::new_with_node_and_cloned_path_in(
                 root_node,
                 true,
-                path.as_ref(),
+                path,
                 path.len(),
                 0,
                 root_val,
@@ -501,7 +501,7 @@ pub(crate) fn prepare_exclusive_write_path<
     //CASE 1
     //If we have a zero-length node_key and a zero-length path, we just need to make sure the root is a
     // CellNode, and we can return
-    if node_key_start == z.key.prefix_buf.len() && path.len() == 0 {
+    if node_key_start == z.key.prefix_buf.len() && path.is_empty() {
         //The only situation where a WriteZipper's node_key is zero-length is when the WZ is positioned at its root
         debug_assert_eq!(z.focus_stack.depth(), 1);
         z.focus_stack.to_root();
@@ -521,7 +521,7 @@ pub(crate) fn prepare_exclusive_write_path<
 
     //Walk along the path to get the parent node
     let mut remaining_key = &z.key.prefix_buf[node_key_start..];
-    if remaining_key.len() > 0 {
+    if !remaining_key.is_empty() {
         match z.focus_stack.top_mut().unwrap().node_into_child_mut(remaining_key) {
             Some((consumed_bytes, node)) => {
                 //CASE 2
@@ -533,7 +533,7 @@ pub(crate) fn prepare_exclusive_write_path<
 
                 z.key.prefix_buf.truncate(original_path_len);
 
-                return (exclusive_node, val);
+                (exclusive_node, val)
             }
             None => {
                 //CASE 3
@@ -543,7 +543,7 @@ pub(crate) fn prepare_exclusive_write_path<
                 let z = unsafe { &mut *z_ptr };
                 z.in_zipper_mut_static_result(
                     |node, key| {
-                        let new_node = if key.len() > 0 {
+                        let new_node = if !key.is_empty() {
                             if let Some(mut remaining) = node.take_node_at_key(key, false) {
                                 make_cell_node(&mut remaining);
                                 remaining
@@ -583,7 +583,7 @@ pub(crate) fn prepare_exclusive_write_path<
         }
         let cell_node = z.focus_stack.top_mut().unwrap().into_cell_node().unwrap();
         let (exclusive_node, val) = cell_node.prepare_cf(last_path_byte);
-        return (exclusive_node, val);
+        (exclusive_node, val)
     }
 }
 
@@ -596,7 +596,7 @@ fn prepare_node_at_path_end<'a, V: Clone + Send + Sync, A: Allocator>(
     let (remaining_key, mut node) = node_along_path_mut(start_node, key, false);
 
     //If remaining_key is non-zero length, split and upgrade the intervening node
-    if remaining_key.len() > 0 {
+    if !remaining_key.is_empty() {
         let mut node_ref = node.make_mut();
         let mut new_parent = match node_ref.take_node_at_key(remaining_key, false) {
             Some(downward_node) => downward_node,

@@ -96,7 +96,7 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TinyRefNode<'a, V, A> {
     /// Clones the payload from self
     fn clone_payload(&self) -> Option<ValOrChild<V, A>> {
         if self.node_is_empty() {
-            return None;
+            None
         } else {
             match self.is_child_ptr() {
                 true => {
@@ -136,18 +136,17 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
         find_prefix_overlap(self.key(), key)
     }
     fn node_contains_partial_key(&self, key: &[u8]) -> bool {
-        if starts_with(self.key(), key) { true } else { false }
+        starts_with(self.key(), key)
     }
     fn node_get_child(&self, key: &[u8]) -> Option<(usize, &TrieNodeODRc<V, A>)> {
         if self.is_used_child() {
             let node_key = self.key();
             let key_len = node_key.len();
-            if key.len() >= key_len {
-                if node_key == &key[..key_len] {
+            if key.len() >= key_len
+                && node_key == &key[..key_len] {
                     let child = unsafe { &*self.payload.child };
                     return Some((key_len, child));
                 }
-            }
         }
         None
     }
@@ -157,10 +156,10 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
     fn node_replace_child(&mut self, _key: &[u8], _new_node: TrieNodeODRc<V, A>) {
         unreachable!()
     }
-    fn node_get_payloads<'node, 'res>(
+    fn node_get_payloads<'node>(
         &'node self,
         keys: &[(&[u8], bool)],
-        results: &'res mut [(usize, PayloadRef<'node, V, A>)],
+        results: &mut [(usize, PayloadRef<'node, V, A>)],
     ) -> bool {
         if self.node_is_empty() {
             return true;
@@ -169,7 +168,7 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
         let self_key = self.key();
         debug_assert!(results.len() >= keys.len());
         for ((key, expect_val), (result_key_len, payload_ref)) in
-            keys.into_iter().zip(results.into_iter())
+            keys.iter().zip(&mut *results)
         {
             if starts_with(key, self_key) {
                 let self_key_len = self_key.len();
@@ -278,7 +277,7 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
         panic!();
     }
     fn node_first_val_depth_along_key(&self, key: &[u8]) -> Option<usize> {
-        debug_assert!(key.len() > 0);
+        debug_assert!(!key.is_empty());
         let node_key = self.key();
         if self.is_used_val() && starts_with(key, node_key) {
             Some(node_key.len() - 1)
@@ -320,7 +319,7 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
         debug_assert!(!self.node_is_empty());
 
         //Zero-length key means borrow this node
-        if key.len() == 0 {
+        if key.is_empty() {
             return AbstractNodeRef::BorrowedDyn(self.as_tagged());
         }
 

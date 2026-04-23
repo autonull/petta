@@ -49,7 +49,7 @@ where
     {
         Self {
             factor_paths: Vec::new(),
-            primary: primary,
+            primary,
             secondary: vec![],
             enroll_payload: Some(enroll_payload),
             enroll,

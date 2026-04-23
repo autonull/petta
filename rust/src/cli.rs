@@ -93,14 +93,8 @@ mod tests {
 
     #[test]
     fn test_backend_conversion() {
-        assert_eq!(
-            BackendArg::Mork.to_backend(),
-            Backend::Mork
-        );
-        assert_eq!(
-            BackendArg::Prolog.to_backend(),
-            Backend::Swipl
-        );
+        assert_eq!(BackendArg::Mork.to_backend(), Backend::Mork);
+        assert_eq!(BackendArg::Prolog.to_backend(), Backend::Swipl);
     }
 
     #[test]

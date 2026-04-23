@@ -67,7 +67,7 @@ pub fn indices_to_bob<const NUM_SIZE: usize, R: PathInteger<NUM_SIZE>>(
 ) -> usize {
     assert!(xs.len() <= 8);
     let steps =
-        xs.into_iter().map(|x| (NUM_SIZE * 8) - (x.leading_zeros() as usize)).max().unwrap_or(0);
+        xs.iter().map(|x| (NUM_SIZE * 8) - (x.leading_zeros() as usize)).max().unwrap_or(0);
     for c in (0..steps).rev() {
         bob.push(0);
         for i in 0..xs.len() {
@@ -99,12 +99,12 @@ pub fn indices_to_weave<const NUM_SIZE: usize, R: PathInteger<NUM_SIZE>>(
     xs: &[usize],
     weave: &mut Vec<u8>,
 ) {
-    // let steps = xs.into_iter().map(|x| (NUM_SIZE*8 - (x.leading_zeros() as usize)).div_ceil(8).max(1)).max().unwrap_or(0);
-    for c in (0..NUM_SIZE).rev() {
-        for i in 0..xs.len() {
-            weave.push((xs[i] >> c * 8) as u8)
-        }
+// let steps = xs.into_iter().map(|x| (NUM_SIZE*8 - (x.leading_zeros() as usize)).div_ceil(8).max(1)).max().unwrap_or(0);
+for c in (0..NUM_SIZE).rev() {
+    for x in xs {
+        weave.push((*x >> (c * 8)) as u8)
     }
+}
 }
 
 /// Decodes a weave path.
@@ -141,7 +141,8 @@ where
     V: Clone + Send + Sync + Unpin,
     R: PathInteger<NUM_SIZE>,
 {
-    gen_int_range_in(start, stop, step, value, global_alloc())
+    global_alloc();
+    gen_int_range_in(start, stop, step, value, ())
 }
 
 /// Creates a range as described by [gen_int_range], using the allocator provided
@@ -191,7 +192,7 @@ where
     let mut i = start;
     while i < stop {
         let byte = i.to_u8().unwrap();
-        map.set_val_at(&[byte], value.clone());
+        map.set_val_at([byte], value.clone());
         i = i.saturating_add(step);
     }
     map

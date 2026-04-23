@@ -94,7 +94,8 @@ impl<V: Clone + Send + Sync + Unpin> PathMap<V, GlobalAlloc> {
     /// Creates a new empty map
     #[inline]
     pub const fn new() -> Self {
-        Self::new_with_root_in(None, None, global_alloc())
+        global_alloc();
+        Self::new_with_root_in(None, None, ())
     }
 
     /// Creates a new single-element pathmap
@@ -129,7 +130,8 @@ impl<V: Clone + Send + Sync + Unpin> PathMap<V, GlobalAlloc> {
         W: Default,
         AlgF: FnMut(W, &mut Option<V>, &mut TrieBuilder<V, W, GlobalAlloc>, &[u8]),
     {
-        Self::new_from_ana_in(w, alg_f, global_alloc())
+        global_alloc();
+        Self::new_from_ana_in(w, alg_f, ())
     }
 }
 
@@ -264,13 +266,13 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> PathMap<V, A> {
         path: &'path [u8],
     ) -> ReadZipperUntracked<'_, 'path, V, A> {
         self.ensure_root();
-        let root_val = match path.len() == 0 {
+        let root_val = match path.is_empty() {
             true => unsafe { &*self.root_val.get() }.as_ref(),
             false => None,
         };
         ReadZipperUntracked::new_with_node_and_path_in(
             self.root().unwrap(),
-            path.as_ref(),
+            path,
             path.len(),
             0,
             root_val,
@@ -285,7 +287,7 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> PathMap<V, A> {
     ) -> ReadZipperUntracked<'_, 'static, V, A> {
         self.ensure_root();
         let path = path.as_ref();
-        let root_val = match path.len() == 0 {
+        let root_val = match path.is_empty() {
             true => unsafe { &*self.root_val.get() }.as_ref(),
             false => None,
         };
@@ -320,7 +322,7 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> PathMap<V, A> {
     ) -> WriteZipperUntracked<'a, 'path, V, A> {
         self.ensure_root();
         let root_node = self.root.get_mut().as_mut().unwrap();
-        let root_val = match path.len() == 0 {
+        let root_val = match path.is_empty() {
             true => Some(self.root_val.get_mut()),
             false => None,
         };
@@ -365,8 +367,8 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> PathMap<V, A> {
     /// ZipperHead needs to be part of another structure
     pub fn into_zipper_head<K: AsRef<[u8]>>(self, path: K) -> ZipperHeadOwned<V, A> {
         let path = path.as_ref();
-        let mut wz = self.into_write_zipper(&path);
-        if path.len() > 0 {
+        let mut wz = self.into_write_zipper(path);
+        if !path.is_empty() {
             wz.core().key.prepare_buffers();
         }
         ZipperHeadOwned::new(wz)
@@ -471,7 +473,7 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> PathMap<V, A> {
     /// Returns a mutable reference to the value at the specified `path` in the `PathMap`, if it exists
     pub fn get_val_mut_at<K: AsRef<[u8]>>(&mut self, path: K) -> Option<&mut V> {
         let path = path.as_ref();
-        if path.len() == 0 {
+        if path.is_empty() {
             return self.root_val_mut().as_mut();
         }
 
@@ -494,7 +496,7 @@ impl<V: Clone + Send + Sync + Unpin, A: Allocator> PathMap<V, A> {
         K: AsRef<[u8]>,
     {
         let path = path.as_ref();
-        if path.len() == 0 {
+        if path.is_empty() {
             if self.root_val().is_some() {
                 return self.root_val_mut().as_mut().unwrap();
             }
@@ -753,7 +755,7 @@ impl<V: Clone + Send + Sync + Unpin + 'static, A: Allocator + 'static> std::iter
     type IntoIter = OwnedZipperIter<V, A>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.into_write_zipper(&[]).into_iter()
+        self.into_write_zipper([]).into_iter()
     }
 }
 
