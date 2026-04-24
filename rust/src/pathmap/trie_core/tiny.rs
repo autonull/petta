@@ -142,11 +142,10 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
         if self.is_used_child() {
             let node_key = self.key();
             let key_len = node_key.len();
-            if key.len() >= key_len
-                && node_key == &key[..key_len] {
-                    let child = unsafe { &*self.payload.child };
-                    return Some((key_len, child));
-                }
+            if key.len() >= key_len && node_key == &key[..key_len] {
+                let child = unsafe { &*self.payload.child };
+                return Some((key_len, child));
+            }
         }
         None
     }
@@ -167,9 +166,7 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
         let mut requested_contained_item = false; // This node type only has one item
         let self_key = self.key();
         debug_assert!(results.len() >= keys.len());
-        for ((key, expect_val), (result_key_len, payload_ref)) in
-            keys.iter().zip(&mut *results)
-        {
+        for ((key, expect_val), (result_key_len, payload_ref)) in keys.iter().zip(&mut *results) {
             if starts_with(key, self_key) {
                 let self_key_len = self_key.len();
                 if self.is_child_ptr() {

@@ -30,8 +30,8 @@ const _: [(); (MAX_NODE_KEY_BYTES < 253) as usize - 1] = [];
 /// and onward link locations are defined by key paths.  There are a few conventions and caveats to this
 /// iterface:
 ///
-/// 1. A TrieNode will never have a value or an onward link at a zero-length key.  A value associated with
-/// the path to the root of a TrieNode must be stored in the parent node.
+/// 1. A TrieNode will never have a value or an onward link at a zero-length key.
+///    A value associated with the path to the root of a TrieNode must be stored in the parent node.
 pub(crate) trait TrieNode<V: Clone + Send + Sync, A: Allocator>:
     TrieNodeDowncast<V, A> + DynClone + core::fmt::Debug + Send + Sync
 {
@@ -426,11 +426,7 @@ impl<V: Clone + Send + Sync, A: Allocator> core::fmt::Debug for PayloadRef<'_, V
 // Deriving Clone puts an unnecessary bound on `V`
 impl<V: Clone + Send + Sync, A: Allocator> Clone for PayloadRef<'_, V, A> {
     fn clone(&self) -> Self {
-        match self {
-            Self::None => Self::None,
-            Self::Val(v) => Self::Val(v),
-            Self::Child(c) => Self::Child(c),
-        }
+        *self
     }
 }
 impl<V: Clone + Send + Sync, A: Allocator> Copy for PayloadRef<'_, V, A> {}
@@ -448,13 +444,9 @@ impl<V: Clone + Send + Sync, A: Allocator> PartialEq for PayloadRef<'_, V, A> {
 }
 impl<V: Clone + Send + Sync, A: Allocator> Eq for PayloadRef<'_, V, A> {}
 
-
 impl<'a, V: Clone + Send + Sync, A: Allocator> PayloadRef<'a, V, A> {
     pub fn is_none(&self) -> bool {
-        match self {
-            Self::None => true,
-            _ => false,
-        }
+        matches!(self, Self::None)
     }
     pub fn is_val(&self) -> bool {
         match self {
@@ -672,8 +664,7 @@ where
                 //Continue to grow range, or do the recursive call, depending on whether
                 // we have the same node as the previous time through the loop
                 if cur_group.is_some() {
-                    if !std::ptr::eq(cur_group.as_ref().unwrap().1, child)
-                    {
+                    if !std::ptr::eq(cur_group.as_ref().unwrap().1, child) {
                         pmeet_generic_recursive_reset::<MAX_PAYLOAD_CNT, V, A>(
                             &mut cur_group,
                             &mut is_exhaustive,

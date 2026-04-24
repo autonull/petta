@@ -77,7 +77,7 @@ use super::utils::*;
 use super::zipper;
 use super::zipper::*;
 
-use crate::hash_fallback::{GxHasher, HashMap};
+use crate::gxhash::{GxHasher, HashMap};
 
 /// Provides methods to perform a catamorphism on types that can reference or contain a trie
 pub trait Catamorphism<V> {
@@ -308,108 +308,6 @@ pub trait Catamorphism<V> {
 ///
 /// - `alg_f`: `alg(mask: ByteMask, children: &mut [W], path: &[u8]) -> W`
 /// Aggregates the results from the child branches, `children`, descending from `path` into a single result
-#[deprecated]
-pub struct SplitCata;
-
-#[allow(deprecated)]
-impl SplitCata {
-    pub fn new<'a, V, W, MapF, CollapseF, AlgF>(
-        mut map_f: MapF,
-        mut collapse_f: CollapseF,
-        alg_f: AlgF,
-    ) -> impl FnMut(&ByteMask, &mut [W], Option<&V>, &[u8]) -> W + 'a
-    where
-        MapF: FnMut(&V, &[u8]) -> W + 'a,
-        CollapseF: FnMut(&V, W, &[u8]) -> W + 'a,
-        AlgF: Fn(&ByteMask, &mut [W], &[u8]) -> W + 'a,
-    {
-        move |mask, children, val, path| -> W {
-            // println!("STEPPING path=\"{path:?}\", mask={mask:?}, children_cnt={}, val={}", children.len(), val.is_some());
-            if children.is_empty() {
-                return match val {
-                    Some(val) => map_f(val, path),
-                    None => {
-                        // This degenerate case can only occur at the root
-                        debug_assert_eq!(path.len(), 0);
-                        alg_f(mask, children, path)
-                    }
-                };
-            }
-            let w = alg_f(mask, children, path);
-            match val {
-                Some(val) => collapse_f(val, w, path),
-                None => w,
-            }
-        }
-    }
-}
-
-/// A compatibility shim to provide a 4-function "jumping" catamorphism API
-///
-/// - `jump_f`: `FnMut(sub_path: &[u8], w: W, path: &[u8]) -> W`
-/// Elevates a result `w` descending from the relative path, `sub_path` to the current position at `path`
-///
-/// See [`SplitCata`] for a description of additional args
-#[deprecated]
-pub struct SplitCataJumping;
-
-#[allow(deprecated)]
-impl SplitCataJumping {
-    pub fn new<'a, V, W, MapF, CollapseF, AlgF, JumpF>(
-        mut map_f: MapF,
-        mut collapse_f: CollapseF,
-        mut alg_f: AlgF,
-        mut jump_f: JumpF,
-    ) -> impl FnMut(&ByteMask, &mut [W], usize, Option<&V>, &[u8]) -> W + 'a
-    where
-        W: Default,
-        MapF: FnMut(&V, &[u8]) -> W + 'a,
-        CollapseF: FnMut(&V, W, &[u8]) -> W + 'a,
-        AlgF: FnMut(&ByteMask, &mut [W], &[u8]) -> W + 'a,
-        JumpF: FnMut(&[u8], W, &[u8]) -> W + 'a,
-    {
-        move |mask, children, jump_len, val, path| -> W {
-            // println!("JUMPING  path=\"{path:?}\", mask={mask:?}, jump_len={jump_len}, children_cnt={}, val={}", children.len(), val.is_some());
-            let w = if children.is_empty() {
-                match val {
-                    Some(val) => map_f(val, path),
-                    None => {
-                        // This degenerate case can only occur at the root
-                        debug_assert_eq!(path.len(), 0);
-                        alg_f(mask, children, path)
-                    }
-                }
-            } else {
-                let w = if children.len() > 1 {
-                    alg_f(mask, children, path)
-                } else {
-                    core::mem::take(&mut children[0])
-                };
-                match val {
-                    Some(val) => collapse_f(val, w, path),
-                    None => w,
-                }
-            };
-            debug_assert!(jump_len <= path.len());
-            let jump_dst_path = &path[..(path.len() - jump_len)];
-            let stem = &path[(path.len() - jump_len)..];
-            let w = if jump_len > 0 && !jump_dst_path.is_empty() || jump_len > 1 {
-                jump_f(stem, w, jump_dst_path)
-            } else {
-                w
-            };
-            //If we jumped all the way to the root, run the alg one last time on the root to match the old behavior
-            if jump_dst_path.is_empty() && !stem.is_empty() {
-                let mut temp_mask = ByteMask::EMPTY;
-                temp_mask.set_bit(stem[0]);
-                let mut temp_children = [w];
-                alg_f(&temp_mask, &mut temp_children[..], &[])
-            } else {
-                w
-            }
-        }
-    }
-}
 
 impl<'a, Z, V: 'a> Catamorphism<V> for Z
 where

@@ -78,9 +78,6 @@ mod prefix_zipper;
 mod product_zipper;
 mod write_zipper;
 
-#[cfg(feature = "old_cursor")]
-mod old_cursor;
-
 /// A supertrait that encapsulates the bounds for a value that can be put in a [PathMap]
 pub trait TrieValue: Clone + Send + Sync + Unpin {}
 

@@ -757,14 +757,7 @@ where
                     path = &path[1..];
                 }
             }
-        }
-    }
-
-    /// Deprecated alias for [Self::get_val_at]
-    #[deprecated] //GOAT-old-names
-    pub fn get<K: AsRef<[u8]>>(&self, path: K) -> Option<u64> {
-        self.get_val_at(path)
-    }
+}
 }
 
 impl<Storage> ArenaCompactTree<Storage>

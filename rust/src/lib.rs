@@ -29,14 +29,6 @@
 #![cfg_attr(feature = "mork", feature(gen_blocks))]
 #![cfg_attr(feature = "mork", feature(yield_expr))]
 
-/// Native Rust MeTTa parser (experimental).
-///
-/// This module provides a pure-Rust parser for MeTTa S-expressions,
-/// independent of the SWI-Prolog backend. It is gated behind the
-/// `pure-rust` feature flag and is not yet integrated into the
-/// main execution pipeline.
-#[cfg(feature = "pure-rust")]
-pub mod parser;
 #[cfg(feature = "profiling")]
 pub mod profiler;
 
@@ -58,7 +50,6 @@ mod mork;
 pub mod pathmap;
 
 /// Shared fallback hasher for environments where gxhash is unavailable.
-mod hash_fallback;
 
 /// Crate-level wrapper for gxhash. This file re-exports either the external
 /// `gxhash` crate or our local `hash_fallback` implementation depending on
@@ -70,12 +61,14 @@ pub mod gxhash;
 #[doc(hidden)]
 pub use mork::expr::compute_length;
 
+pub mod api;
 #[cfg(feature = "mork")]
 #[doc(hidden)]
 pub use mork::expr::parse as metta_parse_macro;
 
 /// Engine module - contains PeTTaEngine and all supporting types.
 mod engine;
+pub use api::{PeTTa, PeTTaBuilder};
 
 // Re-export engine types for public API.
 pub use engine::{

@@ -96,8 +96,6 @@ mork = [
 ]
 repl = ["dep:rustyline"]
 clap = ["dep:clap"]
-swipl = []
-pure-rust = ["dep:nom"]
 pathmap-internal-tests = []
 serialization = ["dep:libz-ng-sys"]
 parallel = ["dep:rayon"]

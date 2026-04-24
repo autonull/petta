@@ -577,10 +577,8 @@ pub trait BitMask {
 impl BitMask for [u64; 4] {
     #[inline]
     fn count_bits(&self) -> usize {
-        (self[0].count_ones()
-            + self[1].count_ones()
-            + self[2].count_ones()
-            + self[3].count_ones()) as usize
+        (self[0].count_ones() + self[1].count_ones() + self[2].count_ones() + self[3].count_ones())
+            as usize
     }
     #[inline]
     fn is_empty_mask(&self) -> bool {

@@ -11,12 +11,12 @@ use std::hash::Hash;
 /// NOTE 2: The following conditions for the Identity bitmask must be respected or the implementation may panic or
 /// produce logically invalid results.
 /// - The bit mask must be non-zero
-/// - Bits beyond the number of operation arguments must not be set.  e.g. an arity-2 operation may only set bit 0
-///     and bit 1, but never any additional bits.
+/// - Bits beyond the number of operation arguments must not be set. e.g. an arity-2 operation may only set bit 0
+///   and bit 1, but never any additional bits.
 /// - Setting two or more bits simultaneously asserts the arguments are identities of each other, so this must be
-///     true in fact.
-/// - The inverse of the above does not hold.  E.g. if multiple bits are not set, it may **not** be assumed that
-///     the arguments are not identities of each other.
+///   true in fact.
+/// - The inverse of the above does not hold. E.g. if multiple bits are not set, it may **not** be assumed that
+///   the arguments are not identities of each other.
 /// - Non-commutative operations, such as [DistributiveLattice::psubtract], must never set bits beyond bit 0 ([SELF_IDENT])
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum AlgebraicResult<V> {
@@ -1020,7 +1020,7 @@ pub trait SetLattice {
 #[macro_export]
 macro_rules! set_lattice {
     ( $type_ident:ident $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ >)? ) => {
-        impl $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::pathmap::ring::Lattice for $type_ident $(< $( $lt ),+ >)? where Self: $crate::pathmap::ring::SetLattice, <Self as crate::pathmap::ring::SetLattice>::V: crate::pathmap::ring::Lattice {
+        impl $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::pathmap::ring::Lattice for $type_ident $(< $( $lt ),+ >)? where Self: $crate::pathmap::ring::SetLattice, <Self as $crate::pathmap::ring::SetLattice>::V: $crate::pathmap::ring::Lattice {
             fn pjoin(&self, other: &Self) -> $crate::pathmap::ring::AlgebraicResult<Self> {
                 let self_len = $crate::pathmap::ring::SetLattice::len(self);
                 let other_len = $crate::pathmap::ring::SetLattice::len(other);
@@ -1149,7 +1149,7 @@ pub fn set_lattice_integrate_into_result<S: SetLattice>(
 #[macro_export]
 macro_rules! set_dist_lattice {
     ( $type_ident:ident $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ >)? ) => {
-        impl $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::pathmap::ring::DistributiveLattice for $type_ident $(< $( $lt ),+ >)? where Self: $crate::pathmap::ring::SetLattice + Clone, <Self as crate::pathmap::ring::SetLattice>::V: crate::pathmap::ring::DistributiveLattice {
+        impl $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::pathmap::ring::DistributiveLattice for $type_ident $(< $( $lt ),+ >)? where Self: $crate::pathmap::ring::SetLattice + Clone, <Self as $crate::pathmap::ring::SetLattice>::V: $crate::pathmap::ring::DistributiveLattice {
             fn psubtract(&self, other: &Self) -> $crate::pathmap::ring::AlgebraicResult<Self> {
                 let mut is_ident = true;
                 let mut result = self.clone();

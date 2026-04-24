@@ -566,10 +566,9 @@ pub trait ZipperIteration: ZipperMoving {
                 if self.is_val() {
                     return true;
                 }
-                if self.descend_until()
-                    && self.is_val() {
-                        return true;
-                    }
+                if self.descend_until() && self.is_val() {
+                    return true;
+                }
             } else {
                 'ascending: loop {
                     if self.to_next_sibling_byte() {
@@ -747,25 +746,14 @@ pub(crate) mod zipper_priv {
 
         /// Returns an abstracted reference to the node at the zipper's focus
         ///
-        /// The meaning of each returned value:
-        /// - `AbstractNodeRef::None`
-        /// The focus is on a non-existant path
-        ///
-        /// - `BorrowedDyn(&'a dyn TrieNode<V>)`
-        /// The focus is on an existing node, but the node's `TrieNodeODRc` is not available so
-        /// a "shallow copy" i.e. refcount bump, is not possible
-        ///
-        /// - `BorrowedRc(&'a TrieNodeODRc<V>)`
-        /// The focus is on an existing node, and we can access the `TrieNodeODRc`.  This is the
-        /// ideal situation. (fastest path)
-        ///
-        /// - `BorrowedTiny(TinyRefNode<'a, V>)`
-        /// The focus is on a position inside a node, and the TinyRefNode is effectively a pointer
-        /// to that position
-        ///
-        /// - `OwnedRc(TrieNodeODRc<V>)`
-        /// We needed to make a brand new node to represent this position.  This is the worst case
-        /// scenario for performance because allocation was necessary
+/// The meaning of each returned value:
+/// - `AbstractNodeRef::None`: The focus is on a non-existent path
+/// - `BorrowedDyn`: The focus is on an existing node, but the node's `TrieNodeODRc`
+///   is not available so a "shallow copy" (refcount bump) is not possible
+/// - `BorrowedRc`: The focus is on an existing node with accessible `TrieNodeODRc`
+///   (ideal situation - fastest path)
+/// - `BorrowedTiny`: The focus is inside a node, represented by `TinyRefNode`
+/// - `OwnedRc`: A new node was allocated for this position (worst case performance)
         fn get_focus(&self) -> AbstractNodeRef<'_, Self::V, Self::A>;
 
         /// Attemps to return a node at the zipper's focus.  Returns `None` if the focus is not
@@ -774,14 +762,11 @@ pub(crate) mod zipper_priv {
         /// DISCUSSION - What's the difference between `try_borrow_focus` and `get_focus`???
         /// The difference is in the intended use each is optimized for.
         ///
-        /// * `get_focus` will return something that behaves like a node no matter what, if the
-        /// focus is on an existing path.  So it succeeds regardless of the underlying trie
-        /// structure.  It is used to get the source for algebraic and graft operations.
-        ///
-        /// * `try_borrow_focus` will only return a node if the zipper is positioned on a node
-        /// in the underlying structure.  This enables the underlying structure to be cut, in
-        /// preparation for safely splitting it into multiple independent regions, as when a
-        /// [ZipperHead] needs to make a WriteZipper that can be sent to another thread.
+/// * `get_focus`: Returns a node-like object for any existing path, succeeding
+///   regardless of trie structure. Used as source for algebraic and graft operations.
+/// * `try_borrow_focus`: Only returns a node if positioned on a node in the underlying
+///   structure. Enables cutting the structure for safe splitting into independent
+///   regions (e.g., when `ZipperHead` creates a cross-thread `WriteZipper`).
         fn try_borrow_focus(&self) -> Option<&TrieNodeODRc<Self::V, Self::A>>;
     }
 
@@ -2015,7 +2000,11 @@ pub(crate) mod read_zipper_core {
 
         #[inline]
         fn path(&self) -> &[u8] {
-            if !self.prefix_buf.is_empty() { &self.prefix_buf[self.origin_path.len()..] } else { &[] }
+            if !self.prefix_buf.is_empty() {
+                &self.prefix_buf[self.origin_path.len()..]
+            } else {
+                &[]
+            }
         }
 
         fn val_count(&self) -> usize {
@@ -2951,7 +2940,9 @@ pub(crate) mod read_zipper_core {
                         }
                     }
 
-                    if let Some(v) = value { return Some(v) }
+                    if let Some(v) = value {
+                        return Some(v);
+                    }
                 } else {
                     //Ascend
                     if let Some((focus_node, iter_tok, prefix_offset)) = self.ancestors.pop() {
@@ -3106,10 +3097,10 @@ pub(crate) mod read_zipper_core {
                     let (new_tok, key_bytes, _child_node, _value) =
                         self.focus_node.next_items(self.focus_iter_token);
                     let node_key = self.node_key();
-                    if key_bytes.len() >= node_key.len()
-                        && &key_bytes[..node_key.len()] == node_key {
-                            self.focus_iter_token = new_tok;
-                        }
+                    if key_bytes.len() >= node_key.len() && &key_bytes[..node_key.len()] == node_key
+                    {
+                        self.focus_iter_token = new_tok;
+                    }
                 }
 
                 if self.focus_iter_token == NODE_ITER_FINISHED {

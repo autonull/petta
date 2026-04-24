@@ -96,20 +96,20 @@ impl SubprocessManager {
         Ok((child, stdin, stdout, self.stderr_output.clone()))
     }
 
-/// Get the stderr output buffer
-#[allow(dead_code)]
-pub fn stderr_output(&self) -> String {
-    match self.stderr_output.lock() {
-        Ok(data) => String::from_utf8_lossy(&data).to_string(),
-        Err(e) => format!("<stderr buffer poisoned: {}>", e),
+    /// Get the stderr output buffer
+    #[allow(dead_code)]
+    pub fn stderr_output(&self) -> String {
+        match self.stderr_output.lock() {
+            Ok(data) => String::from_utf8_lossy(&data).to_string(),
+            Err(e) => format!("<stderr buffer poisoned: {}>", e),
+        }
     }
-}
 
-/// Get the configuration
-#[allow(dead_code)]
-pub fn config(&self) -> &EngineConfig {
-    &self.config
-}
+    /// Get the configuration
+    #[allow(dead_code)]
+    pub fn config(&self) -> &EngineConfig {
+        &self.config
+    }
 }
 
 /// Waits for the Prolog ready signal (0xFF)

@@ -46,11 +46,11 @@ impl ReplConfig {
         self
     }
 
-#[allow(dead_code)]
-pub fn history_file(mut self, path: impl Into<PathBuf>) -> Self {
-    self.history_file = path.into();
-    self
-}
+    #[allow(dead_code)]
+    pub fn history_file(mut self, path: impl Into<PathBuf>) -> Self {
+        self.history_file = path.into();
+        self
+    }
 }
 
 /// Start the interactive REPL

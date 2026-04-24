@@ -11,6 +11,15 @@ use super::super::utils::BitMask;
 use super::line_list::LineListNode;
 use super::node::*;
 
+/// Type alias to reduce complexity in function signatures
+type BothMutResult<'a, V, A> = (
+    Option<&'a mut TrieNodeODRc<V, A>>,
+    Option<&'a mut V>,
+);
+
+/// Type alias to reduce complexity in function signatures
+type BothOwnedResult<V, A> = (Option<TrieNodeODRc<V, A>>, Option<V>);
+
 //NOTE: This: `core::array::from_fn(|i| i as u8);` ought to work, but https://github.com/rust-lang/rust/issues/109341
 const ALL_BYTES: [u8; 256] = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
@@ -998,13 +1007,17 @@ where
     }
     fn node_child_iter_start(&self) -> (u64, Option<&TrieNodeODRc<V, A>>) {
         for (pos, cf) in self.values.iter().enumerate() {
-            if let Some(child) = cf.rec() { return ((pos + 1) as u64, Some(child)) }
+            if let Some(child) = cf.rec() {
+                return ((pos + 1) as u64, Some(child));
+            }
         }
         (0, None)
     }
     fn node_child_iter_next(&self, token: u64) -> (u64, Option<&TrieNodeODRc<V, A>>) {
         for (pos, cf) in self.values[(token as usize)..].iter().enumerate() {
-            if let Some(child) = cf.rec() { return ((pos + 1) as u64 + token, Some(child)) }
+            if let Some(child) = cf.rec() {
+                return ((pos + 1) as u64 + token, Some(child));
+            }
         }
         (0, None)
     }
@@ -1162,7 +1175,7 @@ where
                 } else {
                     mask_i -= 1
                 };
-                if mask_i >= 4  {
+                if mask_i >= 4 {
                     return (None, None);
                 }
                 if self.mask.0[mask_i] == 0 {
@@ -1537,8 +1550,8 @@ pub trait CoFree: Clone + Default + Send + Sync {
     fn set_val_option(&mut self, val: Option<Self::V>);
     fn swap_val(&mut self, val: Self::V) -> Option<Self::V>;
     fn take_val(&mut self) -> Option<Self::V>;
-    fn both_mut(&mut self) -> (Option<&mut TrieNodeODRc<Self::V, Self::A>>, Option<&mut Self::V>);
-    fn into_both(self) -> (Option<TrieNodeODRc<Self::V, Self::A>>, Option<Self::V>);
+fn both_mut(&mut self) -> BothMutResult<'_, Self::V, Self::A>;
+fn into_both(self) -> BothOwnedResult<Self::V, Self::A>;
 }
 
 trait CfShared<OtherCf, A: Allocator>: CoFree {
