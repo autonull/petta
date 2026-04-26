@@ -11,22 +11,18 @@ use std::path::Path;
 use std::time::Instant;
 
 fn main() {
-    // Parse CLI arguments
     let cli = Cli::parse();
 
-    // Handle demo mode (no files provided)
     if cli.files.is_empty() && !cli.interactive {
         run_demo(&find_project_root(), cli.backend);
         return;
     }
 
-    // Handle REPL mode
     if cli.interactive {
         run_repl_mode(&find_project_root(), cli.backend, cli.verbose);
         return;
     }
 
-    // Execute files
     run_files(&find_project_root(), &cli.files, cli.verbose, cli.time, cli.backend);
 }
 

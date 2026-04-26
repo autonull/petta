@@ -114,27 +114,23 @@ fn send_query_inner(
 
     match status {
         0 => {
-            // Success: read results
             let count = read_u32_with_timeout(pipes.stdout()?, start_time, config)?;
             trace!("Query succeeded: {} result(s)", count);
             let mut results = Vec::with_capacity(count as usize);
             for _ in 0..count {
                 let len = read_u32_with_timeout(pipes.stdout()?, start_time, config)?;
                 let mut buf = vec![0u8; len as usize];
-                let reader = pipes.stdout()?;
-                read_exact_with_timeout(reader, &mut buf, start_time, config)?;
-                let value =
-                    String::from_utf8(buf).map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
+                read_exact_with_timeout(pipes.stdout()?, &mut buf, start_time, config)?;
+                let value = String::from_utf8(buf)
+                    .map_err(|e| PeTTaError::ProtocolError(e.to_string()))?;
                 results.push(MettaResult { value });
             }
             Ok(results)
         }
         1 => {
-            // Error: read error message
             let len = read_u32_with_timeout(pipes.stdout()?, start_time, config)?;
             let mut buf = vec![0u8; len as usize];
-            let reader = pipes.stdout()?;
-            read_exact_with_timeout(reader, &mut buf, start_time, config)?;
+            read_exact_with_timeout(pipes.stdout()?, &mut buf, start_time, config)?;
             let msg = String::from_utf8_lossy(&buf).to_string();
             debug!("Prolog error response: {}", msg);
             Err(PeTTaError::BackendError(parse_backend_error(&msg)))

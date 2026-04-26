@@ -10,7 +10,6 @@ pub enum Backend {
     Mork,
     /// SWI-Prolog - Persistent subprocess backend (default, stable Rust).
     #[default]
-    #[allow(dead_code)]
     Swipl,
 }
 
@@ -34,7 +33,7 @@ impl std::fmt::Display for Backend {
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct EngineConfig {
-    /// Backend implementation to use (default: Mork).
+    /// Backend implementation to use (default: Swipl).
     pub backend: Backend,
     /// Path to the SWI-Prolog binary (defaults to "swipl").
     pub swipl_path: PathBuf,
@@ -55,7 +54,6 @@ pub struct EngineConfig {
 impl Default for EngineConfig {
     fn default() -> Self {
         Self {
-            // Default to the SWI-Prolog subprocess backend which works on stable Rust.
             backend: Backend::Swipl,
             swipl_path: PathBuf::from("swipl"),
             src_dir: None,

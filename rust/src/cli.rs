@@ -56,7 +56,6 @@ impl std::fmt::Display for BackendArg {
 }
 
 impl BackendArg {
-    /// Convert to engine Backend enum
     pub fn to_backend(&self) -> Backend {
         match self {
             BackendArg::Mork => Backend::Mork,

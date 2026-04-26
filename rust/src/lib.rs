@@ -36,25 +36,24 @@ pub use mork::expr::compute_length;
 pub use mork::expr::parse as metta_parse_macro;
 
 pub mod utils {
-    fn ansi_color(s: &str, code: u8) -> String {
-        format!("\x1b[{}m{}\x1b[0m", code, s)
-    }
-
     pub fn bold(s: &str) -> String {
         format!("\x1b[1m{}\x1b[0m", s)
     }
 
     pub fn green(s: &str) -> String {
-        ansi_color(s, 32)
+        format!("\x1b[32m{}\x1b[0m", s)
     }
+
     pub fn red(s: &str) -> String {
-        ansi_color(s, 31)
+        format!("\x1b[31m{}\x1b[0m", s)
     }
+
     pub fn yellow(s: &str) -> String {
-        ansi_color(s, 33)
+        format!("\x1b[33m{}\x1b[0m", s)
     }
+
     pub fn cyan(s: &str) -> String {
-        ansi_color(s, 36)
+        format!("\x1b[36m{}\x1b[0m", s)
     }
 
     pub fn format_duration_ms(ms: f64) -> String {
