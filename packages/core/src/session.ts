@@ -1,6 +1,7 @@
 import pl from 'tau-prolog';
 import fs from 'fs';
 import path from 'path';
+import { openrouter_chat, openrouter_embed, MorkSpace } from '@petta/extensions';
 
 // Require core modules
 require('tau-prolog/modules/lists')(pl);
@@ -45,10 +46,31 @@ export class SessionManager {
         `;
 
         // Bind global JS objects
-        (globalThis as any).global = globalThis;
+                        (globalThis as any).global = globalThis;
         (globalThis as any).readFileToString = (p: string) => fs.readFileSync(p, 'utf8');
         (globalThis as any).__import__ = (p: string) => {
              // very basic mock of importing
+        };
+        (globalThis as any)._petta_format_error = (fmt: string, args: any[]) => {
+            return fmt; // Just return format unparsed for now
+        };
+        (globalThis as any)._petta_format = (fmt: string, args: any[]) => {
+            console.log(fmt, args);
+            return true;
+        };
+
+        const morkSpace = new MorkSpace();
+        (globalThis as any).mork = {
+            addAtom: (atom: any) => morkSpace.addAtom(atom),
+            removeAtom: (atom: any) => morkSpace.removeAtom(atom),
+            match: (pattern: any) => morkSpace.match(pattern)
+        };
+
+        (globalThis as any).llm = {
+            use_gpt: async (model: string, prompt: string, maxTokens: number, effort: string) => await openrouter_chat(model, prompt, maxTokens, effort),
+            use_openrouter: async (model: string, prompt: string, maxTokens: number, effort: string) => await openrouter_chat(model, prompt, maxTokens, effort),
+            use_gpt_embedding: async (text: string) => await openrouter_embed('text-embedding-3-small', text),
+            use_openrouter_embedding: async (model: string, text: string) => await openrouter_embed(model, text)
         };
 
         // Load hooks

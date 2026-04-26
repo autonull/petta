@@ -2,10 +2,10 @@
 
 %Generate a MeTTa S-expression string from the Prolog list (inverse parsing):
 swrite(Term, String) :- phrase(swrite_exp(Term), Codes),
-                        string_codes(String, Codes).
+                        atom_codes(String, Codes).
 swrite_exp(Var)   --> { var(Var) }, !, "$", { term_to_atom(Var, A), atom_codes(A, Cs) }, Cs.
 swrite_exp(Num)   --> { number(Num) }, !, { number_codes(Num, Cs) }, Cs.
-swrite_exp(Str)   --> { string(Str) }, !, [34], { string_codes(Str, Cs), escape_quotes(Cs, Es) }, Es, [34].
+swrite_exp(Str)   --> { string(Str) }, !, [34], { atom_codes(Str, Cs), escape_quotes(Cs, Es) }, Es, [34].
 swrite_exp(Atom)  --> { atom(Atom) }, !, atom(Atom).
 swrite_exp([H|T]) --> { \+ is_list([H|T]) }, !, "(", atom(cons), " ", swrite_exp(H), " ", swrite_exp(T), ")".
 swrite_exp([H|T]) --> !, "(", seq([H|T]), ")".
@@ -18,10 +18,10 @@ escape_quotes([0'"|T], [0'\\,0'"|R]) :- !, escape_quotes(T, R).
 escape_quotes([H|T], [H|R]) :- escape_quotes(T, R).
 
 %Read S string or atom, extract codes, and apply DCG (parsing):
-sread(S, T) :- ( atom_string(A, S),
+sread(S, T) :- ( atom_chars(A, S),
                  atom_codes(A, Cs),
                  phrase(sexpr(T, [], _), Cs)
-               -> true ; format(atom(Msg), 'Parse error in form: ~w', [S]), throw(error(syntax_error(Msg), none)) ).
+               -> true ; Msg = 'Parse error', throw(error(syntax_error(Msg), none)) ).
 
 %An S-Expression is a parentheses-nesting of S-Expressions that are either numbers, variables, sttrings, or atoms:
 sexpr(S,E,E)  --> blanks, string_lit(S), blanks, !.
@@ -31,7 +31,7 @@ sexpr(V,E0,E) --> blanks, var_symbol(V,E0,E), blanks, !.
 sexpr(A,E,E)  --> blanks, atom_symbol(A), blanks.
 
 %Helper for strange atoms that aren't numbers, e.g. 1_2_3:
-lookahead_any(Terms, S, E) :- string_codes(Terms,SC), S = [Head | _], member(Head,SC), !, S = E.
+lookahead_any(Terms, S, E) :- atom_codes(Terms,SC), S = [Head | _], member(Head,SC), !, S = E.
 
 %Recursive processing of S-Expressions within S-Expressions:
 seq([X|Xs],E0,E2) --> sexpr(X,E0,E1), blanks, seq(Xs,E1,E2).
@@ -42,7 +42,7 @@ var_symbol(V,E0,E) --> "$", token(Cs), { atom_chars(N, Cs), ( N == '_' -> V = _,
 
 %Atoms are derived from tokens:
 atom_symbol(A) --> token(Cs), { Q = 34, ( Cs = [Q|_] -> append([Q|Body], [Q], Cs), %"str" as string
-                                                                         string_codes(A, Body)
+                                                                         atom_codes(A, Body)
                                                                        ; atom_codes(R, Cs),         %others are atoms
                                                                          ( R = 'True' -> A = true
                                                                                        ; R = 'False'
@@ -53,7 +53,17 @@ atom_symbol(A) --> token(Cs), { Q = 34, ( Cs = [Q|_] -> append([Q|Body], [Q], Cs
 token(Cs) --> string_without(" \t\r\n()", Cs), { Cs \= [] }.
 
 %Just string literal handling from here-on:
-string_lit(S) --> [34], string_chars(Cs), [34], { string_codes(S, Cs) }.
+string_lit(S) --> [34], string_chars(Cs), [34], { atom_codes(S, Cs) }.
 string_chars([]) --> [].
 string_chars([C|Cs]) --> [C], { C =\= 0'", C =\= 0'\\ }, !, string_chars(Cs).
 string_chars([C|Cs]) --> "\\", [X], { (X=0'n->C=10; X=0't->C=9; X=0'r->C=13; C=X) }, string_chars(Cs).
+
+% dcg/basics replacements
+blanks --> blank, !, blanks.
+blanks --> [].
+blank --> [C], { C = 32 ; C = 9 ; C = 10 ; C = 13 }.
+eos([], []).
+string_without(Not, [C|T]) --> [C], { \+ member(C, Not) }, !, string_without(Not, T).
+string_without(_, []) --> [].
+blanks_to_nl --> [C], { C = 32 ; C = 9 ; C = 13 }, !, blanks_to_nl.
+blanks_to_nl --> [10], !.

@@ -37,9 +37,9 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
 maybe_print_compiled_clause(_, _, _) :- silent(true), !.
 maybe_print_compiled_clause(Label, FormTerm, Clause) :-
     swrite(FormTerm, FormStr),
-    format("\u001b[33m-->  ~w  -->~n\u001b[36m~w~n\u001b[33m--> prolog clause -->~n\u001b[32m", [Label, FormStr]),
+    write('--> '), write(Label), write(' -->'), nl, write(FormStr), nl,
     portray_clause(current_output, Clause),
-    format("\u001b[33m^^^^^^^^^^^^^^^^^^^^^~n\u001b[0m").
+    write('^^^^^^^^^^^^^^^^^^^^^'), nl.
 
 %Conjunction builder, turning goals list to a flat conjunction:
 goals_list_to_conj([], true)      :- !.
@@ -242,7 +242,7 @@ translate_expr([H0|T0], Goals, Out) :-
                                            translate_clause([=, [F|FullArgs], Body], Clause),
                                            register_fun(F),
                                            assertz(Clause),
-                                           format(atom(Label), "metta lambda (~w)", [F]),
+                                           atom_concat('metta lambda ', F, Label),
                                            maybe_print_compiled_clause(Label, ['|->', Args, Body], Clause),
                                            length(FullArgs, N),
                                            Arity is N + 1,
@@ -427,7 +427,7 @@ memberchk_eq(V, [_|T]) :- memberchk_eq(V, T).
 next_lambda_name(Name) :- ( catch(nb_getval(lambda_counter, Prev), _, Prev = 0) ),
                           N is Prev + 1,
                           nb_setval(lambda_counter, N),
-                          format(atom(Name), 'lambda_~d', [N]).
+                          atom_concat('lambda_', N, Name).
 
 maplist_typed_functioncall_branch([], _, _, _, _, _, _, []).
 maplist_typed_functioncall_branch([TypeChain|TChains], Fun, T, GsH, IsPartial, Bound, Out, [BranchGoal|Branches]) :-

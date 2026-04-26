@@ -172,7 +172,7 @@ get_type_candidate(X, T) :- match('&self', [':',X,T], T, _).
 
 %%% Diagnostics / Testing: %%%
 'println!'(Arg, true) :- swrite(Arg, RArg),
-                         format('~w~n', [RArg]).
+                         write(RArg), nl.
 
 'readln!'(Out) :- read_line_to_string(user_input, Str),
                   sread(Str, Out).
@@ -180,12 +180,12 @@ get_type_candidate(X, T) :- match('&self', [':',X,T], T, _).
 test(A,B,true) :- (A =@= B -> E = '✅' ; E = '❌'),
                   swrite(A, RA),
                   swrite(B, RB),
-                  format("is ~w, should ~w. ~w ~n", [RA, RB, E]),
+                  write('is '), write(RA), write(' should '), write(RB), write(' '), write(E), nl,
                   (A =@= B -> true ; halt(1)).
 
 assert(Goal, true) :- ( call(Goal) -> true
                                     ; swrite(Goal, RG),
-                                      format("Assertion failed: ~w~n", [RG]),
+                                      write('Assertion failed: '), write(RG), nl,
                                       halt(1) ).
 
 %%% Time Retrieval: %%%
@@ -284,3 +284,12 @@ register_fun(N) :- (fun(N) -> true ; assertz(fun(N))).
                           'foldl-atom', 'map-atom', 'filter-atom','current-time','format-time', library, exists_file,
                           import_prolog_function, 'Predicate', callPredicate, assertaPredicate, assertzPredicate, retractPredicate,
                           'add-translator-rule!', 'remove-translator-rule!', argv]).
+
+% Better sformat mapping
+sformat(String, Format, Args) :-
+    % use tau-prolog standard js call fallback
+    js_call_predicate([global, _petta_format_error, Format, Args], Result),
+    atom_codes(Result, String).
+
+format(Format, Args) :- js_call_predicate([global, _petta_format, Format, Args], _).
+format(Stream, Format, Args) :- js_call_predicate([global, _petta_format, Format, Args], _).
