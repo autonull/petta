@@ -25,12 +25,13 @@ impl MettaEngine {
         let spaces_pl = include_str!("../prolog/spaces.pl");
 
         // The order might matter. Let's just create a combined module or load them one by one.
-        machine.load_module_string("parser", parser_pl.to_string());
-        machine.load_module_string("translator", translator_pl.to_string());
-        machine.load_module_string("specializer", specializer_pl.to_string());
-        machine.load_module_string("filereader", filereader_pl.to_string());
-        machine.load_module_string("spaces", spaces_pl.to_string());
-        machine.load_module_string("metta", metta_pl.to_string());
+        let disable_warnings = ":- discontiguous throw_dcg_expansion_error/1.\n";
+        machine.load_module_string("parser", format!("{}{}", disable_warnings, parser_pl));
+        machine.load_module_string("translator", format!("{}{}", disable_warnings, translator_pl));
+        machine.load_module_string("specializer", format!("{}{}", disable_warnings, specializer_pl));
+        machine.load_module_string("filereader", format!("{}{}", disable_warnings, filereader_pl));
+        machine.load_module_string("spaces", format!("{}{}", disable_warnings, spaces_pl));
+        machine.load_module_string("metta", format!("{}{}", disable_warnings, metta_pl));
 
         Self { machine }
     }
