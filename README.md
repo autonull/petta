@@ -4,109 +4,123 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-stable-brightgreen.svg)](https://www.rust-lang.org)
-[![Tests](https://img.shields.io/badge/145-tests-brightgreen.svg)](test.sh)
-
-PeTTa is an efficient, embeddable runtime for the [MeTTa](https://wiki.opencog.org/w/File:MeTTa_Specification.pdf) language — the declarative substrate for the TrueAGI / OpenCog Hyperon ecosystem. This implementation delivers MeTTa as a **Rust crate** with a proven Prolog WAM engine at its core, designed for production use in services, tools, and embedded systems. ⚙️
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](test.sh)
 
 ---
 
-## What is MeTTa? 🤔
+## What is MeTTa?
 
-MeTTa (Meta Type Talk) is a typed, eager, expressive language built on unified pattern matching and direct expression manipulation. It serves as both a **programming language** and a **knowledge representation format** — ideal for systems that must reason about their own code and data.
+**MeTTa** (Meta Type Talk) is a typed, eager, expressive language built on unified pattern matching and direct expression manipulation. It serves as both a **programming language** and a **knowledge representation format** — the declarative substrate for the TrueAGI / OpenCog Hyperon ecosystem.
 
-The runtime compiles MeTTa source to the **Warren Abstract Machine (WAM)**, leveraging decades of proven Prolog execution semantics. The result is mathematically rigorous, battle-tested, and genuinely comprehensible. ✨
+MeTTa programs operate on expressions (atoms, lists, and functions) with direct pattern matching, making it ideal for systems that must reason about their own code and data.
 
 ---
 
-## Key Features ✨
+## What is PeTTa?
 
-### 🔧 Embeddable Library
+PeTTa is an efficient, embeddable runtime for MeTTa. It compiles MeTTa source to the **Warren Abstract Machine (WAM)**, leveraging decades of proven Prolog execution semantics. The result is mathematically rigorous, battle-tested, and genuinely comprehensible.
 
-Import MeTTa into any Rust application:
+This implementation delivers MeTTa as a **Rust crate** with:
 
-```rust
-use petta::{PeTTaEngine, MettaValue};
-use std::path::Path;
+- A clean library API for embedding
+- Comprehensive test coverage
+- Persistent subprocess management
+- Structured error handling
+- Optional MORK acceleration
 
-let mut engine = PeTTaEngine::new(Path::new("/path/to/petta"), false)?;
-let results = engine.process_metta_string("!(+ 1 2)")?;
-// → ["3"]
-```
+---
 
-### 🧪 Comprehensive Test Suite
+## Goals
 
-| Layer | Count | Description |
-|-------|-------|------------|
-| Unit tests | 111 | Core engine verification |
-| Integration | 34 | Binary protocol round-trip |
-| Examples | 270 | Stdlib validation |
+| Goal | Description |
+|------|-------------|
+| **Embeddable** | Import MeTTa into Rust applications, services, and tools as a library |
+| **Tested** | 145+ tests across unit, integration, and example layers |
+| **Reliable** | Structured errors, health checks, automatic restart on crash |
+| **Performant** | Persistent engine eliminates spawn overhead; parallel execution; optional MORK |
+| **Maintainable** | Clean boundaries, documented protocol, modular code |
+| **Future-proof** | Dual parser, MORK integration, WASM-ready |
 
-Every change is verified. Every feature has coverage. ✅
+PeTTa is the foundation for building real systems with MeTTa.
 
-### ⚡ Persistent Engine
+---
 
-One subprocess, reused across all calls. No spawn overhead. No cold starts. 🔥
+## MORK: The Acceleration Backend
 
-```rust
-// Load multiple files — same engine
-engine.load_metta_file(Path::new("examples/math.metta"))?;
-engine.load_metta_file(Path::new("examples/state.metta"))?;
-// Queries hit a warm engine immediately
-```
+**MORK** (Meta Type Talk Optimal Reduction Kernel) is an alternative execution backend based on zipper-based reduction. It provides:
 
-### 🎯 Structured Error Handling
+- **Native Rust execution** — no Prolog dependency when MORK is enabled
+- **Multi-threaded parallelism** — concurrent expression reduction
+- **Optimized hot paths** — zipper-based traversal and modification
 
-Every failure mode is typed and traceable:
-
-```rust
-pub enum PeTTaError {
-    FileNotFound(PathBuf),
-    SpawnSwipl(String),
-    ProtocolError(String),
-    SwiplError(SwiplErrorKind),
-    Timeout(Duration),
-    SubprocessCrashed { restarts: u32 },
-}
-
-pub enum SwiplErrorKind {
-    UndefinedFunction { name, arity, suggestion },
-    TypeMismatch { expected, found, context },
-    SyntaxError { line, column, detail },
-    StackOverflow { limit },
-}
-```
-
-### 📊 Query Profiling
-
-Built-in timing instrumentation:
-
-```rust
-let (results, profile) = engine.process_metta_string_profiled("!(fib 30)")?;
-println!("{}", profile.summary());
-// → Query 'process_metta_string': serialize=0.012ms, 
-//   round_trip=1.234ms, parse=0.003ms, total=1.249ms
-```
-
-### 🔀 Dual Parser
-
-Two parsers, one goal:
-
-- **Prolog DCG** — full MeTTa semantics, complete feature set
-- **Native Rust (nom)** — fast S-expression parsing for common cases
-
-The native parser also provides a migration path toward a pure-Rust future. 🌉
-
-### 🚀 Optional MORK Backend
-
-For performance-critical workloads, swap in the MORK zipper-based execution engine:
+MORK isopt-in and currently requires Rust nightly. Enable it with:
 
 ```bash
 RUSTFLAGS="-C target-cpu=native" cargo build --release --features mork
 ```
 
+For workloads where Prolog is unavailable or maximum throughput is critical, MORK delivers significant acceleration.
+
 ---
 
-## Quick Start 🚀
+## Key Features
+
+### Library Crate
+
+Import MeTTa into any Rust application with a simple API:
+
+```toml
+[dependencies]
+petta = { path = "/path/to/petta" }
+```
+
+### Dual Parser Architecture
+
+- **Prolog DCG** — full MeTTa semantics, complete feature set
+- **Native Rust (nom)** — fast S-expression parsing for common cases
+
+### Structured Error Handling
+
+Every failure mode is typed and traceable, from undefined functions to stack overflow.
+
+### Query Profiling
+
+Built-in timing instrumentation for performance analysis.
+
+### Binary Protocol
+
+Language-agnostic communication over stdin/stdout. Any language can implement a client to communicate with the PeTTa engine.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       MeTTa Source Files                         │
+└───────────────────────────┬─────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Rust Host / CLI                              │
+│   PeTTaEngine  ──  EngineConfig  ──  profiler::QueryProfile        │
+│   binary protocol: [type][len][payload] ↔ [status][results]        │
+└───────────────────────────┬─────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Prolog Core                                │
+│   parser.pl → translator.pl → specializer.pl               │
+│   metta.pl → spaces.pl → utils.pl                     │
+│              WAM execution engine                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The Prolog WAM is the engine — mathematically proven, declaratively clear, and remarkably resilient. PeTTa embeds it behind a clean Rust FFI boundary with proper lifecycle management.
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
@@ -147,75 +161,27 @@ sh test.sh
 
 ---
 
-## Architecture 🏗️
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                       MeTTa Source Files                         │
-└───────────────────────────┬─────────────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Rust Host / CLI                              │
-│   PeTTaEngine  ──  EngineConfig  ──  profiler::QueryProfile        │
-│   binary protocol: [type][len][payload] ↔ [status][results]        │
-└───────────────────────────┬─────────────────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     Prolog Core                                │
-│   parser.pl → translator.pl → specializer.pl               │
-│   metta.pl → spaces.pl → utils.pl                     │
-│              WAM execution engine                      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-The **Prolog WAM is the engine** — mathematically proven, declaratively clear, and remarkably resilient. This implementation embeds it behind a clean Rust FFI boundary with proper lifecycle management. 🛡️
-
----
-
-## Using as a Library 📦
-
-Add to `Cargo.toml`:
-
-```toml
-[dependencies]
-petta = { path = "/path/to/petta" }
-
-# Optional features
-# petta = { path = "/path/to/petta", features = ["parallel", "profiling"] }
-```
+## Using as a Library
 
 ### Configuration
 
-```rust
-use petta::EngineConfig;
-use std::time::Duration;
+Configure the engine with custom paths, timeouts, and restart behavior.
 
-let config = EngineConfig::new(Path::new("/path/to/petta"))
-    .swipl_path("/usr/local/bin/swipl")
-    .verbose(true)
-    .profile(true)
-    .max_restarts(3)
-    .query_timeout(Duration::from_secs(30))
-    .stack_limit("4g");
+### Engine Lifecycle
 
-let mut engine = PeTTaEngine::with_config(&config)?;
-```
+- Create engine with `PeTTaEngine::new()`
+- Load files with `load_metta_file()`
+- Execute strings with `process_metta_string()`
+- Check health with `is_alive()`
+- Shutdown explicitly or drop
 
 ### Parallel Execution
 
-```rust
-let results = engine.process_metta_strings_parallel(&[
-    "!(+ 1 2)",
-    "!(+ 3 4)",
-    "!(+ 5 6)",
-])?;
-```
+Process multiple MeTTa strings in parallel using rayon.
 
 ---
 
-## Feature Flags 🎛️
+## Feature Flags
 
 | Feature | Description | Default |
 |---------|-------------|---------|
@@ -227,7 +193,7 @@ let results = engine.process_metta_strings_parallel(&[
 
 ---
 
-## Project Structure 📁
+## Project Structure
 
 ```
 petta/
@@ -235,7 +201,7 @@ petta/
 ├── prolog/           # WAM engine
 │   ├── parser.pl
 │   ├── translator.pl
-│   ���── specializer.pl
+│   ├── specializer.pl
 │   ├── spaces.pl
 │   ├── filereader.pl
 │   ├── metta.pl
@@ -253,17 +219,17 @@ petta/
 │   │   ├── engine/   # Subprocess management
 │   │   ├── mork/    # MORK backend
 │   │   └── pathmap/  # PathMap 0.3
-│   └── tests/       # 111 Rust tests
+│   └── tests/       # Rust test suite
 ```
 
 ---
 
-## Binary Protocol 🔌
+## Binary Protocol
 
 Language-agnostic communication over stdin/stdout:
 
 **Request**: `[type:1][len:4][payload:N]`
-- `F` = file, `S` = string, `Q` = quit
+- `F` = file, `S` = string, `Q` = quit, `C` = cancel
 
 **Response**: `[status:1][...results...]`
 - `0` = success, `1` = error
@@ -272,53 +238,71 @@ Any language can implement a client. 🌐
 
 ---
 
-## Performance 📈
-
-| Benchmark | Time |
-|-----------|------|
-| CLI startup | ~90ms |
-| Query (`(+ 1 2)`) | ~1ms |
-| `fib(30)` | ~2.6s |
-| Example suite (270 assertions) | ~0.2s |
-| Rust test suite (111) | ~3s |
-
-The **persistent engine** eliminates spawn overhead. All queries share one warm subprocess. 🎯
-
----
-
-## Why PeTTa? 💡
-
-| Quality | What It Means |
-|---------|---------------|
-| **Embeddable** | Import into Rust apps, services, tools |
-| **Tested** | 145 tests across unit, integration, example layers |
-| **Reliable** | Structured errors, health checks, auto-restart |
-| **Fast** | Persistent engine, parallel execution, optional MORK |
-| **Maintainable** | Clean boundaries, documented protocol, modular |
-| **Future-proof** | Dual parser, MORK integration, WASM-ready |
-
-This is the foundation for building real systems with MeTTa. 🏗️
-
----
-
-## The Opportunity 🌟
+## The Opportunity
 
 MeTTa represents a unique convergence — a language that is both **executable logic** and **knowledge representation**. It is the substrate for reasoning systems that can manipulate their own representations.
 
 But language potential is realized only through runtime quality. A language without a tested, embeddable, production-ready runtime is a research prototype, not an engineering foundation.
 
-**This implementation is that foundation.** 🌉
+**PeTTa is that foundation.** Built for:
 
-Built for:
 - Services that expose MeTTa over HTTP/gRPC
 - Tools that embed MeTTa as a DSL
 - Edge deployments with minimal resources
 - Research requiring reliable, reproducible execution
 
-The best is yet to come. Build something remarkable. 🚀
+The best is yet to come. 🚀
 
 ---
 
-## License 📜
+## Dependencies & Credits
+
+PeTTa integrates several open-source components:
+
+### Core PeTTa
+
+| Component | Author | License | Repository |
+|-----------|--------|---------|-------------|
+| PeTTa (Rust CLI + library) | Patrick Hammer | MIT | trueagi-io/PeTTa |
+| PeTTa Prolog backend | Patrick Hammer | MIT | trueagi-io/PeTTa |
+
+### MORK Ecosystem
+
+| Component | Author | License | Repository |
+|-----------|--------|---------|-------------|
+| MORK (Meta Type Talk Optimal Reduction Kernel) | Adam Vandervorst, TrueAGI | (see repo) | trueagi-io/MORK |
+| mork-expr | Adam Vandervorst | (see repo) | trueagi-io/MORK/expr |
+| mork-frontend | Adam Vandervorst | (see repo) | trueagi-io/MORK/frontend |
+| mork-interning | Adam Vandervorst | (see repo) | trueagi-io/MORK/interning |
+
+### Dependencies
+
+| Component | Author | License | Repository |
+|-----------|--------|---------|-------------|
+| PathMap | Adam Vandervorst | MIT | Adam-Vandervorst/PathMap |
+| SWI-Prolog | Jan Wielemaker et al. | BSD-2 | SWI-Prolog/swipl-devel |
+| thiserror | David Tolnay | MIT / Apache-2.0 | dtolnay/thiserror |
+| tracing | Tokio contributors | MIT | tokio-rs/tracing |
+| nom | Geoffroy Couprie | MIT | Geal/nom |
+| rayon | Niko Matsakis, Josh Stone | MIT / Apache-2.0 | rayon-rs/rayon |
+| smallvec | Servo developers | MIT / Apache-2.0 | servo/rust-smallvec |
+| gxhash | Tommy et al. | MIT | luketpeterson/gxhash |
+| xxhash-rust | Rust community | MIT / Apache-2.0 | rust-lang/xxhash-rust |
+| tempfile | Steven Allen | MIT / Apache-2.0 | Stebalien/tempfile |
+| faiss (optional) | Facebook Research | MIT | facebookresearch/faiss |
+
+### Related Projects
+
+| Project | Description | Repository |
+|---------|-------------|-------------|
+| hyperon-experimental | Reference MeTTa implementation | trueagi-io/hyperon-experimental |
+| metta-wam | MeTTa WAM interpreter | trueagi-io/metta-wam |
+| PLN | Probabilistic Logic Networks | trueagi-io/PLN |
+| chaining | Forward/backward chaining | trueagi-io/chaining |
+| metta-examples | MeTTa example library | trueagi-io/metta-examples |
+
+---
+
+## License
 
 MIT — Copyright 2025 Patrick Hammer
