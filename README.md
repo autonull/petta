@@ -522,14 +522,6 @@ See [REFACTORING_PLAN.md](REFACTORING_PLAN.md) for detailed roadmap.
 
 ---
 
-## License
-
-**MIT License** — Copyright 2025 Patrick Hammer
-
-See [LICENSE](LICENSE) for full terms.
-
----
-
 ## Acknowledgments
 
 PeTTa builds on excellent work from the TrueAGI / OpenCog Hyperon community:
