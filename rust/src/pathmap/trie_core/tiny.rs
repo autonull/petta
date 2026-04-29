@@ -31,7 +31,7 @@ pub struct TinyRefNode<'a, V: Clone + Send + Sync, A: Allocator> {
 
 impl<V: Clone + Send + Sync, A: Allocator> Debug for TinyRefNode<'_, V, A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let converted = self.clone().into_full().unwrap();
+        let converted = self.clone().to_full().unwrap();
         write!(f, "TinyRefNode -> {converted:?}")
     }
 }
@@ -59,8 +59,8 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TinyRefNode<'a, V, A> {
         new_node
     }
 
-    /// Turn the TinyRefNode into a LineListNode by cloning the payload
-    pub fn into_list_node(&self) -> Option<super::line_list::LineListNode<V, A>> {
+    /// Convert the TinyRefNode into a LineListNode by cloning the payload
+    pub fn to_list_node(&self) -> Option<super::line_list::LineListNode<V, A>> {
         self.clone_payload().map(|payload| {
             let mut new_node = super::line_list::LineListNode::new_in(self.alloc.clone());
             unsafe {
@@ -72,8 +72,8 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TinyRefNode<'a, V, A> {
     }
 
     #[cfg(feature = "bridge_nodes")]
-    /// Turn the TinyRefNode into a BridgeNode by cloning the payload
-    pub fn into_bridge_node(&self) -> Option<super::bridge::BridgeNode<V, A>> {
+    /// Convert the TinyRefNode into a BridgeNode by cloning the payload
+    pub fn to_bridge_node(&self) -> Option<super::bridge::BridgeNode<V, A>> {
         let is_child = self.is_child_ptr();
         let payload: ValOrChildUnion<V> = if is_child {
             unsafe { &*self.payload.child }.clone().into()
@@ -83,14 +83,19 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TinyRefNode<'a, V, A> {
         Some(super::bridge::BridgeNode::new(self.key(), is_child, payload))
     }
 
-    #[cfg(not(feature = "bridge_nodes"))]
-    pub fn into_full(&self) -> Option<super::line_list::LineListNode<V, A>> {
-        self.into_list_node()
+#[cfg(not(feature = "bridge_nodes"))]
+    pub fn to_full(&self) -> Option<super::line_list::LineListNode<V, A>> {
+        self.to_list_node()
+    }
+
+    #[cfg(feature = "bridge_nodes")]
+    pub fn to_full(&self) -> Option<super::bridge::BridgeNode<V, A>> {
+        self.to_bridge_node()
     }
 
     #[cfg(feature = "bridge_nodes")]
     pub fn into_full(&self) -> Option<super::bridge::BridgeNode<V, A>> {
-        self.into_bridge_node()
+        self.to_bridge_node()
     }
 
     /// Clones the payload from self
@@ -222,7 +227,7 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
         key: &[u8],
         val: V,
     ) -> Result<(Option<V>, bool), TrieNodeODRc<V, A>> {
-        let mut replacement_node = self.into_full().unwrap();
+        let mut replacement_node = self.to_full().unwrap();
         replacement_node.node_set_val(key, val).unwrap_or_else(|_| panic!());
         Err(TrieNodeODRc::new_in(replacement_node, self.alloc.clone()))
     }
@@ -231,7 +236,7 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
         key: &[u8],
         new_node: TrieNodeODRc<V, A>,
     ) -> Result<bool, TrieNodeODRc<V, A>> {
-        let mut replacement_node = self.into_full().unwrap();
+        let mut replacement_node = self.to_full().unwrap();
         replacement_node.node_set_branch(key, new_node).unwrap_or_else(|_| panic!());
         Err(TrieNodeODRc::new_in(replacement_node, self.alloc.clone()))
     }
@@ -257,11 +262,11 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
         unreachable!()
     }
     fn node_val_count(&self, cache: &mut HashMap<u64, usize>) -> usize {
-        let temp_node = self.into_full().unwrap();
+        let temp_node = self.to_full().unwrap();
         temp_node.node_val_count(cache)
     }
     fn node_goat_val_count(&self) -> usize {
-        self.into_full().unwrap().node_goat_val_count()
+        self.to_full().unwrap().node_goat_val_count()
     }
     fn node_child_iter_start(&self) -> (u64, Option<&TrieNodeODRc<V, A>>) {
         if self.is_used_child() { (0, Some(unsafe { &*self.payload.child })) } else { (0, None) }
@@ -346,7 +351,7 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
     {
         //TODO, I can streamline this quite a lot, but for now I'll just up-convert to a ListNode to test
         // the basic premise of the TinyRefNode
-        self.into_full().unwrap().pjoin_dyn(other)
+        self.to_full().unwrap().pjoin_dyn(other)
     }
     fn join_into_dyn(
         &mut self,
@@ -368,18 +373,18 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> TrieNode<V, A> for TinyRefNode<'a
         V: Lattice,
     {
         //TODO, is this worth bespoke code to save some cycles?
-        self.into_full().unwrap().pmeet_dyn(other)
+        self.to_full().unwrap().pmeet_dyn(other)
     }
     fn psubtract_dyn(&self, other: TaggedNodeRef<V, A>) -> AlgebraicResult<TrieNodeODRc<V, A>>
     where
         V: DistributiveLattice,
     {
         //TODO, is this worth bespoke code to save some cycles?
-        self.into_full().unwrap().psubtract_dyn(other)
+        self.to_full().unwrap().psubtract_dyn(other)
     }
     fn prestrict_dyn(&self, other: TaggedNodeRef<V, A>) -> AlgebraicResult<TrieNodeODRc<V, A>> {
         //TODO, is this worth bespoke code to save some cycles?
-        self.into_full().unwrap().prestrict_dyn(other)
+        self.to_full().unwrap().prestrict_dyn(other)
     }
     fn clone_self(&self) -> TrieNodeODRc<V, A> {
         TrieNodeODRc::new_in(self.clone(), self.alloc.clone())

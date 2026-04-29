@@ -847,7 +847,7 @@ impl<'a, V: Clone + Send + Sync, A: Allocator> AbstractNodeRef<'a, V, A> {
                 }
             }
             AbstractNodeRef::BorrowedTiny(tiny) => {
-                tiny.into_full().map(|list_node| TrieNodeODRc::new_in(list_node, tiny.alloc))
+                tiny.to_full().map(|list_node| TrieNodeODRc::new_in(list_node, tiny.alloc))
             }
             AbstractNodeRef::OwnedRc(rc) => Some(rc),
         }

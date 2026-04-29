@@ -12,6 +12,38 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+/// Helper macro to check argument count for builtin functions
+macro_rules! require_args {
+    ($args:expr, $count:expr, $name:expr) => {
+        if $args.len() != $count {
+            return Err(InterpreterError::SyntaxError(format!(
+                "{} requires {} argument(s)",
+                $name, $count
+            )));
+        }
+    };
+}
+
+/// Helper macro for binary numeric operators
+macro_rules! binary_numeric_op {
+    ($self:expr, $args:expr, $op:tt, $name:expr) => {{
+        require_args!($args, 2, $name);
+        let a = $self.get_number(&$args[0])?;
+        let b = $self.get_number(&$args[1])?;
+        Ok(MettaValue::Number(a $op b))
+    }};
+}
+
+/// Helper macro for binary comparison operators
+macro_rules! binary_comparison_op {
+    ($self:expr, $args:expr, $op:tt, $name:expr) => {{
+        require_args!($args, 2, $name);
+        let a = $self.get_number(&$args[0])?;
+        let b = $self.get_number(&$args[1])?;
+        Ok(MettaValue::Bool(a $op b))
+    }};
+}
+
 /// Metta value types
 #[derive(Debug, Clone, PartialEq)]
 pub enum MettaValue {
@@ -271,36 +303,19 @@ impl Interpreter {
     }
 
     fn eval_add(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("+ requires 2 arguments".to_string()));
-        }
-        let a = self.get_number(&args[0])?;
-        let b = self.get_number(&args[1])?;
-        Ok(MettaValue::Number(a + b))
+        binary_numeric_op!(self, args, +, "+")
     }
 
     fn eval_sub(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("- requires 2 arguments".to_string()));
-        }
-        let a = self.get_number(&args[0])?;
-        let b = self.get_number(&args[1])?;
-        Ok(MettaValue::Number(a - b))
+        binary_numeric_op!(self, args, -, "-")
     }
 
     fn eval_mul(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("* requires 2 arguments".to_string()));
-        }
-        let a = self.get_number(&args[0])?;
-        let b = self.get_number(&args[1])?;
-        Ok(MettaValue::Number(a * b))
+        binary_numeric_op!(self, args, *, "*")
     }
 
     fn eval_div(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("/ requires 2 arguments".to_string()));
-        }
+        require_args!(args, 2, "/");
         let a = self.get_number(&args[0])?;
         let b = self.get_number(&args[1])?;
         if b == 0.0 {
@@ -310,72 +325,41 @@ impl Interpreter {
     }
 
     fn eval_mod(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("% requires 2 arguments".to_string()));
-        }
-        let a = self.get_number(&args[0])?;
-        let b = self.get_number(&args[1])?;
-        Ok(MettaValue::Number(a % b))
+        binary_numeric_op!(self, args, %, "%")
     }
 
     fn eval_eq(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("== requires 2 arguments".to_string()));
-        }
+        require_args!(args, 2, "==");
         let a = self.eval_value(args[0].clone())?;
         let b = self.eval_value(args[1].clone())?;
         Ok(MettaValue::Bool(a == b))
     }
 
     fn eval_neq(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("!= requires 2 arguments".to_string()));
-        }
+        require_args!(args, 2, "!=");
         let a = self.eval_value(args[0].clone())?;
         let b = self.eval_value(args[1].clone())?;
         Ok(MettaValue::Bool(a != b))
     }
 
     fn eval_lt(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("< requires 2 arguments".to_string()));
-        }
-        let a = self.get_number(&args[0])?;
-        let b = self.get_number(&args[1])?;
-        Ok(MettaValue::Bool(a < b))
+        binary_comparison_op!(self, args, <, "<")
     }
 
     fn eval_gt(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("> requires 2 arguments".to_string()));
-        }
-        let a = self.get_number(&args[0])?;
-        let b = self.get_number(&args[1])?;
-        Ok(MettaValue::Bool(a > b))
+        binary_comparison_op!(self, args, >, ">")
     }
 
     fn eval_le(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("<= requires 2 arguments".to_string()));
-        }
-        let a = self.get_number(&args[0])?;
-        let b = self.get_number(&args[1])?;
-        Ok(MettaValue::Bool(a <= b))
+        binary_comparison_op!(self, args, <=, "<=")
     }
 
     fn eval_ge(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError(">= requires 2 arguments".to_string()));
-        }
-        let a = self.get_number(&args[0])?;
-        let b = self.get_number(&args[1])?;
-        Ok(MettaValue::Bool(a >= b))
+        binary_comparison_op!(self, args, >=, ">=")
     }
 
     fn eval_if(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 3 {
-            return Err(InterpreterError::SyntaxError("if requires 3 arguments".to_string()));
-        }
+        require_args!(args, 3, "if");
         let cond = self.eval_value(args[0].clone())?;
         if cond.is_truthy() {
             self.eval_value(args[1].clone())
@@ -405,17 +389,13 @@ impl Interpreter {
     }
 
     fn eval_not(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 1 {
-            return Err(InterpreterError::SyntaxError("not requires 1 argument".to_string()));
-        }
+        require_args!(args, 1, "not");
         let val = self.eval_value(args[0].clone())?;
         Ok(MettaValue::Bool(!val.is_truthy()))
     }
 
     fn eval_let(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 3 {
-            return Err(InterpreterError::SyntaxError("let requires 3 arguments".to_string()));
-        }
+        require_args!(args, 3, "let");
 
         let var = match &args[0] {
             MettaValue::Symbol(s) => s.clone(),
@@ -473,24 +453,17 @@ impl Interpreter {
     }
 
     fn eval_eval(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 1 {
-            return Err(InterpreterError::SyntaxError("eval requires 1 argument".to_string()));
-        }
+        require_args!(args, 1, "eval");
         self.eval_value(args[0].clone())
     }
 
     fn eval_reduce(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 1 {
-            return Err(InterpreterError::SyntaxError("reduce requires 1 argument".to_string()));
-        }
+        require_args!(args, 1, "reduce");
         self.eval_value(args[0].clone())
     }
 
     fn eval_match(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 3 {
-            return Err(InterpreterError::SyntaxError("match requires 3 arguments".to_string()));
-        }
-
+        require_args!(args, 3, "match");
         let _space = &args[0];
         let _pattern = &args[1];
         let template = &args[2];
@@ -499,10 +472,7 @@ impl Interpreter {
     }
 
     fn eval_test(&mut self, args: &[MettaValue]) -> Result<MettaValue> {
-        if args.len() != 2 {
-            return Err(InterpreterError::SyntaxError("test requires 2 arguments".to_string()));
-        }
-
+        require_args!(args, 2, "test");
         let result = self.eval_value(args[0].clone())?;
         let expected = self.eval_value(args[1].clone())?;
 
@@ -538,7 +508,8 @@ impl Interpreter {
 
     fn eval_user_function(&mut self, name: &str, args: &[MettaValue]) -> Result<MettaValue> {
         // Special case for facF - inline evaluation since space lookup is complex
-        if name == "facF" && args.len() == 1 {
+        if name == "facF" {
+            require_args!(args, 1, "facF");
             let n_val = &args[0];
             let n = match n_val {
                 MettaValue::Number(n) => *n,
