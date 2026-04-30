@@ -22,21 +22,22 @@ pub fn truncate(s: &str, max_len: usize) -> &str {
 }
 
 /// Calculate Levenshtein distance
+#[allow(clippy::needless_range_loop)]
 pub fn levenshtein(a: &str, b: &str) -> usize {
     let (a, b): (Vec<_>, Vec<_>) = (a.chars().collect(), b.chars().collect());
     let (alen, blen) = (a.len(), b.len());
-    
+
     if alen == 0 { return blen; }
     if blen == 0 { return alen; }
-    
+
     let mut dp = vec![vec![0; blen + 1]; alen + 1];
     for i in 0..=alen { dp[i][0] = i; }
     for j in 0..=blen { dp[0][j] = j; }
-    
-    for i in 1..=alen {
-        for j in 1..=blen {
-            let cost = if a[i-1] == b[j-1] { 0 } else { 1 };
-            dp[i][j] = (dp[i-1][j] + 1).min(dp[i][j-1] + 1).min(dp[i-1][j-1] + cost);
+
+    for (i, a_char) in a.iter().enumerate() {
+        for (j, b_char) in b.iter().enumerate() {
+            let cost = if a_char == b_char { 0 } else { 1 };
+            dp[i+1][j+1] = (dp[i][j+1] + 1).min(dp[i+1][j] + 1).min(dp[i][j] + cost);
         }
     }
     dp[alen][blen]
