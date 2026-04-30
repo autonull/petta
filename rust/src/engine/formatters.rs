@@ -1,14 +1,17 @@
-//! Output formatters for PeTTa results
+//! Output formatters for PeTTa
 //!
-//! Provides multiple output formats for displaying query results.
+//! Provides multiple output formats for displaying query results
 
 use crate::engine::values::MettaResult;
+use crate::utils::{cyan, green};
 
+/// Trait for output formatting
 pub trait OutputFormatter: Send + Sync {
     fn format(&self, results: &[MettaResult]) -> String;
     fn format_single(&self, result: &MettaResult) -> String;
 }
 
+/// Pretty formatter with optional colors
 pub struct PrettyFormatter {
     use_color: bool,
 }
@@ -36,14 +39,14 @@ impl OutputFormatter for PrettyFormatter {
 
     fn format_single(&self, result: &MettaResult) -> String {
         if self.use_color {
-            use crate::utils::cyan;
-            format!(" {} ", cyan(&result.value))
+            format!(" {} {}", green("✓"), cyan(&result.value))
         } else {
             format!(" {}", result.value)
         }
     }
 }
 
+/// Compact formatter - minimal whitespace
 #[derive(Default)]
 pub struct CompactFormatter;
 
@@ -55,7 +58,7 @@ impl CompactFormatter {
 
 impl OutputFormatter for CompactFormatter {
     fn format(&self, results: &[MettaResult]) -> String {
-        results.iter().map(|r| &*r.value).collect::<Vec<_>>().join(" ")
+        results.iter().map(|r| r.value.as_str()).collect::<Vec<_>>().join(" ")
     }
 
     fn format_single(&self, result: &MettaResult) -> String {
@@ -63,6 +66,7 @@ impl OutputFormatter for CompactFormatter {
     }
 }
 
+/// JSON formatter
 #[derive(Default)]
 pub struct JsonFormatter;
 
@@ -83,6 +87,7 @@ impl OutputFormatter for JsonFormatter {
     }
 }
 
+/// S-expression formatter
 #[derive(Default)]
 pub struct SExprFormatter;
 
@@ -107,6 +112,7 @@ impl OutputFormatter for SExprFormatter {
     }
 }
 
+/// Create formatter from string identifier
 pub fn create_formatter(format: &str, use_color: bool) -> Box<dyn OutputFormatter> {
     match format {
         "pretty" => Box::new(PrettyFormatter::new(use_color)),
@@ -147,5 +153,13 @@ mod tests {
         let results = vec![make_result("42")];
         let output = formatter.format(&results);
         assert!(output.contains("42"));
+    }
+
+    #[test]
+    fn test_sexpr_formatter() {
+        let formatter = SExprFormatter::new();
+        let results = vec![make_result("foo")];
+        let output = formatter.format(&results);
+        assert_eq!(output, "(foo)");
     }
 }

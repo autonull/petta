@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use std::path::{Path, PathBuf};
-use crate::{Backend, BackendCapabilities, BackendConfig, EngineConfig, MettaResult, MettaValue, PeTTaEngine, PeTTaError};
+use crate::{Backend, BackendCapabilities, EngineConfig, MettaResult, MettaValue, PeTTaEngine, PeTTaError};
 
 fn project_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
@@ -224,11 +224,11 @@ fn test_error_display() {
     let e = PeTTaError::ProtocolError("test error".into());
     assert!(e.to_string().contains("test error"));
     let e = crate::engine::errors::BackendErrorKind::UndefinedFunction {
-        name: "foo".into(),
-        arity: 2,
-        context: String::new(),
-        suggestion: "bar".into(),
-    };
+            name: "foo".into(),
+            arity: 2,
+            context: String::new(),
+            suggestion: Some("bar".to_string()),
+        };
     let s = e.to_string();
     assert!(s.contains("foo/2"));
     assert!(s.contains("bar"));
