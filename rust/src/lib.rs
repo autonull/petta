@@ -27,7 +27,14 @@ pub mod utils;
 #[cfg(feature = "mork")]
 pub mod mork;
 
-// Tests moved to integration tests
+mod cli;
+mod repl;
+mod profiler;
+mod observability;
+mod reliability;
+pub mod differential;
+mod viz;
+mod gxhash;
 
 // Core exports
 pub use engine::{
@@ -41,9 +48,30 @@ pub use engine::{
     SExprFormatter,
 };
 
-// Version and utilities
-pub use engine::{parse_backend_error, swipl_available, MIN_SWIPL_VERSION};
+// CLI exports
+pub use cli::{BackendArg, Cli, OutputFormat};
 
-// Optional exports
-#[cfg(feature = "mork")]
-pub use mork::MorkEngine;
+// REPL exports
+pub use repl::{run_repl, ReplConfig};
+
+// Profiler exports
+pub use profiler::{ProfileStats, QueryProfile};
+
+// Observability exports
+pub use observability::{HealthStatus, Metrics, ObservabilityConfig, ServiceStatus};
+
+// Reliability exports
+pub use reliability::{CircuitBreaker, CircuitState, ReliabilityConfig};
+
+// Differential testing exports
+pub use differential::{
+    assert_backend_parity, compare_results, BackendResult, DifferentialTest, ParityTestSuite,
+    TestSuiteResult,
+};
+
+// Visualization exports
+pub use viz::{format_stats_table, visualize_expression};
+
+// GXHash exports (optional)
+#[cfg(feature = "fast-hasher")]
+pub use gxhash::GxHasher;

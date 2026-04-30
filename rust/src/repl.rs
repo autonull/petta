@@ -7,8 +7,8 @@ use std::path::PathBuf;
 #[cfg(feature = "repl")]
 use rustyline::DefaultEditor;
 
-use petta::utils::{cyan, green, red, yellow};
-use petta::{Backend, EngineConfig, PeTTaEngine};
+use crate::utils::{cyan, green, red, yellow};
+use crate::{Backend, EngineConfig, PeTTaEngine};
 
 /// REPL configuration
 #[derive(Debug, Clone)]

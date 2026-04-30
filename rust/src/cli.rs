@@ -3,7 +3,7 @@
 //! Ergonomic command-line interface configuration
 
 use clap::{Parser, ValueEnum};
-use petta::Backend;
+use crate::Backend;
 
 /// PeTTa CLI arguments
 #[derive(Parser, Debug, Clone)]

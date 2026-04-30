@@ -185,6 +185,7 @@ fn test_value_parse_integer_negative() {
 }
 
 #[test]
+#[allow(clippy::approx_constant)]
 fn test_value_parse_float() {
     let v = MettaValue::parse("3.14159");
     assert!(matches!(v, Some(MettaValue::Float(f)) if (f - 3.14159).abs() < 1e-10));
