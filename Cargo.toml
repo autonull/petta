@@ -1,27 +1,17 @@
 [package]
 name = "petta"
 version = "0.5.0"
- edition = "2024"
- rust-version = "1.85"
-description = "Efficient MeTTa language implementation in Rust + persistent SWI-Prolog subprocess"
+edition = "2024"
+rust-version = "1.85"
+description = "Production MeTTa runtime with dual backends (Prolog/MORK)"
 license = "MIT"
-readme = "README.md"
 repository = "https://github.com/patham9/petta"
-keywords = ["metta", "logic", "prolog", "agi", "trueagi"]
-categories = ["compilers", "parser-implementations"]
+keywords = ["metta", "logic", "prolog", "agi"]
 
-# Workspace: petta (main crate) + pathmap-macros (procedural macros)
-# Note: PathMap is fully inlined as rust/src/pathmap/, not a separate workspace member
 [workspace]
 resolver = "2"
-members = [
-  ".",
-  "rust/pathmap-macros",
-]
+members = [".", "rust/pathmap-macros"]
 default-members = ["."]
-
-[workspace.package]
-edition = "2024"
 
 [[bin]]
 name = "petta"
@@ -37,36 +27,28 @@ harness = false
 path = "benches/benchmarks.rs"
 
 [dependencies]
+# Core dependencies
 tempfile = "3"
-thiserror = "2"
-serde_json = { version = "1.0", features = ["preserve_order"] }
+serde_json = "1.0"
 tracing = "0.1"
 nom = "8"
+clap = { version = "4.5", features = ["derive"], optional = true }
 
-# PathMap (inlined from repos/PathMap)
+# PathMap
 pathmap-macros = { path = "rust/pathmap-macros" }
+dyn-clone = "1.0"
+arrayvec = "0.7"
+smallvec = { version = "1.13", features = ["union"] }
+xxhash-rust = { version = "0.8", features = ["xxh64", "xxh3", "const_xxh3"] }
+memmap2 = "0.9"
 
-# PathMap internal dependencies (compiled when needed). Make gxhash optional
-# so a default stable build does not require AES/SSE2 CPU features.
-    dyn-clone = "1.0"
-    local-or-heap = "0.1.0"
-    arrayvec = "0.7.6"
-    fast-slice-utils = "0.1.2"
-    maybe-dangling = "0.1.1"
-    reusing-vec = { version = "0.2.0", features = ["smallvec"] }
-    rand = "0.9"
-    smallvec = { version = "1.13", features = ["union"] }
-    memmap2 = "0.9.5"
-    gxhash = { version = "3.5", optional = true }
-    xxhash-rust = { version = "0.8", features = ["xxh64", "xxh3", "const_xxh3"] }
-    num-traits = "0.2"
+# Optional: gxhash for fast hashing (requires AES/SSE2)
+gxhash = { version = "3.5", optional = true }
 
-# MORK (inlined from repos/MORK, compiled conditionally via 'mork' feature)
-# These dependencies are ONLY used by the MORK backend.
+# MORK backend (optional, requires nightly Rust)
 typed-arena = { version = "2.0", optional = true }
 regex = { version = "1.10", optional = true }
 memchr = { version = "2.7", optional = true }
-zip = { version = "2.2", default-features = false, optional = true }
 futures = { version = "0.3", optional = true }
 itertools = { version = "0.14", optional = true }
 base64 = { version = "0.22", optional = true }
@@ -75,75 +57,25 @@ subprocess = { version = "0.2", optional = true }
 libz-ng-sys = { version = "1.1", optional = true }
 
 # Optional features
-rayon = { version = "1.10", optional = true }
 rustyline = { version = "14", optional = true }
-clap = { version = "4.5", features = ["derive"], optional = true }
-dirs = "6.0.0"
-criterion = { version = "0.5", optional = true }
 tokio = { version = "1.0", features = ["full"], optional = true }
-tracing-subscriber = { version = "0.3", features = ["json", "env-filter"], optional = true }
+tracing-subscriber = { version = "0.3", optional = true }
 once_cell = { version = "1.0", optional = true }
+dirs = { version = "6.0", optional = true }
 
-# Make MORK opt-in. Default build uses the SWI-Prolog subprocess backend
-# (stable, works on stable Rust). Enable the MORK backend explicitly with
-# `--features mork` which requires nightly Rust/toolchain as noted in README.
 [features]
-# Default: keep REPL enabled, but do NOT enable the MORK backend by default.
-# MORK requires nightly Rust and should be opted-in explicitly by developers.
 default = ["repl", "clap"]
-# Optional high-performance hasher: re-exports the optional `gxhash` dependency.
 fast-hasher = ["dep:gxhash"]
-mork = [
-    "serialization",
-    "dep:typed-arena",
-    "dep:regex",
-    "dep:memchr",
-    "dep:zip",
-    "dep:futures",
-    "dep:itertools",
-    "dep:base64",
-    "dep:hex",
-    "dep:subprocess",
-]
-repl = ["dep:rustyline"]
+mork = ["serialization", "dep:typed-arena", "dep:regex", "dep:memchr", "dep:futures", "dep:itertools", "dep:base64", "dep:hex", "dep:subprocess"]
+repl = ["dep:rustyline", "dep:dirs"]
 clap = ["dep:clap"]
-pathmap-internal-tests = []
-serialization = ["dep:libz-ng-sys"]
-parallel = ["dep:rayon"]
+parallel = []
 profiling = []
-bench = ["dep:criterion"]
+bench = []
 async = ["dep:tokio"]
 observability = ["dep:tracing-subscriber", "dep:once_cell"]
 reliability = ["dep:tokio"]
-
-# Workspace dependencies
-[workspace.dependencies]
-pathmap = { path = "rust/src/pathmap", default-features = false }
-pathmap-macros = { path = "rust/pathmap-macros" }
-smallvec = { version = "1.13", features = ["union"] }
-xxhash-rust = { version = "0.8", features = ["xxh64", "xxh3", "const_xxh3"] }
-fast-slice-utils = "0.1.2"
-typed-arena = { version = "2.0" }
-regex = { version = "1.10" }
-memmap2 = "0.9.5"
-rayon = "1.10"
-memchr = { version = "2.7" }
-zip = { version = "2.2", default-features = false }
-futures = { version = "0.3" }
-rand = "0.9"
-itertools = { version = "0.14" }
-base64 = { version = "0.22" }
-hex = { version = "0.4" }
-subprocess = { version = "0.2" }
-reusing-vec = { version = "0.2.0", features = ["smallvec"] }
-maybe-dangling = "0.1.1"
-dyn-clone = "1.0"
-local-or-heap = "0.1.0"
-arrayvec = "0.7.6"
-num-traits = { version = "0.2" }
+serialization = ["dep:libz-ng-sys"]
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = [
-    'cfg(feature, values("arena_compact", "zipper_tracking", "random", "counters", "viz", "bridge_nodes", "slim_dispatch", "slim_ptrs", "all_dense_nodes", "graft_root_vals", "nightly", "zipper_alg", "wasm", "z3", "grounding", "neo4j", "interning", "no_search", "specialize_io", "periodic_merkleize", "debug_api", "gxhash", "serialization"))',
-    'cfg(gxhash)',
-] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("gxhash", "serialization", "mork", "repl", "clap"))'] }

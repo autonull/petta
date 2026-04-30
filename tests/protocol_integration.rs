@@ -144,12 +144,12 @@ fn test_protocol_error_undefined_function() {
             // Empty result list is also valid for undefined functions
             let _ = results;
         }
-        Err(PeTTaError::BackendError(BackendErrorKind::UndefinedFunction {
-            name, arity, ..
-        })) => {
-            assert_eq!(name, "undefined_function");
-            assert_eq!(arity, 2);
-        }
+Err(PeTTaError::Backend(BackendErrorKind::Undefined {
+                name, arity, ..
+            })) => {
+                assert_eq!(name, "undefined_function");
+                assert_eq!(arity, 2);
+            }
         Err(e) => panic!("Expected UndefinedFunction or Ok, got {:?}", e),
     }
 }
@@ -163,7 +163,7 @@ fn test_protocol_error_type_mismatch() {
     // Either way, the protocol should handle it gracefully
     match results {
         Ok(_) => {}                            // Valid: returns false
-        Err(PeTTaError::BackendError(_)) => {} // Also valid: type error
+        Err(PeTTaError::Backend(_)) => {} // Also valid: type error
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }
