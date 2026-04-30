@@ -118,8 +118,8 @@ fn parse_json(raw: &str) -> Option<BackendError> {
         if matches!(kind, "swipl" | "prolog") {
             if let (Some(n), Some(a)) = (msg("name"), msg("name_arity")) {
                 if let Ok(arity) = a.parse() {
-                    return Some(BackendError::Undefined { 
-                        name: n, arity, suggestion: msg("suggestion") 
+                    return Some(BackendError::Undefined {
+                        name: n, arity, suggestion: msg("suggestion")
                     });
                 }
             }
@@ -128,8 +128,8 @@ fn parse_json(raw: &str) -> Option<BackendError> {
                     return Some(BackendError::Syntax { detail: msg("message").unwrap_or_default() });
                 }
                 if f.contains("existence_error") {
-                    return Some(BackendError::Existence { 
-                        kind: f, term: msg("raw").unwrap_or_default() 
+                    return Some(BackendError::Existence {
+                        kind: f, term: msg("raw").unwrap_or_default()
                     });
                 }
             }
@@ -160,13 +160,13 @@ fn parse_error_kind(raw: &str) -> Option<BackendError> {
         return Some(BackendError::StackOverflow);
     }
     if raw.contains("permission_error") {
-        return Some(BackendError::Permission { 
-            op: "unknown".into(), target: "unknown".into() 
+        return Some(BackendError::Permission {
+            op: "unknown".into(), target: "unknown".into()
         });
     }
     if raw.contains("existence_error") {
-        return Some(BackendError::Existence { 
-            kind: "unknown".into(), term: "unknown".into() 
+        return Some(BackendError::Existence {
+            kind: "unknown".into(), term: "unknown".into()
         });
     }
     None
@@ -174,8 +174,8 @@ fn parse_error_kind(raw: &str) -> Option<BackendError> {
 
 fn extract_undefined(raw: &str) -> BackendError {
     let (name, arity) = extract_name_arity(raw).unwrap_or_else(|| ("unknown".into(), 0));
-    BackendError::Undefined { 
-        name, arity, suggestion: None 
+    BackendError::Undefined {
+        name, arity, suggestion: None
     }
 }
 
@@ -187,17 +187,17 @@ fn extract_type_error(raw: &str) -> BackendError {
 
 fn extract_name_arity(s: &str) -> Option<(String, usize)> {
     s.split(&['(', ')', ',', '/'])
-        .map(|t| t.trim())
-        .filter(|t| !t.is_empty())
-        .filter_map(|t| {
-            let parts: Vec<&str> = t.split_whitespace().collect();
-            if parts.len() == 2 {
-                parts[1].parse::<usize>().ok().map(|a| (parts[0].to_string(), a))
-            } else {
-                None
-            }
-        })
-        .next()
+    .map(|t| t.trim())
+    .filter(|t| !t.is_empty())
+    .filter_map(|t| {
+        let parts: Vec<&str> = t.split_whitespace().collect();
+        if parts.len() == 2 {
+            parts[1].parse::<usize>().ok().map(|a| (parts[0].to_string(), a))
+        } else {
+            None
+        }
+    })
+    .next()
 }
 
 fn extract_between(s: &str, start: &str, end: &str) -> Option<String> {

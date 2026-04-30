@@ -1,14 +1,61 @@
-//! Utils module
+//! Utility functions for PeTTa
+//!
+//! This module provides common utilities used throughout the codebase:
+//! - ANSI color formatting
+//! - Duration formatting
+//! - String manipulation
+//! - Fuzzy matching
 
-/// ANSI color codes
+// ============================================================================
+// ANSI Color Formatting
+// ============================================================================
+
+/// Format string with green ANSI color
+#[inline]
 pub fn green(s: &str) -> String { format!("\x1b[32m{s}\x1b[0m") }
+
+/// Format string with red ANSI color
+#[inline]
 pub fn red(s: &str) -> String { format!("\x1b[31m{s}\x1b[0m") }
+
+/// Format string with yellow ANSI color
+#[inline]
 pub fn yellow(s: &str) -> String { format!("\x1b[33m{s}\x1b[0m") }
+
+/// Format string with cyan ANSI color
+#[inline]
 pub fn cyan(s: &str) -> String { format!("\x1b[36m{s}\x1b[0m") }
+
+/// Format string with blue ANSI color
+#[inline]
 pub fn blue(s: &str) -> String { format!("\x1b[34m{s}\x1b[0m") }
+
+/// Format string with bold ANSI style
+#[inline]
 pub fn bold(s: &str) -> String { format!("\x1b[1m{s}\x1b[0m") }
 
+// ============================================================================
+// Time Formatting
+// ============================================================================
+
 /// Format duration in human-readable form
+///
+/// Automatically chooses appropriate units:
+/// - nanoseconds (ns) for values < 1μs
+/// - microseconds (μs) for values < 1ms
+/// - milliseconds (ms) for values < 1s
+/// - seconds (s) for larger values
+///
+/// # Example
+///
+/// ```
+/// use petta::utils::format_duration_ms;
+///
+/// assert!(format_duration_ms(0.5).contains("μs"));
+/// assert!(format_duration_ms(123.45).contains("ms"));
+/// assert!(format_duration_ms(1234.5).contains("s"));
+/// ```
+#[inline]
 pub fn format_duration_ms(ms: f64) -> String {
     if ms < 1e-3 { format!("{:.2}ns", ms * 1e6) }
     else if ms < 1.0 { format!("{:.2}μs", ms * 1000.0) }
@@ -16,12 +63,34 @@ pub fn format_duration_ms(ms: f64) -> String {
     else { format!("{:.2}s", ms / 1000.0) }
 }
 
-/// Truncate string with ellipsis
+// ============================================================================
+// String Utilities
+// ============================================================================
+
+/// Truncate string with ellipsis if it exceeds maximum length
+#[inline]
 pub fn truncate(s: &str, max_len: usize) -> &str {
     if s.len() <= max_len { s } else { &s[..max_len.saturating_sub(3)] }
 }
 
-/// Calculate Levenshtein distance
+// ============================================================================
+// Fuzzy Matching (Levenshtein Distance)
+// ============================================================================
+
+/// Calculate Levenshtein distance between two strings
+///
+/// The Levenshtein distance is the minimum number of single-character edits
+/// (insertions, deletions, or substitutions) required to change one word
+/// into the other.
+///
+/// # Example
+///
+/// ```
+/// use petta::utils::levenshtein;
+///
+/// assert_eq!(levenshtein("kitten", "sitting"), 3);
+/// assert_eq!(levenshtein("", "abc"), 3);
+/// ```
 #[allow(clippy::needless_range_loop)]
 pub fn levenshtein(a: &str, b: &str) -> usize {
     let (a, b): (Vec<_>, Vec<_>) = (a.chars().collect(), b.chars().collect());
@@ -43,7 +112,20 @@ pub fn levenshtein(a: &str, b: &str) -> usize {
     dp[alen][blen]
 }
 
-/// Find best fuzzy match
+/// Find best fuzzy match from a list of candidates
+///
+/// Returns the candidate with the smallest Levenshtein distance to the target,
+/// but only if the distance is within an acceptable threshold (max of string length or 3).
+///
+/// # Example
+///
+/// ```
+/// use petta::utils::find_best_match;
+///
+/// let candidates = ["apple", "banana", "cherry"];
+/// let best = find_best_match("appple", &candidates);
+/// assert_eq!(best, Some("apple"));
+/// ```
 pub fn find_best_match<'a>(target: &str, candidates: &'a [&str]) -> Option<&'a str> {
     let max_dist = target.len().max(3);
     candidates.iter()
@@ -53,4 +135,68 @@ pub fn find_best_match<'a>(target: &str, candidates: &'a [&str]) -> Option<&'a s
         })
         .min_by_key(|(_, d)| *d)
         .map(|(c, _)| c)
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_duration_ns() {
+        assert!(format_duration_ms(0.000001).contains("ns"));
+    }
+
+    #[test]
+    fn test_format_duration_us() {
+        let result = format_duration_ms(0.5);
+        assert!(result.contains("μs"));
+    }
+
+    #[test]
+    fn test_format_duration_ms() {
+        let result = format_duration_ms(123.45);
+        assert!(result.contains("ms"));
+    }
+
+    #[test]
+    fn test_format_duration_s() {
+        let result = format_duration_ms(1234.5);
+        assert!(result.contains("s"));
+    }
+
+    #[test]
+    fn test_truncate() {
+        assert_eq!(truncate("hello", 10), "hello");
+        assert_eq!(truncate("hello", 3), "");
+    }
+
+    #[test]
+    fn test_levenshtein() {
+        assert_eq!(levenshtein("", ""), 0);
+        assert_eq!(levenshtein("abc", ""), 3);
+        assert_eq!(levenshtein("", "abc"), 3);
+        assert_eq!(levenshtein("kitten", "sitting"), 3);
+        assert_eq!(levenshtein("abc", "abc"), 0);
+    }
+
+    #[test]
+    fn test_find_best_match() {
+        let candidates = ["apple", "banana", "cherry"];
+        assert_eq!(find_best_match("appple", &candidates), Some("apple"));
+        assert_eq!(find_best_match("banna", &candidates), Some("banana"));
+    }
+
+    #[test]
+    fn test_color_functions() {
+        assert!(green("test").contains("\x1b[32m"));
+        assert!(red("test").contains("\x1b[31m"));
+        assert!(yellow("test").contains("\x1b[33m"));
+        assert!(cyan("test").contains("\x1b[36m"));
+        assert!(blue("test").contains("\x1b[34m"));
+        assert!(bold("test").contains("\x1b[1m"));
+    }
 }

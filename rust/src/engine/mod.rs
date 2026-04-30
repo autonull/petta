@@ -1,4 +1,7 @@
 //! Unified PeTTa engine with backend abstraction
+//!
+//! This module provides a unified interface to both Prolog and MORK backends,
+//! with automatic crash recovery, restart management, and ergonomic APIs.
 
 mod client;
 mod config;
@@ -26,6 +29,10 @@ use mork_engine::MORKEngine;
 
 use client::{load_metta_file as load_file_client, load_metta_files as load_files_client, process_metta_string as process_string_client};
 use subprocess::SubprocessManager;
+
+// ============================================================================
+// Backend State Management
+// ============================================================================
 
 enum BackendState {
     #[cfg(feature = "mork")]
@@ -103,6 +110,10 @@ impl BackendState {
     }
 }
 
+// ============================================================================
+// PeTTa Engine - Main Interface
+// ============================================================================
+
 pub struct PeTTaEngine {
     backend: BackendState,
     config: EngineConfig,
@@ -110,6 +121,7 @@ pub struct PeTTaEngine {
 }
 
 impl PeTTaEngine {
+    /// Create a new engine with the given configuration
     pub fn with_config(config: &EngineConfig) -> Result<Self, PeTTaError> {
         Ok(Self {
             backend: BackendState::new(config)?,
@@ -118,40 +130,50 @@ impl PeTTaEngine {
         })
     }
 
+    /// Create a new engine with default configuration for the given project root
     pub fn new(project_root: &Path, verbose: bool) -> Result<Self, PeTTaError> {
         let config = EngineConfig::new(project_root).verbose(verbose);
         Self::with_config(&config)
     }
 
+    /// Check if the backend is alive and responsive
     pub fn is_alive(&mut self) -> bool {
         self.backend.is_mork()
     }
 
+    /// Load and execute a single MeTTa file
     pub fn load_metta_file(&mut self, path: &Path) -> Result<Vec<MettaResult>, PeTTaError> {
         self.retry_on_crash(|backend, cfg| backend.load_metta_file(path, cfg))
     }
 
+    /// Load and execute multiple MeTTa files
     pub fn load_metta_files(&mut self, paths: &[&Path]) -> Result<Vec<MettaResult>, PeTTaError> {
         self.retry_on_crash(|backend, cfg| backend.load_metta_files(paths, cfg))
     }
 
+    /// Process a MeTTa code string
     pub fn process_metta_string(&mut self, code: &str) -> Result<Vec<MettaResult>, PeTTaError> {
         self.retry_on_crash(|backend, cfg| backend.process_metta_string(code, cfg))
     }
 
+    /// Get stderr output from the backend
     pub fn stderr_output(&self) -> String {
         self.backend.stderr()
     }
 
+    /// Get the current configuration
     pub fn config(&self) -> &EngineConfig {
         &self.config
     }
 
+    /// Shutdown the backend gracefully
     pub fn shutdown(&mut self) {
         self.backend.shutdown();
     }
 
-    // === Convenience Methods ===
+    // =========================================================================
+    // High-Level Convenience Methods
+    // =========================================================================
 
     /// Evaluate a MeTTa expression and return the first result as a string
     pub fn eval(&mut self, code: &str) -> Result<String, PeTTaError> {
@@ -175,6 +197,10 @@ impl PeTTaEngine {
     pub fn health_check(&mut self) -> bool {
         self.is_alive() || self.process_metta_string("!(id 1)").is_ok()
     }
+
+    // =========================================================================
+    // Internal Implementation
+    // =========================================================================
 
     fn retry_on_crash<F>(&mut self, mut f: F) -> Result<Vec<MettaResult>, PeTTaError>
     where
@@ -203,7 +229,9 @@ impl Drop for PeTTaEngine {
     }
 }
 
-// === BackendState implementations ===
+// ============================================================================
+// Backend State Implementation - Backend-specific operations
+// ============================================================================
 
 impl BackendState {
     fn load_metta_file(&mut self, path: &Path, config: &EngineConfig) -> Result<Vec<MettaResult>, PeTTaError> {
