@@ -2,9 +2,9 @@ use std::path::Path;
 
 use tracing::{debug, trace};
 
-use super::errors::PeTTaError;
+use super::errors::Error;
 
-pub fn build_server_source(src_dir: &Path, verbose: bool) -> Result<String, PeTTaError> {
+pub fn build_server_source(src_dir: &Path, verbose: bool) -> Result<String, Error> {
     let silent = if verbose { "false" } else { "true" };
     let mut src = String::new();
 
@@ -27,7 +27,7 @@ pub fn build_server_source(src_dir: &Path, verbose: bool) -> Result<String, PeTT
     ] {
         let fpath = src_dir.join(file);
         if !fpath.exists() {
-            return Err(PeTTaError::FileNotFound(fpath));
+            return Err(Error::FileNotFound(fpath));
         }
         let fstr = fpath.to_string_lossy().replace('\\', "\\\\");
         src.push_str(&format!(":- consult('{}').\n", fstr));

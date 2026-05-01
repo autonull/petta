@@ -62,35 +62,37 @@ impl fmt::Display for Backend {
     }
 }
 
-/// Engine configuration
+/// Engine configuration with smart defaults and builder pattern.
+///
+/// Configuration controls backend selection, paths, and runtime behavior.
+/// All fields have sensible defaults for quick setup.
 ///
 /// # Example
 ///
 /// ```rust,no_run
-/// use petta::EngineConfig;
+/// use petta::{EngineConfig, Backend};
 /// use std::path::Path;
 ///
-/// // Default configuration
-/// let config = EngineConfig::default();
-///
-/// // Configuration for a specific project
-/// let config = EngineConfig::new(Path::new("/path/to/project"));
+/// // Quick start with defaults
+/// let config = EngineConfig::new(Path::new("."));
 ///
 /// // Custom configuration with builder
 /// let config = EngineConfig::builder()
-///     .backend(petta::Backend::Mork)
+///     .backend(Backend::Mork)
+///     .src_dir(Path::new("my_lib").to_path_buf())
 ///     .verbose(true)
+///     .max_restarts(5)
 ///     .build();
 /// ```
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
-    /// Backend to use for execution
+    /// Backend to use for execution (Swipl or Mork)
     pub backend: Backend,
     /// Path to SWI-Prolog executable (used for Swipl backend)
     pub swipl_path: PathBuf,
     /// Source directory for MeTTa libraries
     pub src_dir: PathBuf,
-    /// Enable verbose output
+    /// Enable verbose output and logging
     pub verbose: bool,
     /// Maximum number of backend restarts on crash
     pub max_restarts: u32,

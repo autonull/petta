@@ -3,7 +3,7 @@
 //! These tests verify the full request/response cycle between Rust and SWI-Prolog,
 //! covering all message types ('F', 'S', 'Q') and edge cases.
 
-use petta::{BackendErrorKind, MettaValue, PeTTaError};
+use petta::{BackendError, MettaValue, Error as PeTTaError};
 
 mod test_utils;
 use test_utils::{make_engine, project_root};
@@ -144,7 +144,7 @@ fn test_protocol_error_undefined_function() {
             // Empty result list is also valid for undefined functions
             let _ = results;
         }
-Err(PeTTaError::Backend(BackendErrorKind::Undefined {
+Err(PeTTaError::Backend(BackendError::Undefined {
                 name, arity, ..
             })) => {
                 assert_eq!(name, "undefined_function");

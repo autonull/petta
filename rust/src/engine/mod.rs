@@ -1,15 +1,16 @@
-//! Unified PeTTa engine with backend abstraction
+//! Unified PeTTa engine with backend abstraction and automatic recovery.
 //!
-//! This module provides a unified interface to both Prolog and MORK backends,
-//! with automatic crash recovery, restart management, and ergonomic APIs.
+//! This module provides the core [`PeTTaEngine`] that unifies multiple backends
+//! (SWI-Prolog, MORK) with automatic crash recovery, restart management, and
+//! ergonomic APIs for MeTTa execution.
 //!
 //! # Architecture
 //!
-//! The engine is built on a trait-based backend abstraction that allows:
-//! - Multiple execution backends (SWI-Prolog, MORK)
-//! - Unified error handling
-//! - Consistent configuration
-//! - Backend-agnostic execution
+//! The engine architecture provides:
+//! - **Backend Abstraction**: Trait-based design for multiple backends
+//! - **Automatic Recovery**: Crash detection and automatic restart
+//! - **Unified Errors**: Consistent error handling across backends
+//! - **Configuration**: Flexible configuration with smart defaults
 //!
 //! # Example
 //!
@@ -17,12 +18,21 @@
 //! use petta::{PeTTaEngine, EngineConfig};
 //! use std::path::Path;
 //!
+//! // Create engine with configuration
 //! let config = EngineConfig::new(Path::new("."));
-//! let mut engine = PeTTaEngine::with_config(&config).unwrap();
+//! let mut engine = PeTTaEngine::with_config(&config)?;
 //!
-//! let result = engine.eval("!(+ 1 2)").unwrap();
+//! // Execute MeTTa code
+//! let result = engine.eval("!(+ 1 2)")?;
 //! assert_eq!(result, "3");
+//! # Ok::<_, petta::Error>(())
 //! ```
+//!
+//! # Backend Selection
+//!
+//! Backend is auto-selected based on features:
+//! - `mork` feature enabled → MORK backend (if available)
+//! - Default → SWI-Prolog backend
 
 mod backend;
 mod backends;
@@ -34,131 +44,136 @@ mod server;
 mod subprocess;
 mod version;
 
-pub use backend::{BackendImpl, BackendInfo, BackendStats, HealthStatus as BackendHealth};
+// Core types
+pub use backend::{BackendImpl, BackendCapabilities, BackendInfo, BackendStats, HealthStatus};
 pub use backends::SwiplBackend;
 #[cfg(feature = "mork")]
 pub use backends::MorkBackend;
 pub use config::{Backend, EngineConfig, EngineConfigBuilder};
-pub use errors::{BackendError, BackendErrorKind, PeTTaError, parse_backend_error};
+pub use errors::{BackendError, Error, parse_backend_error};
+
+// Re-export for backward compatibility
+#[deprecated(since = "0.5.0", note = "use Error instead")]
+pub use errors::Error as PeTTaError;
 pub use formatters::{create_formatter, CompactFormatter, JsonFormatter, OutputFormatter, PrettyFormatter, SExprFormatter};
 pub use version::{MIN_SWIPL_VERSION, swipl_available};
 
-// Re-export for internal use
-use crate::values::{MettaResult, MettaValue};
-
+// Internal imports
+use crate::values::MettaResult;
 use std::path::Path;
 
 // ============================================================================
 // Backend State Management
 // ============================================================================
 
-/// Unified backend state using trait objects
+/// Unified backend state using trait objects for runtime polymorphism.
+///
+/// This enum wraps the concrete backend implementations, allowing the engine
+/// to work with any backend through a common interface.
 enum BackendState {
-Swipl(backends::SwiplBackend),
-#[cfg(feature = "mork")]
-Mork(backends::MorkBackend),
+    Swipl(backends::SwiplBackend),
+    #[cfg(feature = "mork")]
+    Mork(backends::MorkBackend),
 }
 
 impl BackendState {
-fn new(config: &EngineConfig) -> Result<Self, PeTTaError> {
-match config.backend {
-#[cfg(feature = "mork")]
-Backend::Mork => Ok(Self::Mork(backends::MorkBackend::new())),
-#[cfg(not(feature = "mork"))]
-Backend::Mork => Err(PeTTaError::Mork(
-"Mork backend not available (requires nightly Rust)".into()
-)),
-Backend::Swipl => backends::SwiplBackend::new(config).map(Self::Swipl),
-}
-}
+    /// Create new backend state from configuration
+    fn new(config: &EngineConfig) -> Result<Self, Error> {
+        match config.backend {
+            #[cfg(feature = "mork")]
+            Backend::Mork => Ok(Self::Mork(backends::MorkBackend::new())),
+            #[cfg(not(feature = "mork"))]
+            Backend::Mork => Err(Error::Mork(
+                "Mork backend not available (requires nightly Rust)".into()
+            )),
+            Backend::Swipl => backends::SwiplBackend::new(config).map(Self::Swipl),
+        }
+    }
 
-fn name(&self) -> &'static str {
-match self {
-#[cfg(feature = "mork")]
-Self::Mork(backend) => backend.name(),
-Self::Swipl(backend) => backend.name(),
-}
-}
+    /// Get backend name
+    fn name(&self) -> &'static str {
+        match self {
+            #[cfg(feature = "mork")]
+            Self::Mork(backend) => backend.name(),
+            Self::Swipl(backend) => backend.name(),
+        }
+    }
 
-fn is_alive(&mut self) -> bool {
-match self {
-#[cfg(feature = "mork")]
-Self::Mork(backend) => backend.is_alive(),
-Self::Swipl(backend) => backend.is_alive(),
-}
-}
+    /// Check if backend is alive
+    fn is_alive(&mut self) -> bool {
+        match self {
+            #[cfg(feature = "mork")]
+            Self::Mork(backend) => backend.is_alive(),
+            Self::Swipl(backend) => backend.is_alive(),
+        }
+    }
 
-fn stderr(&self) -> String {
-match self {
-#[cfg(feature = "mork")]
-Self::Mork(backend) => backend.stderr_output(),
-Self::Swipl(backend) => backend.stderr_output(),
-}
-}
+    /// Get stderr output
+    fn stderr(&self) -> String {
+        match self {
+            #[cfg(feature = "mork")]
+            Self::Mork(backend) => backend.stderr_output(),
+            Self::Swipl(backend) => backend.stderr_output(),
+        }
+    }
 
-fn restart(&mut self, config: &EngineConfig) -> Result<(), PeTTaError> {
-match self {
-#[cfg(feature = "mork")]
-Self::Mork(backend) => backend.restart(config),
-Self::Swipl(backend) => backend.restart(config),
-}
-}
+    /// Restart backend
+    fn restart(&mut self, config: &EngineConfig) -> Result<(), Error> {
+        match self {
+            #[cfg(feature = "mork")]
+            Self::Mork(backend) => backend.restart(config),
+            Self::Swipl(backend) => backend.restart(config),
+        }
+    }
 
-fn shutdown(&mut self) {
-match self {
-#[cfg(feature = "mork")]
-Self::Mork(backend) => backend.shutdown(),
-Self::Swipl(backend) => backend.shutdown(),
-}
-}
-}
+    /// Shutdown backend
+    fn shutdown(&mut self) {
+        match self {
+            #[cfg(feature = "mork")]
+            Self::Mork(backend) => backend.shutdown(),
+            Self::Swipl(backend) => backend.shutdown(),
+        }
+    }
 
-// BackendImpl trait methods delegated through BackendState
-impl BackendState {
-fn load_metta_file(&mut self, path: &Path, config: &EngineConfig) -> Result<Vec<MettaResult>, PeTTaError> {
-match self {
-#[cfg(feature = "mork")]
-Self::Mork(backend) => backend.load_metta_file(path, config),
-Self::Swipl(backend) => backend.load_metta_file(path, config),
-}
-}
+    /// Load single file
+    fn load_metta_file(&mut self, path: &Path, config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
+        match self {
+            #[cfg(feature = "mork")]
+            Self::Mork(backend) => backend.load_metta_file(path, config),
+            Self::Swipl(backend) => backend.load_metta_file(path, config),
+        }
+    }
 
-fn load_metta_files(&mut self, paths: &[&Path], config: &EngineConfig) -> Result<Vec<MettaResult>, PeTTaError> {
-match self {
-#[cfg(feature = "mork")]
-Self::Mork(backend) => backend.load_metta_files(paths, config),
-Self::Swipl(backend) => backend.load_metta_files(paths, config),
-}
-}
+    /// Load multiple files
+    fn load_metta_files(&mut self, paths: &[&Path], config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
+        match self {
+            #[cfg(feature = "mork")]
+            Self::Mork(backend) => backend.load_metta_files(paths, config),
+            Self::Swipl(backend) => backend.load_metta_files(paths, config),
+        }
+    }
 
-fn process_metta_string(&mut self, code: &str, config: &EngineConfig) -> Result<Vec<MettaResult>, PeTTaError> {
-match self {
-#[cfg(feature = "mork")]
-Self::Mork(backend) => backend.process_metta_string(code, config),
-Self::Swipl(backend) => backend.process_metta_string(code, config),
-}
-}
+    /// Process MeTTa string
+    fn process_metta_string(&mut self, code: &str, config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
+        match self {
+            #[cfg(feature = "mork")]
+            Self::Mork(backend) => backend.process_metta_string(code, config),
+            Self::Swipl(backend) => backend.process_metta_string(code, config),
+        }
+    }
 }
 
 // ============================================================================
 // PeTTa Engine - Main Interface
 // ============================================================================
 
-/// Main PeTTa execution engine
+/// Main PeTTa execution engine with automatic crash recovery.
 ///
-/// Provides a unified interface to MeTTa execution with support for:
-/// - Multiple backends (SWI-Prolog, MORK)
-/// - Automatic crash recovery
-/// - Error handling with suggestions
-/// - Performance profiling
-pub struct PeTTaEngine {
-backend: BackendState,
-config: EngineConfig,
-restarts: u32,
-}
-
-impl PeTTaEngine {
-/// Create a new engine with the given configuration
+/// The engine provides a unified interface to MeTTa execution supporting:
+/// - **Multiple Backends**: SWI-Prolog and MORK
+/// - **Automatic Recovery**: Crash detection and restart
+/// - **Ergonomic API**: Simple methods for common operations
+/// - **Error Handling**: Rich error types with suggestions
 ///
 /// # Example
 ///
@@ -166,123 +181,174 @@ impl PeTTaEngine {
 /// use petta::{PeTTaEngine, EngineConfig};
 /// use std::path::Path;
 ///
+/// // Create engine
 /// let config = EngineConfig::new(Path::new("."));
-/// let mut engine = PeTTaEngine::with_config(&config).unwrap();
+/// let mut engine = PeTTaEngine::with_config(&config)?;
+///
+/// // Execute code
+/// let result = engine.eval("!(+ 1 2)")?;
+/// assert_eq!(result, "3");
+/// # Ok::<_, petta::Error>(())
 /// ```
-pub fn with_config(config: &EngineConfig) -> Result<Self, PeTTaError> {
-Ok(Self {
-backend: BackendState::new(config)?,
-config: config.clone(),
-restarts: 0,
-})
+pub struct PeTTaEngine {
+    backend: BackendState,
+    config: EngineConfig,
+    restarts: u32,
 }
 
-/// Create a new engine with default configuration for the given project root
-pub fn new(project_root: &Path, verbose: bool) -> Result<Self, PeTTaError> {
-let config = EngineConfig::new(project_root).verbose(verbose);
-Self::with_config(&config)
-}
+impl PeTTaEngine {
+    /// Create engine with explicit configuration.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use petta::{PeTTaEngine, EngineConfig};
+    /// use std::path::Path;
+    ///
+    /// let config = EngineConfig::new(Path::new("."));
+    /// let mut engine = PeTTaEngine::with_config(&config)?;
+    /// # Ok::<_, petta::Error>(())
+    /// ```
+    pub fn with_config(config: &EngineConfig) -> Result<Self, Error> {
+        Ok(Self {
+            backend: BackendState::new(config)?,
+            config: config.clone(),
+            restarts: 0,
+        })
+    }
 
-/// Get the backend name
-pub fn backend_name(&self) -> &'static str {
-self.backend.name()
-}
+    /// Create engine with default configuration for a project root.
+    ///
+    /// # Arguments
+    ///
+    /// * `project_root` - Root directory for the project
+    /// * `verbose` - Enable verbose output
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use petta::PeTTaEngine;
+    /// use std::path::Path;
+    ///
+    /// let mut engine = PeTTaEngine::new(Path::new("."), false)?;
+    /// # Ok::<_, petta::Error>(())
+    /// ```
+    pub fn new(project_root: &Path, verbose: bool) -> Result<Self, Error> {
+        let config = EngineConfig::new(project_root).verbose(verbose);
+        Self::with_config(&config)
+    }
 
-/// Check if the backend is alive and responsive
-pub fn is_alive(&mut self) -> bool {
-self.backend.is_alive()
-}
+    /// Get the backend name (e.g., "SWI-Prolog" or "MORK")
+    pub fn backend_name(&self) -> &'static str {
+        self.backend.name()
+    }
 
-/// Load and execute a single MeTTa file
-pub fn load_metta_file(&mut self, path: &Path) -> Result<Vec<MettaResult>, PeTTaError> {
-self.retry_on_crash(|backend, cfg| backend.load_metta_file(path, cfg))
-}
+    /// Check if backend is alive and responsive
+    pub fn is_alive(&mut self) -> bool {
+        self.backend.is_alive()
+    }
 
-/// Load and execute multiple MeTTa files
-pub fn load_metta_files(&mut self, paths: &[&Path]) -> Result<Vec<MettaResult>, PeTTaError> {
-self.retry_on_crash(|backend, cfg| backend.load_metta_files(paths, cfg))
-}
+    /// Load and execute a single MeTTa file with crash recovery.
+    pub fn load_metta_file(&mut self, path: &Path) -> Result<Vec<MettaResult>, Error> {
+        self.retry_on_crash(|backend, cfg| backend.load_metta_file(path, cfg))
+    }
 
-/// Process a MeTTa code string
-pub fn process_metta_string(&mut self, code: &str) -> Result<Vec<MettaResult>, PeTTaError> {
-self.retry_on_crash(|backend, cfg| backend.process_metta_string(code, cfg))
-}
+    /// Load and execute multiple MeTTa files with crash recovery.
+    pub fn load_metta_files(&mut self, paths: &[&Path]) -> Result<Vec<MettaResult>, Error> {
+        self.retry_on_crash(|backend, cfg| backend.load_metta_files(paths, cfg))
+    }
 
-/// Get stderr output from the backend
-pub fn stderr_output(&self) -> String {
-self.backend.stderr()
-}
+    /// Process a MeTTa code string with crash recovery.
+    pub fn process_metta_string(&mut self, code: &str) -> Result<Vec<MettaResult>, Error> {
+        self.retry_on_crash(|backend, cfg| backend.process_metta_string(code, cfg))
+    }
 
-/// Get the current configuration
-pub fn config(&self) -> &EngineConfig {
-&self.config
-}
+    /// Get stderr output from the backend
+    pub fn stderr_output(&self) -> String {
+        self.backend.stderr()
+    }
 
-/// Shutdown the backend gracefully
-pub fn shutdown(&mut self) {
-self.backend.shutdown();
-}
+    /// Get current configuration
+    pub fn config(&self) -> &EngineConfig {
+        &self.config
+    }
 
-// =========================================================================
-// High-Level Convenience Methods
-// =========================================================================
+    /// Shutdown backend gracefully
+    pub fn shutdown(&mut self) {
+        self.backend.shutdown();
+    }
 
-/// Evaluate a MeTTa expression and return the first result as a string
-///
-/// This is a convenience method for simple queries that return a single result.
-pub fn eval(&mut self, code: &str) -> Result<String, PeTTaError> {
-self.process_metta_string(code)
-.and_then(|mut r| r.pop().ok_or_else(|| PeTTaError::Protocol("No results".into())))
-.map(|r| r.value)
-}
+    // =========================================================================
+    // High-Level Convenience Methods
+    // =========================================================================
 
-/// Evaluate and parse as integer
-///
-/// Convenience method for arithmetic expressions.
-pub fn eval_int(&mut self, code: &str) -> Result<i64, PeTTaError> {
-self.eval(code)?.parse().map_err(|_| PeTTaError::Protocol("Not an integer".into()))
-}
+    /// Evaluate MeTTa expression and return first result as string.
+    ///
+    /// Convenience method for simple queries returning single results.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use petta::PeTTaEngine;
+    /// use std::path::Path;
+    ///
+    /// let mut engine = PeTTaEngine::new(Path::new("."), false)?;
+    /// let result = engine.eval("!(+ 1 2)")?;
+    /// assert_eq!(result, "3");
+    /// # Ok::<_, petta::Error>(())
+    /// ```
+    pub fn eval(&mut self, code: &str) -> Result<String, Error> {
+        self.process_metta_string(code)
+            .and_then(|mut r| r.pop().ok_or_else(|| Error::Protocol("No results".into())))
+            .map(|r| r.value)
+    }
 
-/// Load and execute multiple files
-///
-/// Generic over path types for convenience.
-pub fn load_files<P: AsRef<Path>>(&mut self, paths: &[P]) -> Result<Vec<MettaResult>, PeTTaError> {
-let refs: Vec<&Path> = paths.iter().map(|p| p.as_ref()).collect();
-self.load_metta_files(&refs)
-}
+    /// Evaluate expression and parse as integer.
+    ///
+    /// Convenience for arithmetic expressions.
+    pub fn eval_int(&mut self, code: &str) -> Result<i64, Error> {
+        self.eval(code)?.parse().map_err(|_| Error::Protocol("Not an integer".into()))
+    }
 
-/// Check if engine is healthy and responsive
-pub fn health_check(&mut self) -> bool {
-self.is_alive() || self.process_metta_string("!(id 1)").is_ok()
-}
+    /// Load and execute multiple files (generic over path types).
+    pub fn load_files<P: AsRef<Path>>(&mut self, paths: &[P]) -> Result<Vec<MettaResult>, Error> {
+        let refs: Vec<&Path> = paths.iter().map(|p| p.as_ref()).collect();
+        self.load_metta_files(&refs)
+    }
 
-// =========================================================================
-// Internal Implementation
-// =========================================================================
+    /// Health check - verify engine is responsive.
+    pub fn health_check(&mut self) -> bool {
+        self.is_alive() || self.process_metta_string("!(id 1)").is_ok()
+    }
 
-fn retry_on_crash<F>(&mut self, mut f: F) -> Result<Vec<MettaResult>, PeTTaError>
-where
-F: FnMut(&mut BackendState, &EngineConfig) -> Result<Vec<MettaResult>, PeTTaError>,
-{
-let mut attempts = 0u32;
-loop {
-match f(&mut self.backend, &self.config) {
-Err(PeTTaError::Protocol(ref m)) if m.contains("child closed") => {
-if attempts >= self.config.max_restarts {
-return Err(PeTTaError::Crash { restarts: self.restarts });
-}
-attempts += 1;
-self.backend.restart(&self.config)?;
-self.restarts = self.restarts.saturating_add(1);
-}
-other => return other,
-}
-}
-}
+    // =========================================================================
+    // Internal Implementation
+    // =========================================================================
+
+    /// Retry operation on crash with automatic restart
+    fn retry_on_crash<F>(&mut self, mut f: F) -> Result<Vec<MettaResult>, Error>
+    where
+        F: FnMut(&mut BackendState, &EngineConfig) -> Result<Vec<MettaResult>, Error>,
+    {
+        let mut attempts = 0u32;
+        loop {
+            match f(&mut self.backend, &self.config) {
+                Err(Error::Protocol(ref m)) if m.contains("child closed") => {
+                    if attempts >= self.config.max_restarts {
+                        return Err(Error::Crash { restarts: self.restarts });
+                    }
+                    attempts += 1;
+                    self.backend.restart(&self.config)?;
+                    self.restarts = self.restarts.saturating_add(1);
+                }
+                other => return other,
+            }
+        }
+    }
 }
 
 impl Drop for PeTTaEngine {
-fn drop(&mut self) {
-self.shutdown();
-}
+    fn drop(&mut self) {
+        self.shutdown();
+    }
 }

@@ -1,8 +1,8 @@
 //! # PeTTa - Production MeTTa Runtime
 //!
-//! A production-grade MeTTa language implementation with dual backends:
-//! - **Prolog WAM**: Mature, stable backend using SWI-Prolog
-//! - **MORK**: High-performance native Rust backend
+//! PeTTa is a production-grade MeTTa runtime with dual backends:
+//! - **SWI-Prolog WAM**: Mature, stable backend with full MeTTa semantics
+//! - **MORK**: High-performance native Rust backend with parallel execution
 //!
 //! ## Quick Start
 //!
@@ -10,49 +10,51 @@
 //! use petta::{PeTTaEngine, EngineConfig};
 //! use std::path::Path;
 //!
-//! // Create engine with default configuration
+//! // Create engine with configuration
 //! let config = EngineConfig::new(Path::new("."));
-//! let mut engine = PeTTaEngine::with_config(&config).unwrap();
+//! let mut engine = PeTTaEngine::with_config(&config)?;
 //!
-//! // Evaluate MeTTa expressions
-//! let result = engine.eval("!(+ 1 2)").unwrap();
+//! // Execute MeTTa code
+//! let result = engine.eval("!(+ 1 2)")?;
 //! assert_eq!(result, "3");
+//! # Ok::<_, petta::Error>(())
 //! ```
 //!
 //! ## Features
 //!
-//! - `mork`: Enable high-performance MORK backend (requires nightly Rust)
-//! - `repl`: Interactive REPL mode
-//! - `clap`: Command-line argument parsing
-//! - `fast-hasher`: Use GXHash for faster hashing (requires AES/SSE2)
-//! - `parallel`: Parallel execution support
-//! - `async`: Async/await support with Tokio
+//! - `mork` - High-performance MORK backend (requires nightly Rust)
+//! - `repl` - Interactive REPL with history
+//! - `clap` - CLI argument parsing
+//! - `fast-hasher` - GXHash acceleration (AES/SSE2 required)
+//! - `parallel` - Parallel batch execution
+//! - `async` - Async/await with Tokio
 //!
 //! ## Architecture
 //!
-//! PeTTa provides a unified interface to multiple backends through the [`PeTTaEngine`] struct.
-//! The engine handles:
+//! PeTTa provides unified backend abstraction through [`PeTTaEngine`]:
 //! - Backend lifecycle management
-//! - Automatic crash recovery
-//! - Error handling with suggestions
-//! - Output formatting
+//! - Automatic crash recovery  
+//! - Rich error handling with suggestions
+//! - Multiple output formatters
 //!
-//! ## Example: Loading Files
+//! ## Example: File Operations
 //!
 //! ```rust,no_run
 //! use petta::PeTTaEngine;
+//! use std::path::Path;
 //!
-//! let mut engine = PeTTaEngine::new(std::path::Path::new("."), false).unwrap();
+//! let mut engine = PeTTaEngine::new(Path::new("."), false)?;
 //!
-//! // Load and execute MeTTa files
-//! engine.load_files(&["lib.metta", "main.metta"]).unwrap();
+//! // Load MeTTa files
+//! engine.load_files(&["defs.metta", "rules.metta"])?;
 //!
-//! // Query the engine
-//! let result = engine.eval("!(your-query)").unwrap();
+//! // Execute query
+//! let result = engine.eval("!(your-query)")?;
 //! println!("Result: {}", result);
+//! # Ok::<_, petta::Error>(())
 //! ```
 //!
-//! ## Example: Using MORK Backend
+//! ## Example: MORK Backend
 //!
 //! ```rust,no_run
 //! # #[cfg(feature = "mork")]
@@ -60,11 +62,12 @@
 //! use petta::{PeTTaEngine, EngineConfig, Backend};
 //!
 //! let config = EngineConfig::builder()
-//! .backend(Backend::Mork)
-//! .build();
+//!     .backend(Backend::Mork)
+//!     .build();
 //!
-//! let mut engine = PeTTaEngine::with_config(&config).unwrap();
+//! let mut engine = PeTTaEngine::with_config(&config)?;
 //! # }
+//! # Ok::<_, petta::Error>(())
 //! ```
 
 #![cfg_attr(feature = "mork", feature(core_intrinsics))]
@@ -78,6 +81,7 @@ pub mod parser;
 pub mod utils;
 pub mod optimize;
 pub mod values;
+pub mod core;
 
 #[cfg(feature = "mork")]
 pub mod mork;
@@ -97,10 +101,17 @@ mod gxhash;
 // ============================================================================
 
 pub use engine::{
-    Backend, BackendError, BackendErrorKind, EngineConfig, EngineConfigBuilder,
-    PeTTaError, PeTTaEngine,
+    Backend, BackendError, EngineConfig, EngineConfigBuilder,
+    Error, PeTTaEngine,
 };
 pub use values::{MettaResult, MettaValue};
+
+// Ergonomic API
+pub use core::{PeTTa, Builder as PeTTaBuilder};
+
+// Deprecated exports for backward compatibility
+#[deprecated(since = "0.5.0", note = "use Error instead")]
+pub use engine::Error as PeTTaError;
 
 // ============================================================================
 // Output Formatting
@@ -123,7 +134,7 @@ pub use repl::{run_repl, ReplConfig};
 // ============================================================================
 
 pub use profiler::{ProfileStats, QueryProfile};
-pub use observability::{HealthStatus, Metrics, ObservabilityConfig, ServiceStatus};
+pub use observability::{Metrics, ObservabilityConfig, ServiceStatus};
 pub use reliability::{CircuitBreaker, CircuitState, ReliabilityConfig};
 
 // ============================================================================
