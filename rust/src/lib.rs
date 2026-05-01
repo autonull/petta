@@ -86,6 +86,10 @@ pub mod core;
 #[cfg(feature = "mork")]
 pub mod mork;
 
+// Public API
+pub mod api;
+pub mod backends;
+
 // Internal modules
 mod cli;
 mod repl;
@@ -101,13 +105,13 @@ mod gxhash;
 // ============================================================================
 
 pub use engine::{
-    Backend, BackendError, EngineConfig, EngineConfigBuilder,
-    Error, PeTTaEngine,
+Backend, BackendError, EngineConfig, EngineConfigBuilder,
+Error, PeTTaEngine,
 };
 pub use values::{MettaResult, MettaValue};
 
-// Ergonomic API
-pub use core::{PeTTa, Builder as PeTTaBuilder};
+// Ergonomic API (re-export from api module)
+pub use api::{PeTTa, PeTTaBuilder, PeTTaEngine as ApiEngine, EngineConfig as ApiEngineConfig};
 
 // Deprecated exports for backward compatibility
 #[deprecated(since = "0.5.0", note = "use Error instead")]

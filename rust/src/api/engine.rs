@@ -1,48 +1,29 @@
-//! Simplified PeTTa API for ergonomic MeTTa execution.
+//! PeTTa engine implementations with ergonomic API
 //!
-//! This module provides the [`PeTTa`] struct - a streamlined, ergonomic interface
-//! to the PeTTa execution engine with sensible defaults and fluent API design.
-//!
-//! # Quick Start
-//!
-//! ```rust,no_run
-//! use petta::PeTTa;
-//!
-//! // Simple usage with defaults
-//! let mut engine = PeTTa::new()?;
-//! let result = engine.eval("!(+ 1 2)")?;
-//! assert_eq!(result, "3");
-//! # Ok::<_, petta::Error>(())
-//! ```
-//!
-//! # Builder Pattern
-//!
-//! ```rust,no_run
-//! use petta::{PeTTa, Backend};
-//!
-//! let mut engine = PeTTa::builder()
-//!     .backend(Backend::Mork)
-//!     .verbose(true)
-//!     .build()?;
-//! # Ok::<_, petta::Error>(())
-//! ```
+//! This module provides both simplified (`PeTTa`) and full-featured (`PeTTaEngine`)
+//! interfaces to the MeTTa execution engine.
 
 use std::path::{Path, PathBuf};
-use crate::engine::{EngineConfig, PeTTaEngine};
-use crate::values::MettaResult;
+use crate::engine::{EngineConfig, PeTTaEngine as CoreEngine};
+use crate::values::{MettaResult, MettaValue};
 use crate::Error;
+use super::{ExecutionResult, Backend};
+
+// ============================================================================
+// PeTTa - Simplified Interface
+// ============================================================================
 
 /// Simplified PeTTa engine with ergonomic defaults.
 ///
 /// `PeTTa` provides a streamlined interface for common MeTTa operations
-/// with minimal boilerplate.
+/// with minimal boilerplate and sensible defaults.
 ///
 /// # Examples
 ///
 /// ## Basic Usage
 ///
 /// ```rust,no_run
-/// use petta::PeTTa;
+/// use petta::api::PeTTa;
 ///
 /// let mut engine = PeTTa::new()?;
 /// let result = engine.eval("!(+ 1 2)")?;
@@ -50,19 +31,19 @@ use crate::Error;
 /// # Ok::<_, petta::Error>(())
 /// ```
 ///
-/// ## Loading Files
+/// ## Builder Pattern
 ///
 /// ```rust,no_run
-/// use petta::PeTTa;
+/// use petta::api::{PeTTa, Backend};
 ///
-/// let mut engine = PeTTa::new()?;
-/// engine.load("defs.metta")?;
-/// engine.load("rules.metta")?;
-/// let result = engine.eval("!(query)")?;
+/// let mut engine = PeTTa::builder()
+///     .backend(Backend::Mork)
+///     .verbose(true)
+///     .build()?;
 /// # Ok::<_, petta::Error>(())
 /// ```
 pub struct PeTTa {
-    engine: PeTTaEngine,
+    engine: CoreEngine,
     loaded_files: Vec<PathBuf>,
 }
 
@@ -74,7 +55,7 @@ impl PeTTa {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use petta::PeTTa;
+    /// use petta::api::PeTTa;
     ///
     /// let mut engine = PeTTa::new()?;
     /// # Ok::<_, petta::Error>(())
@@ -92,7 +73,7 @@ impl PeTTa {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use petta::PeTTa;
+    /// use petta::api::PeTTa;
     /// use std::path::Path;
     ///
     /// let mut engine = PeTTa::with_root(Path::new("/path/to/project"))?;
@@ -108,7 +89,7 @@ impl PeTTa {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use petta::{PeTTa, EngineConfig, Backend};
+    /// use petta::api::{PeTTa, EngineConfig, Backend};
     ///
     /// let config = EngineConfig::builder()
     ///     .backend(Backend::Mork)
@@ -120,7 +101,7 @@ impl PeTTa {
     /// ```
     pub fn with_config(config: EngineConfig) -> Result<Self, Error> {
         Ok(Self {
-            engine: PeTTaEngine::with_config(&config)?,
+            engine: CoreEngine::with_config(&config)?,
             loaded_files: Vec::new(),
         })
     }
@@ -130,7 +111,7 @@ impl PeTTa {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use petta::{PeTTa, Backend};
+    /// use petta::api::{PeTTa, Backend};
     ///
     /// let mut engine = PeTTa::builder()
     ///     .backend(Backend::Mork)
@@ -155,7 +136,7 @@ impl PeTTa {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use petta::PeTTa;
+    /// use petta::api::PeTTa;
     ///
     /// let mut engine = PeTTa::new()?;
     /// let results = engine.load("defs.metta")?;
@@ -177,7 +158,7 @@ impl PeTTa {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use petta::PeTTa;
+    /// use petta::api::PeTTa;
     ///
     /// let mut engine = PeTTa::new()?;
     /// engine.load_all(&["defs.metta", "rules.metta"])?;
@@ -201,7 +182,7 @@ impl PeTTa {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use petta::PeTTa;
+    /// use petta::api::PeTTa;
     ///
     /// let mut engine = PeTTa::new()?;
     /// let result = engine.eval("!(+ 1 2)")?;
@@ -221,7 +202,7 @@ impl PeTTa {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use petta::PeTTa;
+    /// use petta::api::PeTTa;
     ///
     /// let mut engine = PeTTa::new()?;
     /// let result = engine.eval_int("!(+ 1 2)")?;
@@ -241,7 +222,7 @@ impl PeTTa {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use petta::PeTTa;
+    /// use petta::api::PeTTa;
     ///
     /// let mut engine = PeTTa::new()?;
     /// let results = engine.execute("!(+ 1 2)")?;
@@ -273,12 +254,16 @@ impl Default for PeTTa {
     }
 }
 
+// ============================================================================
+// Builder Pattern
+// ============================================================================
+
 /// Builder for ergonomic PeTTa configuration.
 ///
 /// # Example
 ///
 /// ```rust,no_run
-/// use petta::{PeTTa, Backend};
+/// use petta::api::{PeTTa, Backend};
 ///
 /// let mut engine = PeTTa::builder()
 ///     .backend(Backend::Mork)
@@ -300,7 +285,7 @@ impl Builder {
     }
 
     /// Set backend type
-    pub fn backend(mut self, backend: crate::Backend) -> Self {
+    pub fn backend(mut self, backend: Backend) -> Self {
         self.config.backend = backend;
         self
     }
@@ -335,25 +320,112 @@ impl Default for Builder {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// ============================================================================
+// PeTTaEngine - Full-Featured Interface
+// ============================================================================
 
-    #[test]
-    fn test_peTTa_new() {
-        let result = PeTTa::new();
-        assert!(result.is_ok() || result.is_err());
+/// Full-featured PeTTa execution engine.
+///
+/// `PeTTaEngine` provides complete control over MeTTa execution with
+/// advanced configuration options and detailed result handling.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use petta::api::{PeTTaEngine, EngineConfig};
+/// use std::path::Path;
+///
+/// let config = EngineConfig::new(Path::new("."));
+/// let mut engine = PeTTaEngine::with_config(&config)?;
+///
+/// let result = engine.execute("!(+ 1 2)")?;
+/// println!("Results: {:?}", result);
+/// # Ok::<_, petta::Error>(())
+/// ```
+pub struct PeTTaEngine {
+    engine: CoreEngine,
+}
+
+impl PeTTaEngine {
+    /// Create engine with explicit configuration.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use petta::api::{PeTTaEngine, EngineConfig};
+    /// use std::path::Path;
+    ///
+    /// let config = EngineConfig::new(Path::new("."));
+    /// let mut engine = PeTTaEngine::with_config(&config)?;
+    /// # Ok::<_, petta::Error>(())
+    /// ```
+    pub fn with_config(config: &EngineConfig) -> Result<Self, Error> {
+        Ok(Self {
+            engine: CoreEngine::with_config(config)?,
+        })
     }
 
-    #[test]
-    fn test_builder_pattern() {
-        use crate::Backend;
-        
-        let result = PeTTa::builder()
-            .backend(Backend::Swipl)
-            .verbose(true)
-            .build();
-        
-        assert!(result.is_ok() || result.is_err());
+    /// Create engine with default configuration.
+    pub fn new() -> Result<Self, Error> {
+        Ok(Self {
+            engine: CoreEngine::with_config(&EngineConfig::default())?,
+        })
+    }
+
+    /// Execute MeTTa code and return structured results.
+    ///
+    /// # Arguments
+    ///
+    /// * `code` - MeTTa code to execute
+    ///
+    /// # Returns
+    ///
+    /// Structured execution results with statistics
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use petta::api::PeTTaEngine;
+    ///
+    /// let mut engine = PeTTaEngine::new()?;
+    /// let result = engine.execute("!(+ 1 2)")?;
+    /// println!("Result: {:?}", result.first());
+    /// # Ok::<_, petta::Error>(())
+    /// ```
+    pub fn execute(&mut self, code: &str) -> Result<ExecutionResult, Error> {
+        let results = self.engine.process_metta_string(code)?;
+        Ok(ExecutionResult::from_results(results))
+    }
+
+    /// Load and execute a single MeTTa file.
+    pub fn load_file<P: AsRef<Path>>(&mut self, path: P) -> Result<Vec<MettaResult>, Error> {
+        self.engine.load_metta_file(path.as_ref())
+    }
+
+    /// Load and execute multiple MeTTa files.
+    pub fn load_files<P: AsRef<Path>>(&mut self, paths: &[P]) -> Result<Vec<MettaResult>, Error> {
+        let path_refs: Vec<&Path> = paths.iter().map(|p| p.as_ref()).collect();
+        self.engine.load_metta_files(&path_refs)
+    }
+
+    /// Get backend name
+    pub fn backend_name(&self) -> &'static str {
+        self.engine.backend_name()
+    }
+
+    /// Check if backend is alive
+    pub fn is_alive(&mut self) -> bool {
+        self.engine.is_alive()
+    }
+
+    /// Shutdown the engine
+    pub fn shutdown(&mut self) {
+        self.engine.shutdown();
+    }
+}
+
+impl Default for PeTTaEngine {
+    fn default() -> Self {
+        Self::new().expect("Failed to create PeTTaEngine")
     }
 }
