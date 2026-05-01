@@ -32,7 +32,6 @@ mod errors;
 mod formatters;
 mod server;
 mod subprocess;
-mod values;
 mod version;
 
 pub use backend::{BackendImpl, BackendInfo, BackendStats, HealthStatus as BackendHealth};
@@ -42,8 +41,10 @@ pub use backends::MorkBackend;
 pub use config::{Backend, EngineConfig, EngineConfigBuilder};
 pub use errors::{BackendError, BackendErrorKind, PeTTaError, parse_backend_error};
 pub use formatters::{create_formatter, CompactFormatter, JsonFormatter, OutputFormatter, PrettyFormatter, SExprFormatter};
-pub use values::{MettaResult, MettaValue};
 pub use version::{MIN_SWIPL_VERSION, swipl_available};
+
+// Re-export for internal use
+use crate::values::{MettaResult, MettaValue};
 
 use std::path::Path;
 

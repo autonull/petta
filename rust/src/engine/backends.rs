@@ -7,12 +7,12 @@ use std::io::BufReader;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use super::backend::{BackendImpl, BackendStats};
+use super::backend::{BackendCapabilities, BackendImpl, BackendStats};
 use super::client;
 use super::config::EngineConfig;
 use super::errors::PeTTaError;
 use super::subprocess::SubprocessManager;
-use super::values::MettaResult;
+use crate::values::MettaResult;
 
 #[cfg(feature = "mork")]
 use crate::mork::interpreter::Interpreter;
@@ -76,6 +76,16 @@ config: config.clone(),
 }
 
 impl BackendImpl for SwiplBackend {
+    fn version(&self) -> &'static str {
+        "9.3"
+    }
+
+    fn capabilities(&self) -> BackendCapabilities {
+        BackendCapabilities::new()
+            .with_streaming(true)
+            .with_transactions(false)
+    }
+
     fn name(&self) -> &'static str {
         "SWI-Prolog"
     }
@@ -165,6 +175,16 @@ impl MorkBackend {
 
 #[cfg(feature = "mork")]
 impl BackendImpl for MorkBackend {
+    fn version(&self) -> &'static str {
+        "9.3"
+    }
+
+    fn capabilities(&self) -> BackendCapabilities {
+        BackendCapabilities::new()
+            .with_streaming(true)
+            .with_transactions(false)
+    }
+
     fn name(&self) -> &'static str {
         "MORK"
     }

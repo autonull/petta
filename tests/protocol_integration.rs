@@ -174,14 +174,14 @@ fn test_protocol_error_type_mismatch() {
 
 #[test]
 fn test_value_parse_integer_positive() {
-    let v = MettaValue::parse("12345");
-    assert!(matches!(v, Some(MettaValue::Integer(ref s)) if s == "12345"));
+ let v = MettaValue::parse("12345");
+ assert!(matches!(v, Some(MettaValue::Integer(n)) if n == 12345));
 }
 
 #[test]
 fn test_value_parse_integer_negative() {
-    let v = MettaValue::parse("-42");
-    assert!(matches!(v, Some(MettaValue::Integer(ref s)) if s == "-42"));
+ let v = MettaValue::parse("-42");
+ assert!(matches!(v, Some(MettaValue::Integer(n)) if n == -42));
 }
 
 #[test]

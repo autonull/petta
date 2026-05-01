@@ -1,6 +1,6 @@
 //! Output formatters for PeTTa
 
-use super::values::MettaResult;
+use crate::values::MettaResult;
 
 /// Trait for output formatting
 pub trait OutputFormatter: Send + Sync {

@@ -2,101 +2,107 @@
 //!
 //! Streamlined error types with rich context and automatic suggestions.
 
-use std::fmt;
 use std::path::PathBuf;
 use std::time::Duration;
+use thiserror::Error;
 
 /// Main error type for PeTTa
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum PeTTaError {
-    FileNotFound(PathBuf),
-    SpawnError(String),
-    PathError(String),
-    WriteError(String),
-    Backend(BackendError),
-    Mork(String),
-    SwiplVersion(String),
-    Protocol(String),
-    Io(std::io::Error),
-    Timeout(Duration),
-    Crash { restarts: u32 },
+ #[error("file not found: {0}")]
+ FileNotFound(PathBuf),
+ 
+ #[error("spawn error: {0}")]
+ SpawnError(String),
+ 
+ #[error("path error: {0}")]
+ PathError(String),
+ 
+ #[error("write error: {0}")]
+ WriteError(String),
+ 
+ #[error("backend error: {0}")]
+ Backend(#[from] BackendError),
+ 
+ #[error("MORK error: {0}")]
+ Mork(String),
+ 
+ #[error("SWI-Prolog version error: {0}")]
+ SwiplVersion(String),
+ 
+ #[error("protocol error: {0}")]
+ Protocol(String),
+ 
+ #[error("IO error: {0}")]
+ Io(#[from] std::io::Error),
+ 
+ #[error("timeout after {0:?}")]
+ Timeout(Duration),
+ 
+ #[error("crashed after {restarts} restart(s)", restarts = restarts)]
+ Crash { restarts: u32 },
 }
 
-/// Backend error kinds
-#[derive(Debug, Clone)]
+/// Backend error kinds with rich context
+#[derive(Error, Debug, Clone)]
 pub enum BackendError {
-    /// For backward compatibility
-    UndefinedFunction { name: String, arity: usize, suggestion: Option<String> },
-    Undefined { name: String, arity: usize, suggestion: Option<String> },
-    TypeMismatch { expected: String, found: String },
-    Syntax { detail: String },
-    UnboundVar,
-    Uninstantiated,
-    Permission { op: String, target: String },
-    Existence { kind: String, term: String },
-    StackOverflow,
-    Evaluation(String),
-    Generic(String),
+ #[error("undefined function `{name}/{arity}`{suggestion}", 
+        suggestion = if let Some(s) = suggestion { format!(" (did you mean `{s}`?)") } else { String::new() })]
+ Undefined { 
+  name: String, 
+  arity: usize, 
+  suggestion: Option<String> 
+ },
+ 
+ #[error("type error: expected {expected}, found {found}")]
+ TypeMismatch { 
+  expected: String, 
+  found: String 
+ },
+ 
+ #[error("syntax error: {detail}")]
+ Syntax { 
+  detail: String 
+ },
+ 
+ #[error("unbound variable")]
+ UnboundVar,
+ 
+ #[error("uninstantiated argument")]
+ Uninstantiated,
+ 
+ #[error("permission denied: {op} on {target}")]
+ Permission { 
+  op: String, 
+  target: String 
+ },
+ 
+ #[error("{kind} '{term}' does not exist")]
+ Existence { 
+  kind: String, 
+  term: String 
+ },
+ 
+ #[error("stack overflow")]
+ StackOverflow,
+ 
+ #[error("evaluation error: {0}")]
+ Evaluation(String),
+ 
+ #[error("{0}")]
+ Generic(String),
 }
 
-impl fmt::Display for BackendError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            BackendError::Undefined { name, arity, suggestion } |
-            BackendError::UndefinedFunction { name, arity, suggestion } => {
-                write!(f, "undefined function `{name}/{arity}`")?;
-                if let Some(s) = suggestion {
-                    write!(f, " (did you mean `{s}`?)")?;
-                }
-                Ok(())
-            }
-            BackendError::TypeMismatch { expected, found } => {
-                write!(f, "type error: expected {expected}, got {found}")
-            }
-            BackendError::Syntax { detail } => write!(f, "syntax error: {detail}"),
-            BackendError::UnboundVar => write!(f, "unbound variable"),
-            BackendError::Uninstantiated => write!(f, "uninstantiated argument"),
-            BackendError::Permission { op, target } => {
-                write!(f, "permission denied: {op} on {target}")
-            }
-            BackendError::Existence { kind, term } => {
-                write!(f, "{kind} {term} does not exist")
-            }
-            BackendError::StackOverflow => write!(f, "stack overflow"),
-            BackendError::Evaluation(msg) => write!(f, "evaluation error: {msg}"),
-            BackendError::Generic(msg) => write!(f, "{msg}"),
-        }
-    }
-}
 
-impl fmt::Display for PeTTaError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PeTTaError::FileNotFound(p) => write!(f, "file not found: {}", p.display()),
-            PeTTaError::SpawnError(m) => write!(f, "spawn error: {m}"),
-            PeTTaError::PathError(m) => write!(f, "path error: {m}"),
-            PeTTaError::WriteError(m) => write!(f, "write error: {m}"),
-            PeTTaError::Backend(e) => write!(f, "{e}"),
-            PeTTaError::Mork(m) => write!(f, "MORK error: {m}"),
-            PeTTaError::SwiplVersion(m) => write!(f, "SWI-Prolog version error: {m}"),
-            PeTTaError::Protocol(m) => write!(f, "protocol error: {m}"),
-            PeTTaError::Io(e) => write!(f, "IO error: {e}"),
-            PeTTaError::Timeout(d) => write!(f, "timeout after {d:?}"),
-            PeTTaError::Crash { restarts } => write!(f, "crashed after {restarts} restart(s)"),
-        }
-    }
-}
 
-impl std::error::Error for PeTTaError {}
-impl From<std::io::Error> for PeTTaError {
-    fn from(e: std::io::Error) -> Self { PeTTaError::Io(e) }
-}
-impl From<BackendError> for PeTTaError {
-    fn from(e: BackendError) -> Self { PeTTaError::Backend(e) }
-}
+// ============================================================================
+// Error Analysis & Helpers
+// ============================================================================
 
 /// Backward compatibility alias
 pub type BackendErrorKind = BackendError;
+
+/// Parse backend error from Prolog/JSON output
 
 /// Parse backend error from Prolog/JSON output
 pub fn parse_backend_error(raw: &str) -> BackendError {

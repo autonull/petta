@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use super::config::EngineConfig;
 use super::errors::{PeTTaError, parse_backend_error};
-use super::values::MettaResult;
+use crate::values::MettaResult;
 
 fn send_query(
     stdin: &mut std::process::ChildStdin,

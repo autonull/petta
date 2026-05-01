@@ -1,10 +1,10 @@
-//! PeTTa - Production MeTTa Runtime
+//! # PeTTa - Production MeTTa Runtime
 //!
 //! A production-grade MeTTa language implementation with dual backends:
 //! - **Prolog WAM**: Mature, stable backend using SWI-Prolog
 //! - **MORK**: High-performance native Rust backend
 //!
-//! # Quick Start
+//! ## Quick Start
 //!
 //! ```rust,no_run
 //! use petta::{PeTTaEngine, EngineConfig};
@@ -19,7 +19,7 @@
 //! assert_eq!(result, "3");
 //! ```
 //!
-//! # Features
+//! ## Features
 //!
 //! - `mork`: Enable high-performance MORK backend (requires nightly Rust)
 //! - `repl`: Interactive REPL mode
@@ -28,7 +28,7 @@
 //! - `parallel`: Parallel execution support
 //! - `async`: Async/await support with Tokio
 //!
-//! # Architecture
+//! ## Architecture
 //!
 //! PeTTa provides a unified interface to multiple backends through the [`PeTTaEngine`] struct.
 //! The engine handles:
@@ -37,7 +37,7 @@
 //! - Error handling with suggestions
 //! - Output formatting
 //!
-//! # Example: Loading Files
+//! ## Example: Loading Files
 //!
 //! ```rust,no_run
 //! use petta::PeTTaEngine;
@@ -52,7 +52,7 @@
 //! println!("Result: {}", result);
 //! ```
 //!
-//! # Example: Using MORK Backend
+//! ## Example: Using MORK Backend
 //!
 //! ```rust,no_run
 //! # #[cfg(feature = "mork")]
@@ -60,8 +60,8 @@
 //! use petta::{PeTTaEngine, EngineConfig, Backend};
 //!
 //! let config = EngineConfig::builder()
-//!     .backend(Backend::Mork)
-//!     .build();
+//! .backend(Backend::Mork)
+//! .build();
 //!
 //! let mut engine = PeTTaEngine::with_config(&config).unwrap();
 //! # }
@@ -70,15 +70,19 @@
 #![cfg_attr(feature = "mork", feature(core_intrinsics))]
 #![cfg_attr(feature = "mork", feature(portable_simd))]
 #![cfg_attr(feature = "mork", feature(allocator_api))]
+#![warn(missing_docs)]
 
+// Core modules
 pub mod engine;
 pub mod parser;
 pub mod utils;
 pub mod optimize;
+pub mod values;
 
 #[cfg(feature = "mork")]
 pub mod mork;
 
+// Internal modules
 mod cli;
 mod repl;
 mod profiler;
@@ -94,8 +98,9 @@ mod gxhash;
 
 pub use engine::{
     Backend, BackendError, BackendErrorKind, EngineConfig, EngineConfigBuilder,
-    MettaResult, MettaValue, PeTTaError, PeTTaEngine,
+    PeTTaError, PeTTaEngine,
 };
+pub use values::{MettaResult, MettaValue};
 
 // ============================================================================
 // Output Formatting
