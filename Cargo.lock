@@ -831,6 +831,7 @@ dependencies = [
  "futures",
  "gxhash",
  "hex",
+ "indexmap",
  "itertools 0.14.0",
  "libz-ng-sys",
  "memchr",

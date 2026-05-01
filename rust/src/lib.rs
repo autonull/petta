@@ -74,6 +74,7 @@
 pub mod engine;
 pub mod parser;
 pub mod utils;
+pub mod optimize;
 
 #[cfg(feature = "mork")]
 pub mod mork;

@@ -34,6 +34,7 @@ tracing = "0.1"
 nom = "8"
 clap = { version = "4.5", features = ["derive"], optional = true }
 thiserror = "1.0"
+indexmap = "2.0"
 
 # PathMap
 pathmap-macros = { path = "rust/pathmap-macros" }
