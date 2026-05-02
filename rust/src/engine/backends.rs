@@ -7,7 +7,8 @@ use std::io::BufReader;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use super::backend::{BackendImpl, BackendCapabilities, BackendStats};
+use super::backend::BackendImpl;
+use crate::core::{BackendCapabilities, BackendStats};
 use super::client;
 use super::config::EngineConfig;
 use super::errors::Error;

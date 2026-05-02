@@ -29,6 +29,7 @@ mod config;
 mod result;
 
 pub use engine::{PeTTa, PeTTaEngine, Builder as PeTTaBuilder};
+pub use engine::{PeTTaTyped, Uninitialized, Initialized, Running};
 pub use config::{EngineConfig, EngineConfigBuilder, Backend};
 pub use result::{ExecutionResult, MettaResult, ExecutionStats};
 

@@ -5,65 +5,54 @@
 
 use std::path::Path;
 
-use crate::engine::EngineConfig;
+use crate::engine::{EngineConfig, SwiplBackend as CoreSwiplBackend, BackendImpl};
 use crate::values::MettaResult;
 use crate::Error;
-use super::Backend as BackendTrait;
 use crate::core::BackendCapabilities;
 
-/// SWI-Prolog subprocess backend
+/// SWI-Prolog subprocess backend wrapper
 pub struct SwiplBackend {
-    _config: EngineConfig,
+    inner: CoreSwiplBackend,
 }
 
 impl SwiplBackend {
     pub fn new(config: &EngineConfig) -> Result<Self, Error> {
         Ok(Self {
-            _config: config.clone(),
+            inner: CoreSwiplBackend::new(config)?,
         })
     }
 }
 
-impl BackendTrait for SwiplBackend {
+impl crate::backends::Backend for SwiplBackend {
     fn name(&self) -> &'static str {
-        "SWI-Prolog"
+        self.inner.name()
     }
 
     fn version(&self) -> &'static str {
-        "9.3"
+        self.inner.version()
     }
 
-    fn capabilities(&self) -> BackendCapabilities {
-        BackendCapabilities::new()
-            .with_streaming(true)
-            .with_transactions(false)
+    fn capabilities(&mut self) -> BackendCapabilities {
+        self.inner.capabilities()
     }
 
-    fn is_alive(&self) -> bool {
-        true
+    fn is_alive(&mut self) -> bool {
+        self.inner.is_alive()
     }
 
-    fn load_file(&mut self, _path: &Path, _config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
-        // Delegate to engine's backend
-        Err(Error::Protocol("SWI backend implementation delegated to engine".into()))
+    fn load_file(&mut self, path: &Path, config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
+        self.inner.load_metta_file(path, config)
     }
 
-    fn execute(&mut self, _code: &str, _config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
-        // Delegate to engine's backend
-        Err(Error::Protocol("SWI backend implementation delegated to engine".into()))
+    fn execute(&mut self, code: &str, config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
+        self.inner.process_metta_string(code, config)
     }
 
-    fn restart(&mut self, _config: &EngineConfig) -> Result<(), Error> {
-        Ok(())
+    fn restart(&mut self, config: &EngineConfig) -> Result<(), Error> {
+        self.inner.restart(config)
     }
 
     fn shutdown(&mut self) {
-        // No-op for this implementation
-    }
-}
-
-impl Drop for SwiplBackend {
-    fn drop(&mut self) {
-        self.shutdown();
+        self.inner.shutdown()
     }
 }

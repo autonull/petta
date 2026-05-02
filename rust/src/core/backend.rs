@@ -22,10 +22,10 @@ pub trait Backend: Send + Sync {
     }
 
     /// Check if backend is alive and responsive
-    fn is_alive(&self) -> bool;
+    fn is_alive(&mut self) -> bool;
 
     /// Get backend capabilities
-    fn capabilities(&self) -> BackendCapabilities {
+    fn capabilities(&mut self) -> BackendCapabilities {
         BackendCapabilities::default()
     }
 

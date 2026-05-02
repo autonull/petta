@@ -13,6 +13,7 @@ pub use crate::values::MettaResult;
 ///
 /// `ExecutionResult` wraps the results of MeTTa execution with
 /// additional metadata and convenience methods.
+#[derive(Debug)]
 pub struct ExecutionResult {
     values: Vec<MettaValue>,
     stats: ExecutionStats,

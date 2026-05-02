@@ -19,7 +19,7 @@ mod types;
 pub use backend::{Backend, BackendCapabilities, BackendInfo, BackendStats, HealthStatus};
 pub use errors::{Error, BackendError, Result, SourceLocation};
 pub use values::{MettaValue, MettaResult};
-pub use types::Type;
+pub use types::{Type, ProjectRoot, MettaFile};
 
 // Re-export for convenience
 pub use crate::engine::Backend as BackendType;

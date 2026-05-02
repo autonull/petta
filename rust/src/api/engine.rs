@@ -3,11 +3,23 @@
 //! This module provides both simplified (`PeTTa`) and full-featured (`PeTTaEngine`)
 //! interfaces to the MeTTa execution engine.
 
+use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use crate::engine::{EngineConfig, PeTTaEngine as CoreEngine, Backend};
 use crate::values::MettaResult;
 use crate::Error;
 use super::ExecutionResult;
+
+// ============================================================================
+// Type-State Pattern for Compile-Time Safety
+// ============================================================================
+
+/// Marker type for uninitialized engine state
+pub struct Uninitialized;
+/// Marker type for initialized engine state
+pub struct Initialized;
+/// Marker type for running engine state
+pub struct Running;
 
 // ============================================================================
 // PeTTa - Simplified Interface
@@ -427,5 +439,148 @@ impl PeTTaEngine {
 impl Default for PeTTaEngine {
     fn default() -> Self {
         Self::new().expect("Failed to create PeTTaEngine")
+    }
+}
+
+// ============================================================================
+// Type-State PeTTa Engine (Compile-Time State Validation)
+// ============================================================================
+
+/// PeTTa engine with type-state for compile-time state validation.
+///
+/// This version of PeTTa uses the type-state pattern to ensure that
+/// operations are only performed in valid states at compile time.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use petta::api::{PeTTaTyped, Uninitialized, Initialized, Running};
+///
+/// // Create and initialize
+/// let engine = PeTTaTyped::<Uninitialized>::new()?;
+/// let engine = engine.init()?;
+///
+/// // Start the engine (transition to Running state)
+/// let mut running = engine.start()?;
+///
+/// // Execute queries
+/// let result = running.eval("!(+ 1 2)")?;
+///
+/// // Stop the engine (transition back to Initialized)
+/// let _engine = running.stop()?;
+/// # Ok::<_, petta::Error>(())
+/// ```
+pub struct PeTTaTyped<State> {
+    engine: CoreEngine,
+    loaded_files: Vec<PathBuf>,
+    _state: PhantomData<State>,
+}
+
+// Type-safe constructors
+impl PeTTaTyped<Uninitialized> {
+    /// Create new uninitialized PeTTa engine
+    pub fn new() -> Result<Self, Error> {
+        Ok(Self {
+            engine: CoreEngine::with_config(&EngineConfig::default())?,
+            loaded_files: Vec::new(),
+            _state: PhantomData,
+        })
+    }
+
+    /// Create with custom configuration
+    pub fn with_config(config: EngineConfig) -> Result<Self, Error> {
+        Ok(Self {
+            engine: CoreEngine::with_config(&config)?,
+            loaded_files: Vec::new(),
+            _state: PhantomData,
+        })
+    }
+
+    /// Initialize the engine (transition to Initialized state)
+    pub fn init(self) -> Result<PeTTaTyped<Initialized>, Error> {
+        Ok(PeTTaTyped {
+            engine: self.engine,
+            loaded_files: self.loaded_files,
+            _state: PhantomData,
+        })
+    }
+}
+
+impl Default for PeTTaTyped<Uninitialized> {
+    fn default() -> Self {
+        Self::new().expect("Failed to create PeTTa engine")
+    }
+}
+
+// Initialized state - ready to run
+impl PeTTaTyped<Initialized> {
+    /// Start the engine (transition to Running state)
+    pub fn start(self) -> Result<PeTTaTyped<Running>, Error> {
+        Ok(PeTTaTyped {
+            engine: self.engine,
+            loaded_files: self.loaded_files,
+            _state: PhantomData,
+        })
+    }
+
+    /// Load a file in initialized state
+    pub fn load<P: AsRef<Path>>(&mut self, path: P) -> Result<Vec<MettaResult>, Error> {
+        let path_buf = path.as_ref().to_path_buf();
+        let results = self.engine.load_metta_file(path.as_ref())?;
+        self.loaded_files.push(path_buf);
+        Ok(results)
+    }
+}
+
+// Running state - can execute queries
+impl PeTTaTyped<Running> {
+    /// Evaluate a MeTTa expression
+    pub fn eval(&mut self, code: &str) -> Result<String, Error> {
+        self.engine.eval(code)
+    }
+
+    /// Execute MeTTa code
+    pub fn execute(&mut self, code: &str) -> Result<Vec<MettaResult>, Error> {
+        self.engine.process_metta_string(code)
+    }
+
+    /// Stop the engine (transition to Initialized state)
+    pub fn stop(self) -> Result<PeTTaTyped<Initialized>, Error> {
+        Ok(PeTTaTyped {
+            engine: self.engine,
+            loaded_files: self.loaded_files,
+            _state: PhantomData,
+        })
+    }
+
+    /// Check if engine is healthy
+    pub fn is_healthy(&mut self) -> bool {
+        self.engine.health_check()
+    }
+
+    /// Get backend name
+    pub fn backend_name(&self) -> &'static str {
+        self.engine.backend_name()
+    }
+}
+
+// Convenience methods for Running state
+impl PeTTaTyped<Running> {
+    /// Evaluate and parse as integer
+    pub fn eval_int(&mut self, code: &str) -> Result<i64, Error> {
+        self.engine.eval_int(code)
+    }
+
+    /// Load a file
+    pub fn load<P: AsRef<Path>>(&mut self, path: P) -> Result<Vec<MettaResult>, Error> {
+        let path_buf = path.as_ref().to_path_buf();
+        let results = self.engine.load_metta_file(path.as_ref())?;
+        self.loaded_files.push(path_buf);
+        Ok(results)
+    }
+
+    /// Get list of loaded files
+    pub fn loaded_files(&self) -> &[PathBuf] {
+        &self.loaded_files
     }
 }

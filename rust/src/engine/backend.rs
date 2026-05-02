@@ -15,11 +15,12 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use petta::engine::{BackendImpl, BackendCapabilities, EngineConfig};
+//! use petta::engine::{BackendImpl, EngineConfig};
+//! use petta::core::BackendCapabilities;
 //! use std::path::Path;
 //!
-//! fn execute_with_backend<B: BackendImpl>(backend: &mut B, config: &EngineConfig) 
-//!     -> Result<(), petta::Error> 
+//! fn execute_with_backend<B: BackendImpl>(backend: &mut B, config: &EngineConfig)
+//! -> Result<(), petta::Error>
 //! {
 //!     // Check capabilities
 //!     let caps = backend.capabilities();
@@ -37,76 +38,8 @@ use std::path::Path;
 use super::config::EngineConfig;
 use super::errors::Error;
 use crate::values::MettaResult;
+use crate::core::BackendCapabilities;
 
-/// Backend capabilities for feature detection
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BackendCapabilities {
- /// Supports parallel execution
- pub supports_parallel: bool,
- /// Supports streaming results
- pub supports_streaming: bool,
- /// Supports incremental updates
- pub supports_incremental: bool,
- /// Supports persistence
- pub supports_persistence: bool,
- /// Supports transactional operations
- pub supports_transactions: bool,
-}
-
-impl Default for BackendCapabilities {
- fn default() -> Self {
-  Self {
-   supports_parallel: false,
-   supports_streaming: false,
-   supports_incremental: false,
-   supports_persistence: false,
-   supports_transactions: false,
-  }
- }
-}
-
-impl BackendCapabilities {
- /// Create new capabilities with all features disabled
- pub const fn new() -> Self {
-  Self {
-   supports_parallel: false,
-   supports_streaming: false,
-   supports_incremental: false,
-   supports_persistence: false,
-   supports_transactions: false,
-  }
- }
-
- /// Enable parallel execution support
- pub const fn with_parallel(mut self, supported: bool) -> Self {
-  self.supports_parallel = supported;
-  self
- }
-
- /// Enable streaming support
- pub const fn with_streaming(mut self, supported: bool) -> Self {
-  self.supports_streaming = supported;
-  self
- }
-
- /// Enable incremental updates support
- pub const fn with_incremental(mut self, supported: bool) -> Self {
-  self.supports_incremental = supported;
-  self
- }
-
- /// Enable persistence support
- pub const fn with_persistence(mut self, supported: bool) -> Self {
-  self.supports_persistence = supported;
-  self
- }
-
- /// Enable transactional support
- pub const fn with_transactions(mut self, supported: bool) -> Self {
-  self.supports_transactions = supported;
-  self
- }
-}
 
 /// Core backend trait for MeTTa execution.
 ///
@@ -117,7 +50,8 @@ impl BackendCapabilities {
 /// # Implementing a Backend
 ///
 /// ```rust,no_run
-/// use petta::engine::{BackendImpl, BackendCapabilities, EngineConfig};
+/// use petta::engine::{BackendImpl, EngineConfig};
+/// use petta::core::BackendCapabilities;
 /// use petta::{MettaResult, Error};
 /// use std::path::Path;
 ///

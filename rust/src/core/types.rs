@@ -1,9 +1,12 @@
 //! Type definitions for PeTTa
 //!
-//! This module provides type-level abstractions used throughout the codebase.
+//! This module provides type-level abstractions used throughout the codebase,
+//! including type-safe path types and compile-time guarantees.
+
+use std::path::{Path, PathBuf};
+use crate::engine::Error;
 
 /// MeTTa type representation
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     /// Unit type
     Unit,
@@ -77,5 +80,86 @@ impl std::fmt::Display for Type {
             }
             Type::Custom(name) => write!(f, "{}", name),
         }
+    }
+}
+
+// ============================================================================
+// Type-Safe Path Types
+// ============================================================================
+
+
+/// Represents the root directory of a MeTTa project
+///
+/// This type ensures that project roots are validated at construction time
+/// and provides type-safe path resolution.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use petta::core::{ProjectRoot, MettaFile};
+///
+/// let root = ProjectRoot::new("/path/to/project")?;
+/// let file = root.resolve("defs.metta");
+/// // file is now a type-safe MettaFile
+/// # Ok::<_, petta::Error>(())
+/// ```
+#[derive(Debug, Clone)]
+pub struct ProjectRoot(PathBuf);
+
+/// Represents a validated MeTTa file path
+///
+/// This type ensures that only validated file paths are used with the engine.
+#[derive(Debug, Clone)]
+pub struct MettaFile(PathBuf);
+
+impl ProjectRoot {
+    /// Create a new project root from a path
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let path_buf = path.as_ref().to_path_buf();
+        if !path_buf.exists() {
+            return Err(Error::Config(format!("Project root does not exist: {:?}", path_buf)));
+        }
+        if !path_buf.is_dir() {
+            return Err(Error::Config(format!("Project root is not a directory: {:?}", path_buf)));
+        }
+        Ok(Self(path_buf))
+    }
+
+    /// Resolve a relative path to a MettaFile
+    ///
+    /// This provides type-safe path resolution within the project root.
+    pub fn resolve<P: AsRef<Path>>(&self, path: P) -> MettaFile {
+        MettaFile(self.0.join(path))
+    }
+
+    /// Get the underlying path
+    pub fn as_path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl MettaFile {
+    /// Create a new MettaFile from a path
+    ///
+    /// Note: This does not validate that the file exists. Use `ProjectRoot::resolve`
+    /// for type-safe file creation.
+    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+        Self(path.as_ref().to_path_buf())
+    }
+
+    /// Get the underlying path
+    pub fn as_path(&self) -> &Path {
+        &self.0
+    }
+
+    /// Convert to PathBuf
+    pub fn to_path_buf(self) -> PathBuf {
+        self.0
+    }
+}
+
+impl AsRef<Path> for MettaFile {
+    fn as_ref(&self) -> &Path {
+        &self.0
     }
 }

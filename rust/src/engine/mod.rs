@@ -35,7 +35,7 @@
 //! - Default → SWI-Prolog backend
 
 mod backend;
-mod backends;
+pub mod backends;
 mod client;
 mod config;
 mod errors;
@@ -45,7 +45,7 @@ mod subprocess;
 mod version;
 
 // Core types
-pub use backend::{BackendImpl, BackendCapabilities, BackendInfo, BackendStats, HealthStatus};
+pub use backend::BackendImpl;
 pub use backends::SwiplBackend;
 #[cfg(feature = "mork")]
 pub use backends::MorkBackend;

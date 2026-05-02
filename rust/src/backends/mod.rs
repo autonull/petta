@@ -19,13 +19,16 @@
 //! # Ok::<_, petta::Error>(())
 //! ```
 
-mod swipl;
+pub mod swipl;
 #[cfg(feature = "mork")]
-mod mork;
+pub mod mork;
 
 pub use swipl::SwiplBackend;
 #[cfg(feature = "mork")]
 pub use mork::MorkBackend;
+
+// Re-export core types
+pub use crate::core::{Backend, BackendCapabilities, BackendInfo, BackendStats};
 
 use std::collections::HashMap;
 use crate::engine::EngineConfig;
@@ -37,20 +40,6 @@ pub enum BackendType {
     Swipl,
     #[cfg(feature = "mork")]
     Mork,
-}
-
-/// Unified backend trait
-pub trait Backend: Send + Sync {
-    fn name(&self) -> &'static str;
-    fn version(&self) -> &'static str { "unknown" }
-    fn is_alive(&self) -> bool;
-    fn capabilities(&self) -> crate::core::BackendCapabilities {
-        crate::core::BackendCapabilities::default()
-    }
-    fn load_file(&mut self, path: &std::path::Path, config: &EngineConfig) -> Result<Vec<crate::values::MettaResult>, Error>;
-    fn execute(&mut self, code: &str, config: &EngineConfig) -> Result<Vec<crate::values::MettaResult>, Error>;
-    fn restart(&mut self, config: &EngineConfig) -> Result<(), Error>;
-    fn shutdown(&mut self);
 }
 
 /// Backend registry for managing multiple backends
