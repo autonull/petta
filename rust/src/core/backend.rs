@@ -236,12 +236,14 @@ impl BackendStats {
 
 /// Backend health status
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum HealthStatus {
     Healthy,
     Degraded(String),
     Unhealthy(String),
 }
 
+#[allow(dead_code)]
 impl HealthStatus {
     pub fn is_healthy(&self) -> bool {
         matches!(self, HealthStatus::Healthy)

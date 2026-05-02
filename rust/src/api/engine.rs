@@ -4,10 +4,10 @@
 //! interfaces to the MeTTa execution engine.
 
 use std::path::{Path, PathBuf};
-use crate::engine::{EngineConfig, PeTTaEngine as CoreEngine};
-use crate::values::{MettaResult, MettaValue};
+use crate::engine::{EngineConfig, PeTTaEngine as CoreEngine, Backend};
+use crate::values::MettaResult;
 use crate::Error;
-use super::{ExecutionResult, Backend};
+use super::ExecutionResult;
 
 // ============================================================================
 // PeTTa - Simplified Interface

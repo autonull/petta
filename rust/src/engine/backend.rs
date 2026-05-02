@@ -35,7 +35,7 @@
 
 use std::path::Path;
 use super::config::EngineConfig;
-use super::errors::{Error, BackendError};
+use super::errors::Error;
 use crate::values::MettaResult;
 
 /// Backend capabilities for feature detection
@@ -166,12 +166,12 @@ pub trait BackendImpl: Send + Sync {
     /// 
     /// Default implementation reads the file and calls `process_metta_string`.
     fn load_metta_file(
-        &mut self, 
-        path: &Path, 
+        &mut self,
+        path: &Path,
         config: &EngineConfig
     ) -> Result<Vec<MettaResult>, Error> {
         let content = std::fs::read_to_string(path)
-            .map_err(|e| Error::FileNotFound(path.to_path_buf()))?;
+            .map_err(|_e| Error::FileNotFound(path.to_path_buf()))?;
         self.process_metta_string(&content, config)
     }
 

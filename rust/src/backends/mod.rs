@@ -28,7 +28,7 @@ pub use swipl::SwiplBackend;
 pub use mork::MorkBackend;
 
 use std::collections::HashMap;
-use crate::engine::{EngineConfig, Backend as BackendEnum};
+use crate::engine::EngineConfig;
 use crate::Error;
 
 /// Backend type enumeration
@@ -55,6 +55,7 @@ pub trait Backend: Send + Sync {
 
 /// Backend registry for managing multiple backends
 pub struct BackendRegistry {
+    #[allow(dead_code)]
     backends: HashMap<String, Box<dyn Backend>>,
 }
 
