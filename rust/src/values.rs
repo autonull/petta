@@ -96,19 +96,50 @@ impl MettaValue {
   }
  }
  
- /// Get the type name as a string
- pub fn type_name(&self) -> &'static str {
-  match self {
-   MettaValue::Integer(_) => "Integer",
-   MettaValue::Float(_) => "Float",
-   MettaValue::Bool(_) => "Bool",
-   MettaValue::Atom(_) => "Atom",
-   MettaValue::List(_) => "List",
-   MettaValue::Expression(..) => "Expression",
-   MettaValue::Str(_) => "String",
-   MettaValue::Error(_) => "Error",
-  }
- }
+    /// Get the type name as a string
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            MettaValue::Integer(_) => "Integer",
+            MettaValue::Float(_) => "Float",
+            MettaValue::Bool(_) => "Bool",
+            MettaValue::Atom(_) => "Atom",
+            MettaValue::List(_) => "List",
+            MettaValue::Expression(..) => "Expression",
+            MettaValue::Str(_) => "String",
+            MettaValue::Error(_) => "Error",
+        }
+    }
+
+    /// Convert to string representation
+    pub fn as_string(&self) -> String {
+        match self {
+            MettaValue::Integer(n) => n.to_string(),
+            MettaValue::Float(n) => n.to_string(),
+            MettaValue::Bool(true) => "true".to_string(),
+            MettaValue::Bool(false) => "false".to_string(),
+            MettaValue::Atom(s) => s.clone(),
+            MettaValue::Str(s) => s.clone(),
+            MettaValue::List(items) => {
+                let items_str: Vec<String> = items.iter().map(|i| i.as_string()).collect();
+                format!("({})", items_str.join(" "))
+            }
+            MettaValue::Expression(head, args) => {
+                let args_str: Vec<String> = args.iter().map(|a| a.as_string()).collect();
+                format!("({} {})", head, args_str.join(" "))
+            }
+            MettaValue::Error(msg) => format!("Error: {}", msg),
+        }
+    }
+
+    /// Convert to integer if possible
+    pub fn as_int(&self) -> Option<i64> {
+        self.as_integer()
+    }
+
+    /// Convert to f64 if possible
+    pub fn as_f64(&self) -> Option<f64> {
+        self.as_float()
+    }
 }
 
 impl fmt::Display for MettaValue {

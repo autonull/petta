@@ -371,15 +371,19 @@ impl<'trie, V: Clone + Send + Sync + Unpin + 'trie, A: Allocator + 'trie> Zipper
     for ProductZipper<'_, 'trie, V, A>
 {
     #[inline]
+#[inline]
     fn path_exists(&self) -> bool {
         self.z.path_exists()
     }
+#[inline]
     fn is_val(&self) -> bool {
         self.z.is_val()
     }
+#[inline]
     fn child_count(&self) -> usize {
         self.z.child_count()
     }
+#[inline]
     fn child_mask(&self) -> ByteMask {
         self.z.child_mask()
     }
@@ -686,6 +690,7 @@ where
     PrimaryZ: ZipperMoving + Zipper,
     SecondaryZ: ZipperMoving + Zipper,
 {
+#[inline]
     fn path_exists(&self) -> bool {
         if let Some(idx) = self.factor_idx(true) {
             self.secondary[idx].path_exists()
@@ -693,6 +698,7 @@ where
             self.primary.path_exists()
         }
     }
+#[inline]
     fn is_val(&self) -> bool {
         if let Some(idx) = self.factor_idx(true) {
             self.secondary[idx].is_val()
@@ -700,6 +706,7 @@ where
             self.primary.is_val()
         }
     }
+#[inline]
     fn child_count(&self) -> usize {
         if let Some(idx) = self.factor_idx(false) {
             self.secondary[idx].child_count()
@@ -707,6 +714,7 @@ where
             self.primary.child_count()
         }
     }
+#[inline]
     fn child_mask(&self) -> ByteMask {
         if let Some(idx) = self.factor_idx(false) {
             self.secondary[idx].child_mask()

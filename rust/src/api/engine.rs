@@ -225,6 +225,52 @@ impl PeTTa {
         self.engine.eval_int(code)
     }
 
+    /// Evaluate and parse as float.
+    ///
+    /// # Arguments
+    ///
+    /// * `code` - MeTTa arithmetic expression
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use petta::api::PeTTa;
+    ///
+    /// let mut engine = PeTTa::new()?;
+    /// let result = engine.eval_float("!(/ 7 2)")?;
+    /// assert!((result - 3.5).abs() < 0.001);
+    /// # Ok::<_, petta::Error>(())
+    /// ```
+    pub fn eval_float(&mut self, code: &str) -> Result<f64, Error> {
+        let result = self.engine.eval(code)?;
+        result.parse::<f64>()
+            .map_err(|_| Error::Execution { 
+                reason: format!("Failed to parse '{}' as float", result),
+                context: None,
+            })
+    }
+
+    /// Evaluate and parse as boolean.
+    ///
+    /// # Arguments
+    ///
+    /// * `code` - MeTTa boolean expression
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use petta::api::PeTTa;
+    ///
+    /// let mut engine = PeTTa::new()?;
+    /// let result = engine.eval_bool("!(== 1 1)")?;
+    /// assert_eq!(result, true);
+    /// # Ok::<_, petta::Error>(())
+    /// ```
+    pub fn eval_bool(&mut self, code: &str) -> Result<bool, Error> {
+        let result = self.engine.eval(code)?;
+        Ok(result == "True" || result == "true")
+    }
+
     /// Execute MeTTa code and return all results.
     ///
     /// # Arguments
@@ -257,6 +303,58 @@ impl PeTTa {
     /// Get list of loaded files
     pub fn loaded_files(&self) -> &[PathBuf] {
         &self.loaded_files
+    }
+
+    /// Run a single expression and return the first result
+    ///
+    /// This is a convenience method for quick one-liner execution.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use petta::api::PeTTa;
+    ///
+    /// let result = PeTTa::run("!(+ 1 2)")?;
+    /// assert_eq!(result, "3");
+    /// # Ok::<_, petta::Error>(())
+    /// ```
+    pub fn run(code: &str) -> Result<String, Error> {
+        let mut engine = Self::new()?;
+        engine.eval(code)
+    }
+
+    /// Run a single expression and return structured result
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use petta::api::PeTTa;
+    ///
+    /// let result = PeTTa::run_structured("!(+ 1 2)")?;
+    /// assert_eq!(result.first_as_int(), Some(3));
+    /// # Ok::<_, petta::Error>(())
+    /// ```
+    pub fn run_structured(code: &str) -> Result<ExecutionResult, Error> {
+        let mut engine = Self::new()?;
+        let results = engine.engine.process_metta_string(code)?;
+        Ok(ExecutionResult::from_results(results))
+    }
+
+    /// Execute and return structured result
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use petta::api::PeTTa;
+    ///
+    /// let mut engine = PeTTa::new()?;
+    /// let result = engine.exec("!(+ 1 2)")?;
+    /// assert_eq!(result.first_as_int(), Some(3));
+    /// # Ok::<_, petta::Error>(())
+    /// ```
+    pub fn exec(&mut self, code: &str) -> Result<ExecutionResult, Error> {
+        let results = self.engine.process_metta_string(code)?;
+        Ok(ExecutionResult::from_results(results))
     }
 }
 

@@ -483,15 +483,21 @@ impl<V: Clone + Send + Sync, A: Allocator> Drop for WriteZipperTracked<'_, '_, V
 impl<'a, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> Zipper
     for WriteZipperTracked<'a, '_, V, A>
 {
+    #[inline]
+#[inline]
     fn path_exists(&self) -> bool {
         self.z.path_exists()
     }
+    #[inline]
+#[inline]
     fn is_val(&self) -> bool {
         self.z.is_val()
     }
+#[inline]
     fn child_count(&self) -> usize {
         self.z.child_count()
     }
+#[inline]
     fn child_mask(&self) -> ByteMask {
         self.z.child_mask()
     }
@@ -870,15 +876,19 @@ pub struct WriteZipperUntracked<'a, 'k, V: Clone + Send + Sync, A: Allocator = G
 impl<'a, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> Zipper
     for WriteZipperUntracked<'a, '_, V, A>
 {
+#[inline]
     fn path_exists(&self) -> bool {
         self.z.path_exists()
     }
+#[inline]
     fn is_val(&self) -> bool {
         self.z.is_val()
     }
+#[inline]
     fn child_count(&self) -> usize {
         self.z.child_count()
     }
+#[inline]
     fn child_mask(&self) -> ByteMask {
         self.z.child_mask()
     }
@@ -1636,6 +1646,7 @@ pub(crate) struct KeyFields<'path> {
 impl<'trie, V: Clone + Send + Sync + Unpin, A: Allocator + 'trie> Zipper
     for WriteZipperCore<'trie, '_, V, A>
 {
+#[inline]
     fn path_exists(&self) -> bool {
         let key = self.key.node_key();
         if !key.is_empty() {
@@ -1644,6 +1655,7 @@ impl<'trie, V: Clone + Send + Sync + Unpin, A: Allocator + 'trie> Zipper
             true
         }
     }
+#[inline]
     fn is_val(&self) -> bool {
         let key = self.key.node_key();
         if key.is_empty() {
@@ -1656,12 +1668,14 @@ impl<'trie, V: Clone + Send + Sync + Unpin, A: Allocator + 'trie> Zipper
             self.focus_stack.top().unwrap().node_contains_val(key)
         }
     }
+#[inline]
     fn child_count(&self) -> usize {
         match self.focus_stack.top() {
             Some(focus_node) => node_count_branches_recursive(focus_node, self.key.node_key()),
             None => 0,
         }
     }
+#[inline]
     fn child_mask(&self) -> ByteMask {
         let focus_node = match self.focus_stack.top() {
             Some(focus_node) => focus_node,

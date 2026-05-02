@@ -58,645 +58,32 @@ This document outlines a complete architectural refactoring of the PeTTa system 
 
 ### 🔄 In Progress / Blocked
 
-**Phase 4: PathMap Optimization** - Analysis Complete, Implementation Blocked
-- **Current State**: 28,772 lines in flat structure
-- **Blocker**: Complex zipper implementations require deep understanding
-- **Plan Created**: `rust/src/pathmap/REORGANIZATION_PLAN.md`
-- **Estimated Effort**: 2-3 weeks for full migration
-- **Recommendation**: Tackle as dedicated effort after other phases
+**Phase 4: PathMap Optimization** - Analysis Complete, Implementation Started
+  - **Current State**: 28,772 lines across 50+ files
+  - **Analysis Document**: `rust/src/pathmap/PHASE4_IMPLEMENTATION.md` ✅
+  - **Quick Wins Identified**: SmallVec optimization, hot path inlining
+  - **Structural Work**: Requires 2-3 weeks dedicated effort
+  - **Recommendation**: Aggressive optimization - zero backward compatibility concerns
 
 ### ⏸️ Remaining Work
-
-**Phase 5: API Ergonomics** - Partially Complete
-- Basic ergonomic API in place
-- Additional conveniences can be added as needed
-
-**Phase 7: Performance Optimization** - Not Started
-- Hot path optimization
-- SmallVec usage
-- SIMD optimizations
-- Arena allocation
-
----
-
-## Current Architecture Analysis
-
-### Code Distribution
-```\nTotal: 129,680 lines\n├── PathMap:        28,772 lines (22%)\n├── MORK:           12,256 lines (9%)\n├── Engine:          ~5,000 lines (4%)\n├── Parser:          ~2,000 lines (2%)\n├── Utilities:       ~3,000 lines (2%)\n├── Prolog Backend: ~1,500 lines (1%)\n└── Tests/Benches:  ~8,000 lines (6%)\n    Remaining:      ~68K lines (53% - core logic, duplication)\n```\n\n### Critical Issues Identified
-
-#### 1. **Massive Code Duplication** (HIGH IMPACT)
-- Backend functionality duplicated across SwiplBackend and MorkBackend: ~300 lines
-- PathMap zipper implementations duplicated: ~50K+ lines across multiple files
-- Error handling scattered: 15+ error types across modules
-- Config builders repeated in 3+ places
-
-#### 2. **Poor Module Organization** (MEDIUM IMPACT)
-- 15+ top-level modules in `rust/src/` with unclear responsibility boundaries
-- Mix of library code (`lib.rs`) and application code (`main.rs`) in same crate
-- Internal implementation details exposed alongside public API
-- PathMap modules flat (30+ files in single directory)
-
-#### 3. **Weak Type System Usage** (MEDIUM IMPACT)
-- Stringly-typed configurations where enums would provide safety
-- No compile-time state validation (engine can execute before initialization)
-- Path types not differentiated (PathBuf everywhere)
-- Missing type-level guarantees for backend capabilities
-
-#### 4. **Performance Bottlenecks** (HIGH IMPACT)
-- Excessive allocations in hot paths (String, Vec, Box)
-- No small-vector optimization for small collections
-- Backend trait objects cause cache misses
-- PathMap operations not optimized for common cases
-
-#### 5. **Error Handling Chaos** (HIGH IMPACT)
-- 15+ different error types across modules
-- Inconsistent error messages (some helpful, some cryptic)
-- No source locations in parse errors
-- No actionable suggestions for recovery
-
-#### 6. **MORK Integration Issues** (MEDIUM IMPACT)
-- MORK code gated behind feature flag, not integrated into main flow
-- Separate module structure from Prolog backend
-- Different error handling than main engine
-- No unified capability detection
-
----
-
-## Refactoring Strategy
-
-### Guiding Principles
-
-1. **Single Source of Truth**: Each concept defined once
-2. **Zero-Cost Abstractions**: Type system work happens at compile time
-3. **Fail Fast**: Compile-time errors preferred over runtime panics
-4. **Progressive Disclosure**: Simple API for common cases, depth for advanced
-5. **Performance by Default**: No runtime cost for unused features
-
-### Phase Prioritization Matrix
-
-| Phase | Impact | Effort | Risk | Priority | Status |
-|-------|--------|--------|------|----------|--------|
-| 1. Module Reorganization | High | Medium | Low | **1st** | ✅ **Complete** |
-| 2. Backend Unification | **Critical** | High | Medium | **1st** | ✅ **Complete** |
-| 3. Error Consolidation | High | Low | Low | **2nd** | ✅ **Complete** |
-| 4. PathMap Optimization | **Critical** | High | Medium | **2nd** | 🔄 **Blocked** (see notes) |
-| 5. API Ergonomics | High | Medium | Low | **3rd** | ⏸️ **Pending** |
-| 6. Type System Improvements | Medium | Medium | Medium | **3rd** | ✅ **Complete** |
-| 7. Performance Tuning | High | High | Low | **4th** | ⏸️ **Pending** |
-
-**Notes:**
-- **Phase 4 (PathMap)**: Requires dedicated 2-3 week effort for 28K line reorganization. Migration plan created in `rust/src/pathmap/REORGANIZATION_PLAN.md`. Recommended to tackle after other phases complete.
-- **Phase 6 (Type System)**: Completed with type-state pattern and type-safe paths.
-
----
-
-## Detailed Refactoring Plan
-
-### Phase 1: Module Reorganization (Week 1-2)
-
-**Goal**: Create clear architectural boundaries and logical grouping.
-
-#### 1.1 New Directory Structure
-
-```
-rust/
-├── src/
-│   ├── lib.rs                    # Public API exports only
-│   ├── bin/
-│   │   └── petta.rs             # CLI entry point (was main.rs)
-│   │
-│   ├── api/                      # PUBLIC API (ergonomic layer)
-│   │   ├── mod.rs               # PeTTa, PeTTaBuilder exports
-│   │   ├── engine.rs            # PeTTaEngine public interface
-│   │   ├── config.rs            # EngineConfig, Backend types
-│   │   └── result.rs            # ExecutionResult, MettaResult
-│   │
-│   ├── core/                     # CORE FUNCTIONALITY
-│   │   ├── mod.rs               # Core types and traits
-│   │   ├── backend.rs           # Backend trait & capabilities
-│   │   ├── errors.rs            # Unified error types
-│   │   ├── values.rs            # MettaValue, MettaResult types
-│   │   └── types.rs             # Type definitions
-│   │
-│   ├── backends/                 # BACKEND IMPLEMENTATIONS
-│   │   ├── mod.rs               # Backend registry & selection
-│   │   ├── swipl/               # SWI-Prolog backend
-│   │   │   ├── mod.rs           # Module exports
-│   │   │   ├── client.rs        # SWI-Prolog client
-│   │   │   ├── protocol.rs      # Binary protocol
-│   │   │   └── translator.rs    # MeTTa → Prolog translation
-│   │   └── mork/                # MORK backend
-│   │       ├── mod.rs           # Module exports
-│   │       ├── engine.rs        # MORK engine wrapper
-│   │       └── interpreter.rs   # Zipper interpreter
-│   │
-│   ├── parser/                   # PARSERS
-│   │   ├── mod.rs               # Parser API
-│   │   ├── sexpr.rs             # S-expression parser (nom)
-│   │   └── metta.rs             # MeTTa language parser
-│   │
-│   ├── pathmap/                  # PATHMAP (reorganized)
-│   │   ├── mod.rs               # PathMap exports
-│   │   ├── trie/                # Core trie implementation
-│   │   │   ├── mod.rs
-│   │   │   ├── node.rs          # Trie node types
-│   │   │   └── ops.rs           # Core operations
-│   │   ├── zipper/              # Zipper implementations
-│   │   │   ├── mod.rs
-│   │   │   ├── base.rs          # Base zipper
-│   │   │   ├── overlay.rs       # Overlay zipper
-│   │   │   ├── product.rs       # Product zipper
-│   │   │   └── write.rs         # Write zipper
-│   │   ├── ring/                # Ring operations
-│   │   ├── morphisms/           # Morphism operations
-│   │   ├── utils/               # Utilities
-│   │   └── arena/               # Arena allocation (optional)
-│   │
-│   ├── utils/                    # UTILITIES
-│   │   ├── mod.rs
-│   │   ├── formatter.rs         # Output formatting
-│   │   ├── profiler.rs          # Profiling support
-│   │   └── hasher.rs            # Hash utilities (GXHash)
-│   │
-│   └── internal/                 # INTERNAL (not public API)
-│       ├── repl/                # REPL implementation
-│       ├── cli/                 # CLI handling
-│       ├── observability/       # Metrics & monitoring
-│       └── differential/        # Differential testing
-│
-├── tests/                        # Integration tests
-│   ├── engine_tests.rs
-│   ├── backend_tests.rs
-│   └── parser_tests.rs
-│
-└── benches/                      # Benchmarks
-    ├── backend_bench.rs
-    └── pathmap_bench.rs
-```
-
-#### 1.2 Migration Steps
-
-1. Create new directory structure alongside old
-2. Move files with `git mv` to preserve history
-3. Update all imports (use `cargo check` iteratively)
-4. Remove old structure once all imports resolve
-5. Update documentation and examples
-
-#### 1.3 Success Criteria ✅ COMPLETE
-- [x] All code compiles with new structure
-- [x] All tests pass (53 library + 36 doctests)
-- [x] No circular dependencies
-- [x] Clear separation: `api/` (public) vs `internal/` (private)
-- [x] Module boundaries well-defined
-
----
-
-### Phase 2: Backend Unification (Week 2-4) ⭐ CRITICAL
-
-**Goal**: Eliminate backend duplication with unified trait-based interface.
-
-#### 2.1 Current Problem
-
-```rust
-// Current: BackendState enum duplicates all methods
-enum BackendState {
-    Swipl(SwiplBackend),
-    Mork(MorkBackend),
-}
-
-// Duplicated in both backends:
-// - load_metta_file()
-// - load_metta_files()
-// - process_metta_string()
-// - is_alive()
-// - restart()
-// - stderr_output()
-// - shutdown()
-// Total duplication: ~300 lines
-```
-
-#### 2.2 Unified Backend Trait
-
-```rust
-// core/backend.rs
-use std::path::{Path, PathBuf};
-use crate::values::MettaResult;
-use crate::errors::BackendError;
-
-/// Unified backend trait for all execution engines
-pub trait Backend: Send + Sync {
-    /// Backend name (e.g., "SWI-Prolog", "MORK")
-    fn name(&self) -> &'static str;
-    
-    /// Backend version string
-    fn version(&self) -> &'static str;
-    
-    /// Check if backend is alive and responsive
-    fn is_alive(&self) -> bool;
-    
-    /// Get backend capabilities
-    fn capabilities(&self) -> BackendCapabilities {
-        BackendCapabilities::default()
-    }
-    
-    /// Load and execute a single MeTTa file
-    fn load_file(&mut self, path: &Path) -> Result<Vec<MettaResult>, BackendError>;
-    
-    /// Load and execute multiple MeTTa files
-    fn load_files(&mut self, paths: &[&Path]) -> Result<Vec<MettaResult>, BackendError>;
-    
-    /// Execute MeTTa code string
-    fn execute(&mut self, code: &str) -> Result<Vec<MettaResult>, BackendError>;
-    
-    /// Restart backend (for crash recovery)
-    fn restart(&mut self) -> Result<(), BackendError>;
-    
-    /// Shutdown backend gracefully
-    fn shutdown(&mut self) -> Result<(), BackendError>;
-}
-
-/// Backend capabilities for feature detection
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BackendCapabilities {
-    pub supports_parallel: bool,
-    pub supports_streaming: bool,
-    pub supports_incremental: bool,
-    pub supports_persistence: bool,
-    pub supports_transactions: bool,
-}
-```
-
-#### 2.3 Backend Implementations
-
-```rust
-// backends/swipl/mod.rs
-pub struct SwiplBackend {
-    client: PrologClient,
-    state: BackendState,
-}
-
-impl Backend for SwiplBackend {
-    fn name(&self) -> &'static str { "SWI-Prolog" }
-    
-    fn version(&self) -> &'static str { "9.3+" }
-    
-    fn is_alive(&self) -> bool {
-        self.client.ping()
-    }
-    
-    fn load_file(&mut self, path: &Path) -> Result<Vec<MettaResult>, BackendError> {
-        self.client.consult(path)?;
-        Ok(vec![])
-    }
-    
-    fn execute(&mut self, code: &str) -> Result<Vec<MettaResult>, BackendError> {
-        self.client.query(code)
-    }
-    
-    // ... other methods
-}
-
-// backends/mork/mod.rs
-pub struct MorkBackend {
-    engine: MorkEngine,
-    space: AtomSpace,
-}
-
-impl Backend for MorkBackend {
-    fn name(&self) -> &'static str { "MORK" }
-    
-    fn version(&self) -> &'static str { "1.0" }
-    
-    fn is_alive(&self) -> bool { true } // Always alive (in-process)
-    
-    fn capabilities(&self) -> BackendCapabilities {
-        BackendCapabilities {
-            supports_parallel: true,
-            supports_streaming: true,
-            ..Default::default()
-        }
-    }
-    
-    fn load_file(&mut self, path: &Path) -> Result<Vec<MettaResult>, BackendError> {
-        let code = std::fs::read_to_string(path)?;
-        self.execute(&code)
-    }
-    
-    fn execute(&mut self, code: &str) -> Result<Vec<MettaResult>, BackendError> {
-        let expr = self.parser.parse(code)?;
-        self.interpreter.execute(expr)
-    }
-    
-    // ... other methods
-}
-```
-
-#### 2.4 Backend Registry
-
-```rust
-// backends/mod.rs
-use std::collections::HashMap;
-use box::Box;
-
-pub struct BackendRegistry {
-    backends: HashMap<String, Box<dyn Backend>>,
-}
-
-impl BackendRegistry {
-    /// Auto-select backend based on features and availability
-    pub fn auto_select() -> Result<Box<dyn Backend>, BackendError> {
-        #[cfg(feature = "mork")]
-        {
-            // Prefer MORK if available
-            return Ok(Box::new(MorkBackend::new()));
-        }
-        
-        #[cfg(feature = "swipl")]
-        {
-            return Ok(Box::new(SwiplBackend::new()?));
-        }
-        
-        Err(BackendError::NoBackendAvailable)
-    }
-    
-    /// Create specific backend
-    pub fn create(backend_type: BackendType) -> Result<Box<dyn Backend>, BackendError> {
-        match backend_type {
-            BackendType::Swipl => Ok(Box::new(SwiplBackend::new()?)),
-            #[cfg(feature = "mork")]
-            BackendType::Mork => Ok(Box::new(MorkBackend::new())),
-            _ => Err(BackendError::UnknownBackend),
-        }
-    }
-}
-```
-
-#### 2.5 Engine Simplification
-
-```rust
-// api/engine.rs
-pub struct PeTTaEngine {
-    backend: Box<dyn Backend>,
-    config: EngineConfig,
-    state: EngineState,
-    restarts: u32,
-}
-
-impl PeTTaEngine {
-    pub fn new(config: &EngineConfig) -> Result<Self, Error> {
-        let backend = BackendRegistry::create(config.backend)?;
-        
-        Ok(Self {
-            backend,
-            config: config.clone(),
-            state: EngineState::Initialized,
-            restarts: 0,
-        })
-    }
-    
-    pub fn execute(&mut self, code: &str) -> Result<Vec<MettaResult>, Error> {
-        self.retry_on_crash(|backend| backend.execute(code))
-    }
-    
-    fn retry_on_crash<F, T>(&mut self, mut f: F) -> Result<T, Error>
-    where
-        F: FnMut(&mut Box<dyn Backend>) -> Result<T, BackendError>,
-    {
-        let mut attempts = 0;
-        loop {
-            match f(&mut self.backend) {
-                Err(BackendError::ChildClosed) if attempts < self.config.max_restarts => {
-                    attempts += 1;
-                    self.backend.restart()?;
-                    self.restarts += 1;
-                }
-                other => return other.map_err(Error::from),
-            }
-        }
-    }
-}
-```
-
-#### 2.6 Success Criteria ✅ COMPLETE
-- [x] Backend trait fully abstracts SwiplBackend and MorkBackend
-- [x] BackendState enum eliminated (consolidated)
-- [x] 300+ lines of duplication removed
-- [x] All tests pass with both backends
-- [x] Backend switching seamless
-- [x] Single source of truth for BackendCapabilities
-
----
-
-### Phase 3: Error Handling Consolidation (Week 3-4)
-
-**Goal**: Unified error types with actionable messages and source locations.
-
-#### 3.1 Unified Error Type
-
-```rust
-// core/errors.rs
-use thiserror::Error;
-use std::path::PathBuf;
-
-#[derive(Debug, Error)]
-pub enum Error {
-    // Backend errors
-    #[error("Backend error: {0}")]
-    Backend(#[from] BackendError),
-    
-    // Parse errors with location
-    #[error("Parse error at {location}: {message}")]
-    Parse {
-        message: String,
-        location: SourceLocation,
-    },
-    
-    // Type errors with context
-    #[error("Type error: expected {expected}, found {found} in {context}")]
-    Type {
-        expected: String,
-        found: String,
-        context: String,
-    },
-    
-    // Execution errors
-    #[error("Execution failed: {0}")]
-    Execution(String),
-    
-    // Configuration errors
-    #[error("Invalid configuration: {0}")]
-    Config(String),
-    
-    // I/O errors
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
-
-/// Source location for error reporting
-#[derive(Debug, Clone)]
-pub struct SourceLocation {
-    pub file: PathBuf,
-    pub line: usize,
-    pub column: usize,
-}
-
-impl std::fmt::Display for SourceLocation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}:{}", 
-            self.file.display(), 
-            self.line, 
-            self.column
-        )
-    }
-}
-```
-
-#### 3.2 Backend Error Type
-
-```rust
-// core/backend.rs
-#[derive(Debug, Error)]
-pub enum BackendError {
-    #[error("Backend not available: {0}")]
-    NotAvailable(String),
-    
-    #[error("Backend crashed: {0}")]
-    Crash(String),
-    
-    #[error("Backend child process closed")]
-    ChildClosed,
-    
-    #[error("Unknown backend")]
-    UnknownBackend,
-    
-    #[error("No backend available")]
-    NoBackendAvailable,
-    
-    #[error("Protocol error: {0}")]
-    Protocol(String),
-    
-    #[error("Parse error: {0}")]
-    Parse(String),
-    
-    #[error("Type error: {0}")]
-    Type(String),
-}
-```
-
-#### 3.3 Error Context Enhancement
-
-```rust
-// core/errors.rs
-pub trait ErrorContext<T> {
-    fn context(self, msg: impl Into<String>) -> Result<T>;
-    fn suggestion(self, suggestion: impl Into<String>) -> Self;
-}
-
-impl<T, E: std::fmt::Display> ErrorContext<T> for std::result::Result<T, E> {
-    fn context(self, msg: impl Into<String>) -> Result<T> {
-        self.map_err(|e| Error::Execution(format!("{}: {}", msg.into(), e)))
-    }
-    
-    fn suggestion(self, _suggestion: impl Into<String>) -> Self {
-        // Could store suggestion in error type
-        self
-    }
-}
-
-// Usage example
-fn parse_metta(code: &str) -> Result<Expr> {
-    parse_expression(code)
-        .context("Failed to parse expression")
-        .suggestion("Check syntax and parentheses matching")
-}
-```
-
-#### 3.4 Success Criteria ✅ COMPLETE
-- [x] All error types consolidated into unified enum
-- [x] Parse errors include source locations
-- [x] Error messages are actionable
-- [x] No panic! or unwrap() in production code
-- [x] Unified Error and BackendError types in use
-
----
-
-### Phase 4: PathMap Optimization (Week 4-8) ⭐ CRITICAL
-
-**Goal**: Optimize PathMap for performance while maintaining functionality.
-
-#### 4.1 Current Issues
-
-PathMap has 28,772 lines with:
-- Massive duplication in zipper implementations
-- Multiple overlapping abstractions
-- No clear separation between core trie and operations
-- Performance issues with large tries
-
-#### 4.2 Optimization Strategy
-
-1. **Core Trie Simplification**
-   - Reduce node types to essential variants
-   - Eliminate redundant state
-   - Use SmallVec for child collections
-
-2. **Zipper Consolidation**
-   - Common base implementation for all zippers
-   - Eliminate code duplication across zipper types
-   - Use trait-based composition
-
-3. **Memory Optimization**
-   - Arena allocation for batch operations
-   - Reduce pointer chasing
-   - Cache-friendly node layout
-
-4. **Performance Optimizations**
-   - Inline hot paths
-   - Use SIMD for path comparisons
-   - Parallel operations for large tries
-
-#### 4.3 New PathMap Architecture
-
-```rust
-// pathmap/trie/mod.rs
-pub struct Trie<V> {
-    root: Node<V>,
-}
-
-enum Node<V> {
-    Empty,
-    Leaf(V),
-    Branch(Box<BranchNode<V>>),
-}
-
-struct BranchNode<V> {
-    children: SmallVec<[(u8, Node<V>); 4]>, // SmallVec for common case
-}
-
-// pathmap/zipper/mod.rs
-pub struct Zipper<'a, V> {
-    focus: &'a mut Node<V>,
-    path: Vec<PathComponent<V>>,
-}
-
-enum PathComponent<V> {
-    Sibling(u8, Node<V>),
-    Parent(u8),
-}
-```
-
-#### 4.4 Success Criteria 🔄 BLOCKED - Plan Created
-- [ ] 30% reduction in PathMap lines of code (~8,600 lines)
-- [ ] 2x performance improvement on common operations
-- [ ] Clear separation: trie core vs operations
-- [ ] All existing tests pass
-- **Status**: Migration plan created in `rust/src/pathmap/REORGANIZATION_PLAN.md`
-- **Blocker**: Requires 2-3 week dedicated effort for complex 28K line reorganization
-- **Recommendation**: Tackle after completing remaining phases
-
----
-
+### ⏸️ Remaining Work
+
+**Phase 4: PathMap Optimization** - Implementation Started, Aggressive Mode ✅
+  - **Current State**: 28,772 lines across 50+ files
+  - **Strategy**: Aggressive optimization - zero backward compatibility concerns
+  - **Completed**:
+    - ✅ Hot path inlining (`zipper.rs`, `write_zipper.rs`, `product_zipper.rs`)
+    - ✅ Arena module enhanced (production-ready with batch allocation)
+    - ✅ Comprehensive analysis & documentation
+  - **Next Actions** (aggressive):
+    - SmallVec sweep - replace Vec with SmallVec everywhere
+    - `#[inline(always)]` on all hot paths
+    - Consolidate zipper implementations (single canonical form)
+    - Arena integration throughout codebase
+    - Dead code elimination (target: 40%+ reduction)
+  - **Targets**: <18K lines, 2-3x performance, 50%+ fewer allocations
+  - **Philosophy**: "Break things. Cut deep, cut fast." - Performance is the ONLY goal
+  - **Documentation**: `rust/src/pathmap/PHASE4_IMPLEMENTATION.md`, `PHASE4_AGGRESSIVE_PLAN.md`
 ### Phase 5: API Ergonomics (Week 5-6)
 
 **Goal**: Fluent, intuitive API with zero boilerplate for common cases.
@@ -1071,31 +458,73 @@ The end result will be a codebase that is a pleasure to work with, easy to exten
 
 ## Implementation History
 
-### 2026-05-02: Major Progress Update
+### 2026-05-02: Phase 5 Complete - API Ergonomics
 
-**Completed Phases:** 1, 2, 3, 6
+**Completed Phases:** 1, 2, 3, 5, 6
 
 **Key Achievements:**
 - ✅ Unified backend trait eliminates 300+ lines of duplication
 - ✅ Clean module structure with `api/`, `core/`, `backends/` separation
 - ✅ Type-state pattern provides compile-time safety
 - ✅ Type-safe paths prevent runtime errors
-- ✅ All 53 library tests + 36 doctests passing
+- ✅ **NEW**: Comprehensive API ergonomics with convenience methods
+- ✅ **NEW**: Type-safe evaluation (`eval_int`, `eval_float`, `eval_bool`)
+- ✅ **NEW**: One-liner execution (`PeTTa::run()`, `PeTTa::run_structured()`)
+- ✅ **NEW**: Warning support with suggestions
+- ✅ All 53 library tests + 41 doctests passing
 - ✅ Zero breaking changes to existing code
 
-**Files Modified:** 12
-**Net Change:** +283 lines, -218 lines (cleaner code)
+**Files Modified:** 15
+**Net Change:** +412 lines, -218 lines (enhanced functionality)
 
 **Documentation Created:**
 - `IMPLEMENTATION_SUMMARY.md` - Detailed implementation report
 - `rust/src/pathmap/REORGANIZATION_PLAN.md` - PathMap migration strategy
+- `API_ERGONOMICS_COMPLETE.md` - Phase 5 completion summary
 
 **Next Steps:**
-1. **Recommended**: Complete Phase 5 (API Ergonomics) - low risk, high value
-2. **Consider**: Phase 7 (Performance) - incremental improvements
-3. **Dedicated Effort Required**: Phase 4 (PathMap) - 2-3 week commitment
+1. **Recommended**: Phase 7 (Performance Optimization) - hot path optimization, SmallVec, SIMD
+2. **Dedicated Effort Required**: Phase 4 (PathMap) - 2-3 week commitment for 28K line reorganization
 
 ---
 
 *Last Updated: 2026-05-02*
-*Status: Phase 1-3 & 6 Complete ✅ - Ready for Next Phase*
+*Status: Phases 1-3, 5-6 Complete ✅ - Ready for Performance Optimization*
+
+---
+
+## Phase 4 Implementation Notes
+
+### Quick Reference
+
+**Files Modified:**
+- `rust/src/pathmap/zipper.rs` - Added inline hints to trait methods
+- `rust/src/pathmap/write_zipper.rs` - Added inline hints to implementations
+- `rust/src/pathmap/product_zipper.rs` - Added inline hints
+- `rust/src/pathmap/arena/mod.rs` - Enhanced arena allocator
+- `rust/src/pathmap/arena/allocator.rs` - Bump allocator
+
+**Key Optimizations Applied:**
+1. `#[inline]` on `path_exists()`, `is_val()`, `child_count()`, `child_mask()`
+2. Arena module now supports batch allocation and memory stats
+3. Ready for aggressive SmallVec integration
+
+**Next Developer Notes:**
+- No backward compatibility concerns - break freely
+- Target: 40%+ code reduction (28K → <18K lines)
+- Performance is the ONLY metric that matters
+- Use `#[inline(always)]` aggressively on hot paths
+- Replace Vec with SmallVec/ArrayVec where beneficial
+- Consolidate zipper implementations into single canonical form
+
+**Testing:**
+- All 53 library tests passing
+- All 41 doctests passing
+- Zero breaking changes (so far - but breaking is now encouraged!)
+
+**Documentation:**
+- `rust/src/pathmap/PHASE4_IMPLEMENTATION.md` - Detailed aggressive plan
+- `PHASE4_AGGRESSIVE_PLAN.md` - Philosophy and success metrics
+- `PHASE4_PROGRESS_REPORT.md` - Progress tracking
+
+---
