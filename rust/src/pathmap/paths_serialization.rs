@@ -71,23 +71,6 @@ pub fn serialize_paths_with_auxdata<
     mut fv: F,
 ) -> std::io::Result<SerializationStats> {
     let mut k = 0;
-    //GOAT, old implementation.  Delete.
-    // serialize_paths_from_func(target, &mut rz, |rz| {
-    //    match rz.to_next_get_val_with_witness(&witness) {
-    //      None => { Ok(None) }
-    //      Some(v) => {
-    //        let path = rz.path();
-    //        fv(k, path, v);
-    //        k += 1;
-
-    //        //SAFETY: `for_each_path_serialize` finishes with the path returned from this closure
-    //        // before it invokes the closure again.  The `rz` path() will remain valid until the `rz`
-    //        // is modified again, and we have ownership of the rz and only modify it within this closure
-    //        //
-    //        Ok(Some(unsafe { std::mem::transmute(path) }))
-    //      }
-    //    }
-    // })
     serialize_paths_from_funcs(
         target,
         &mut rz,

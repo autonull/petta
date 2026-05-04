@@ -108,23 +108,27 @@ where
 }
 
 impl<AV, BV, OutV, AZipper, BZipper, Mapping> Zipper
-    for OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
+for OverlayZipper<AV, BV, OutV, AZipper, BZipper, Mapping>
 where
     AZipper: Zipper + ZipperValues<AV>,
     BZipper: Zipper + ZipperValues<BV>,
     Mapping: for<'a> Fn(Option<&'a AV>, Option<&'a BV>) -> Option<&'a OutV>,
 {
+    #[inline(always)]
     fn path_exists(&self) -> bool {
         self.a.path_exists() || self.b.path_exists()
     }
+    #[inline(always)]
     fn is_val(&self) -> bool {
         //NOTE: the mapping function has the ability to nullify the value, so we need ZipperValues to implement this correctly
         // self.a.is_val() || self.b.is_val()
         self.val().is_some()
     }
+    #[inline(always)]
     fn child_count(&self) -> usize {
         self.child_mask().count_bits()
     }
+    #[inline(always)]
     fn child_mask(&self) -> ByteMask {
         self.a.child_mask() | self.b.child_mask()
     }

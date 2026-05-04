@@ -866,74 +866,9 @@ impl Lattice for () {
     }
 }
 
-//GOAT trash
-impl Lattice for usize {
-    fn pjoin(&self, _other: &usize) -> AlgebraicResult<usize> {
-        AlgebraicResult::Identity(SELF_IDENT)
-    }
-    fn pmeet(&self, _other: &usize) -> AlgebraicResult<usize> {
-        AlgebraicResult::Identity(SELF_IDENT)
-    }
-}
 
-//GOAT trash
-impl Lattice for u64 {
-    fn pjoin(&self, _other: &u64) -> AlgebraicResult<u64> {
-        AlgebraicResult::Identity(SELF_IDENT)
-    }
-    fn pmeet(&self, _other: &u64) -> AlgebraicResult<u64> {
-        AlgebraicResult::Identity(SELF_IDENT)
-    }
-}
 
-//GOAT trash
-impl DistributiveLattice for u64 {
-    fn psubtract(&self, other: &Self) -> AlgebraicResult<Self>
-    where
-        Self: Sized,
-    {
-        if self == other { AlgebraicResult::None } else { AlgebraicResult::Element(*self) }
-    }
-}
 
-//GOAT trash
-impl Lattice for u32 {
-    fn pjoin(&self, _other: &u32) -> AlgebraicResult<u32> {
-        AlgebraicResult::Identity(SELF_IDENT)
-    }
-    fn pmeet(&self, _other: &u32) -> AlgebraicResult<u32> {
-        AlgebraicResult::Identity(SELF_IDENT)
-    }
-}
-
-//GOAT trash
-impl Lattice for u16 {
-    fn pjoin(&self, _other: &u16) -> AlgebraicResult<u16> {
-        AlgebraicResult::Identity(SELF_IDENT)
-    }
-    fn pmeet(&self, _other: &u16) -> AlgebraicResult<u16> {
-        AlgebraicResult::Identity(SELF_IDENT)
-    }
-}
-
-//GOAT trash
-impl DistributiveLattice for u16 {
-    fn psubtract(&self, other: &Self) -> AlgebraicResult<Self> {
-        if self == other { AlgebraicResult::None } else { AlgebraicResult::Element(*self) }
-    }
-}
-
-//GOAT trash
-impl Lattice for u8 {
-    fn pjoin(&self, _other: &u8) -> AlgebraicResult<u8> {
-        AlgebraicResult::Identity(SELF_IDENT)
-    }
-    fn pmeet(&self, _other: &u8) -> AlgebraicResult<u8> {
-        AlgebraicResult::Identity(SELF_IDENT)
-    }
-}
-
-// =-**-==-**-==-**-==-**-==-**-==-**-==-**-==-**-==-**-==-**-==-**-==-**-==-**-==-**-==-**-==-**-==-**-=
 // =-*   `bool`                                                                                       *-=
 // NOTE: There is a default impl for `bool` and not for other primitives because there are fewer states,
 // and therefore fewer meanings for a `bool`.

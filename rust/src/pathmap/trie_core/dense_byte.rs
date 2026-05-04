@@ -10,6 +10,7 @@ use super::super::utils::ByteMask;
 use super::super::utils::BitMask;
 use super::line_list::LineListNode;
 use super::node::*;
+use smallvec::SmallVec;
 
 /// Type alias to reduce complexity in function signatures
 type BothMutResult<'a, V, A> = (Option<&'a mut TrieNodeODRc<V, A>>, Option<&'a mut V>);
@@ -46,43 +47,10 @@ pub struct ByteNode<Cf, A: Allocator> {
     refcnt: std::sync::atomic::AtomicU32,
     pub mask: ByteMask,
     #[cfg(feature = "nightly")]
-    values: Vec<Cf, A>,
+    values: SmallVec<[Cf; 4]>,
     #[cfg(not(feature = "nightly"))]
-    values: Vec<Cf>,
+    values: SmallVec<[Cf; 4]>,
     alloc: A,
-}
-
-#[cfg(not(feature = "nightly"))]
-#[repr(transparent)]
-struct ValuesVec<Cf, A: Allocator> {
-    v: Vec<Cf>,
-    phantom: core::marker::PhantomData<A>,
-}
-
-#[cfg(feature = "nightly")]
-#[repr(transparent)]
-struct ValuesVec<Cf, A: Allocator> {
-    v: Vec<Cf, A>,
-}
-
-#[cfg(not(feature = "nightly"))]
-impl<Cf, A: Allocator> ValuesVec<Cf, A> {
-    fn default_in(_alloc: A) -> Self {
-        Self { v: vec![], phantom: core::marker::PhantomData }
-    }
-    fn with_capacity_in(capacity: usize, _alloc: A) -> Self {
-        Self { v: Vec::with_capacity(capacity), phantom: core::marker::PhantomData }
-    }
-}
-
-#[cfg(feature = "nightly")]
-impl<Cf, A: Allocator> ValuesVec<Cf, A> {
-    fn default_in(alloc: A) -> Self {
-        Self { v: Vec::new_in(alloc) }
-    }
-    fn with_capacity_in(capacity: usize, alloc: A) -> Self {
-        Self { v: Vec::with_capacity_in(capacity, alloc) }
-    }
 }
 
 impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V = V, A = A>> Clone for ByteNode<Cf, A> {
@@ -113,23 +81,31 @@ impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V = V, A = A>> Debug for B
 impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V = V, A = A>> ByteNode<Cf, A> {
     #[inline]
     pub fn new_in(alloc: A) -> Self {
-        Self::new_with_fields_in(ByteMask::EMPTY, ValuesVec::default_in(alloc.clone()), alloc)
+        Self {
+            #[cfg(feature = "slim_ptrs")]
+            refcnt: std::sync::atomic::AtomicU32::new(1),
+            mask: ByteMask::EMPTY,
+            values: SmallVec::new(),
+            alloc,
+        }
     }
     #[inline]
     pub fn with_capacity_in(capacity: usize, alloc: A) -> Self {
-        Self::new_with_fields_in(
-            ByteMask::EMPTY,
-            ValuesVec::with_capacity_in(capacity, alloc.clone()),
+        Self {
+            #[cfg(feature = "slim_ptrs")]
+            refcnt: std::sync::atomic::AtomicU32::new(1),
+            mask: ByteMask::EMPTY,
+            values: SmallVec::with_capacity(capacity),
             alloc,
-        )
+        }
     }
     #[inline]
-    fn new_with_fields_in(mask: ByteMask, values: ValuesVec<Cf, A>, alloc: A) -> Self {
+    fn new_with_fields_in(mask: ByteMask, values: SmallVec<[Cf; 4]>, alloc: A) -> Self {
         Self {
             #[cfg(feature = "slim_ptrs")]
             refcnt: std::sync::atomic::AtomicU32::new(1),
             mask,
-            values: values.v,
+            values,
             alloc,
         }
     }
@@ -1476,9 +1452,7 @@ impl<V: Clone + Send + Sync, A: Allocator> TrieNodeDowncast<V, A>
             CellByteNode::<V, A>::with_capacity_in(self.values.len(), self.alloc.clone());
         debug_assert_eq!(replacement_node.mask, [0u64; 4]);
         core::mem::swap(&mut replacement_node.mask, &mut self.mask);
-        let mut values = ValuesVec::default_in(self.alloc.clone());
-        core::mem::swap(&mut values.v, &mut self.values);
-        for cf in values.v.into_iter() {
+        for cf in self.values.drain(..) {
             replacement_node.values.push(cf.into())
         }
         TrieNodeODRc::new_in(replacement_node, self.alloc.clone())
@@ -1992,8 +1966,8 @@ impl<
         ];
 
         let len = (jmc[0] + jmc[1] + jmc[2] + jmc[3]) as usize;
-        let mut v = ValuesVec::with_capacity_in(len, self.alloc.clone());
-        let new_v = v.v.spare_capacity_mut();
+        let mut v = SmallVec::<[Cf; 4]>::with_capacity(len);
+        let new_v = v.spare_capacity_mut();
 
         let mut l = 0;
         let mut r = 0;
@@ -2056,25 +2030,25 @@ impl<
             }
         }
 
-        unsafe {
-            v.v.set_len(c);
-        }
-        if c == 0 {
-            AlgebraicResult::None
-        } else {
-            if is_identity || is_counter_identity {
-                let mut mask = 0;
-                if is_identity {
-                    mask |= SELF_IDENT;
-                }
-                if is_counter_identity {
-                    mask |= COUNTER_IDENT;
-                }
-                AlgebraicResult::Identity(mask)
-            } else {
-                AlgebraicResult::Element(Self::new_with_fields_in(jm, v, self.alloc.clone()))
+    unsafe {
+        v.set_len(c);
+    }
+    if c == 0 {
+        AlgebraicResult::None
+    } else {
+        if is_identity || is_counter_identity {
+            let mut mask = 0;
+            if is_identity {
+                mask |= SELF_IDENT;
             }
+            if is_counter_identity {
+                mask |= COUNTER_IDENT;
+            }
+            AlgebraicResult::Identity(mask)
+        } else {
+            AlgebraicResult::Element(Self::new_with_fields_in(jm, v, self.alloc.clone()))
         }
+    }
     }
 
     fn join_into(&mut self, mut other: ByteNode<OtherCf, A>) -> AlgebraicStatus {
@@ -2091,8 +2065,8 @@ impl<
         ];
 
         let l = (jmc[0] + jmc[1] + jmc[2] + jmc[3]) as usize;
-        let mut v = ValuesVec::with_capacity_in(l, self.alloc.clone());
-        let new_v = v.v.spare_capacity_mut();
+        let mut v = SmallVec::<[Cf; 4]>::with_capacity(l);
+        let new_v = v.spare_capacity_mut();
 
         let mut l = 0;
         let mut r = 0;
@@ -2134,9 +2108,9 @@ impl<
 
         unsafe { self.values.set_len(0) }
         unsafe { other.values.set_len(0) }
-        unsafe { v.v.set_len(c) }
+        unsafe { v.set_len(c) }
         self.mask = jm;
-        self.values = v.v;
+        self.values = v;
 
         if c == 0 {
             AlgebraicStatus::None
@@ -2165,8 +2139,8 @@ impl<
         ];
 
         let len = (mmc[0] + mmc[1] + mmc[2] + mmc[3]) as usize;
-        let mut v = ValuesVec::with_capacity_in(len, self.alloc.clone());
-        let new_v = v.v.spare_capacity_mut();
+        let mut v = SmallVec::<[Cf; 4]>::with_capacity(len);
+        let new_v = v.spare_capacity_mut();
 
         let mut l = 0;
         let mut r = 0;
@@ -2279,9 +2253,9 @@ impl<
     //     return Self::new_with_fields_in(jm, v, alloc);
     // }
     fn convert(other: ByteNode<OtherCf, A>) -> Self {
-        let mut values = ValuesVec::with_capacity_in(other.values.len(), other.alloc.clone());
+        let mut values = SmallVec::<[Cf; 4]>::with_capacity(other.values.len());
         for other_cf in other.values {
-            values.v.push(Cf::convert(other_cf));
+            values.push(Cf::convert(other_cf));
         }
         Self::new_with_fields_in(other.mask, values, other.alloc)
     }
@@ -2369,8 +2343,8 @@ impl<V: Clone + Send + Sync, A: Allocator, Cf: CoFree<V = V, A = A>> ByteNode<Cf
         ];
 
         let len = (mmc[0] + mmc[1] + mmc[2] + mmc[3]) as usize;
-        let mut v = ValuesVec::with_capacity_in(len, self.alloc.clone());
-        let new_v = v.v.spare_capacity_mut();
+        let mut v = SmallVec::<[Cf; 4]>::with_capacity(len);
+        let new_v = v.spare_capacity_mut();
 
         let mut l = 0;
         let mut r = 0;

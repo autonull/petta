@@ -35,6 +35,9 @@ pub mod experimental;
 #[cfg(any(feature = "arena_compact", feature = "mork"))]
 pub mod arena_compact;
 
+/// Arena allocation for efficient batch operations
+pub mod arena;
+
 /// Track outstanding zippers to be sure they don't conflict
 #[cfg(feature = "zipper_tracking")]
 pub mod zipper_tracking;

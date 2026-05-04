@@ -28,7 +28,7 @@ pub use swipl::SwiplBackend;
 pub use mork::MorkBackend;
 
 // Re-export core types
-pub use crate::core::{Backend, BackendCapabilities, BackendInfo, BackendStats};
+pub use crate::core::{Backend, BackendCapabilities};
 
 use std::collections::HashMap;
 use crate::engine::EngineConfig;

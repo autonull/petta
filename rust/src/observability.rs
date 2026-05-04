@@ -111,19 +111,7 @@ impl Default for ObservabilityConfig {
     }
 }
 
-/// Health status indicator
-#[derive(Debug, Clone)]
-pub struct HealthStatus {
-    pub status: ServiceStatus,
-    pub version: String,
-    pub uptime: Duration,
-}
 
-impl HealthStatus {
-    pub fn is_healthy(&self) -> bool {
-        self.status == ServiceStatus::Healthy
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ServiceStatus {
@@ -141,15 +129,5 @@ mod tests {
         let metrics = Metrics::new();
         metrics.increment_queries_total();
         assert_eq!(metrics.queries_total(), 1);
-    }
-
-    #[test]
-    fn test_health_status() {
-        let status = HealthStatus {
-            status: ServiceStatus::Healthy,
-            version: "0.5.0".to_string(),
-            uptime: Duration::from_secs(0),
-        };
-        assert!(status.is_healthy());
     }
 }

@@ -481,23 +481,21 @@ impl<V: Clone + Send + Sync, A: Allocator> Drop for WriteZipperTracked<'_, '_, V
 }
 
 impl<'a, V: Clone + Send + Sync + Unpin, A: Allocator + 'a> Zipper
-    for WriteZipperTracked<'a, '_, V, A>
+for WriteZipperTracked<'a, '_, V, A>
 {
-    #[inline]
-#[inline]
+    #[inline(always)]
     fn path_exists(&self) -> bool {
         self.z.path_exists()
     }
-    #[inline]
-#[inline]
+    #[inline(always)]
     fn is_val(&self) -> bool {
         self.z.is_val()
     }
-#[inline]
+    #[inline(always)]
     fn child_count(&self) -> usize {
         self.z.child_count()
     }
-#[inline]
+    #[inline(always)]
     fn child_mask(&self) -> ByteMask {
         self.z.child_mask()
     }

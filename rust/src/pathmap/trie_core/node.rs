@@ -38,8 +38,9 @@ pub(crate) trait TrieNode<V: Clone + Send + Sync, A: Allocator>:
     /// Returns `true` if the node contains a key that begins with `key`, irrespective of whether the key
     /// specifies a child, value, or both
     ///
-    /// This method should never be called with a zero-length key.  If the `key` arg is longer than the
+    /// This method should never be called with a zero-length key. If the `key` arg is longer than the
     /// keys contained within the node, this method should return `false`
+    #[inline]
     fn node_contains_partial_key(&self, key: &[u8]) -> bool {
         self.node_key_overlap(key) == key.len()
     }
@@ -51,6 +52,7 @@ pub(crate) trait TrieNode<V: Clone + Send + Sync, A: Allocator>:
     /// with the argument "test".
     ///
     /// This method should never be called with a zero-length key.
+    #[inline]
     fn node_key_overlap(&self, key: &[u8]) -> usize;
 
     /// Returns the child node that matches `key` along with the number of `key` characters matched.

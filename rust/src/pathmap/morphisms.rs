@@ -67,6 +67,7 @@
 //!
 use core::convert::Infallible;
 use reusing_vec::ReusingQueue;
+use smallvec::SmallVec;
 use std::hash::Hasher;
 use std::ptr::slice_from_raw_parts;
 
@@ -580,13 +581,14 @@ impl StackFrame {
 }
 
 struct Stack {
-    stack: Vec<StackFrame>,
+    stack: SmallVec<[StackFrame; 12]>,
     position: usize,
 }
 
 impl Stack {
+    #[inline]
     pub fn new() -> Self {
-        Self { stack: Vec::with_capacity(12), position: !0 }
+        Self { stack: SmallVec::new(), position: !0 }
     }
     /// Return the reference to the top stack frame
     #[inline]
@@ -618,10 +620,10 @@ impl Stack {
         Self::push_state_raw(&mut self.stack, &mut self.position, z);
     }
 
-pub fn push_state_raw<Z>(stack: &mut Vec<StackFrame>, position: &mut usize, zipper: &Z)
-where
-Z: Zipper,
-{
+    pub fn push_state_raw<Z>(stack: &mut SmallVec<[StackFrame; 12]>, position: &mut usize, zipper: &Z)
+    where
+        Z: Zipper,
+    {
         *position = position.wrapping_add(1);
         assert!(*position <= stack.len(), "stack invariant: position <= len");
         if *position == stack.len() {
@@ -1249,56 +1251,10 @@ self.child_structs.is_empty()
 
         //Clone the read_zipper's focus and push it
         let node = read_zipper.get_focus().into_option();
-        self.child_structs.push_val(WOrNode::Node(node.unwrap())); //GOAT!! Currently we panic if the read_zipper is at an nonexistent path
+        self.child_structs.push_val(WOrNode::Node(node.unwrap()));
+        //GOAT!! Currently we panic if the read_zipper is at an nonexistent path
     }
-    //GOAT, feature removed.  See below
-    // /// Returns an [`Iterator`] type to iterate over the `(sub_path, w)` pairs that have been pushed
-    // pub fn iter(&self) -> TrieBuilderIter<'_, W> {
-    //     self.into_iter()
-    // }
 }
-
-//GOAT, the IntoIterator impl is obnoxious because I don't have a contiguous buffer that holds the path anymore
-// It's unnecessary anyway, so I'm just going to chuck it
-//
-// impl<'a, W> IntoIterator for &'a TrieBuilder<W> {
-//     type Item = (&'a[u8], &'a W);
-//     type IntoIter = TrieBuilderIter<'a, W>;
-
-//     fn into_iter(self) -> Self::IntoIter {
-//         TrieBuilderIter {
-//             cb: self,
-//             cur_mask: self.child_mask[0],
-//             mask_word: 0,
-//             i: 0
-//         }
-//     }
-// }
-
-// /// An [`Iterator`] type for a [`TrieBuilder`]
-// pub struct TrieBuilderIter<'a, W> {
-//     cb: &'a TrieBuilder<W>,
-//     cur_mask: u64,
-//     mask_word: usize,
-//     i: usize,
-// }
-
-// impl<'a, W> Iterator for TrieBuilderIter<'a, W> {
-//     type Item = (&'a[u8], &'a W);
-//     fn next(&mut self) -> Option<Self::Item> {
-//         while self.mask_word < 4 {
-//             let tz = self.cur_mask.trailing_zeros();
-//             if tz < 64 {
-
-//                 self.i += 1;
-//             } else {
-//                 self.mask_word += 1;
-//             }
-//         }
-//         None
-//     }
-// }
-
 #[cfg(all(test, feature = "pathmap-internal-tests"))]
 mod tests {
     use super::PathMap;
@@ -1882,139 +1838,7 @@ mod tests {
         println!("{:?}", s);
     }
 
-    /// A version of cata_test4 that uses the deprecated `SplitCata` / `SplitCataJumping` API
-    #[test]
-    fn cata_test4_split() {
-        #[derive(Debug, PartialEq)]
-        enum Trie<V> {
-            Value(V),
-            Collapse(V, Box<Trie<V>>),
-            Alg(Vec<(char, Trie<V>)>),
-            Jump(String, Box<Trie<V>>),
-        }
-        use Trie::*;
-
-        let mut btm = PathMap::new();
-        let rs = [
-            "arr",
-            "arrow",
-            "bow",
-            "cannon",
-            "roman",
-            "romane",
-            "romanus",
-            "romulus",
-            "rubens",
-            "ruber",
-            "rubicon",
-            "rubicundus",
-            "rom'i",
-        ];
-        rs.iter().enumerate().for_each(|(i, r)| {
-            btm.set_val_at(r.as_bytes(), i);
-        });
-
-        #[allow(deprecated)]
-        let s = btm.read_zipper().into_cata_jumping_side_effect(SplitCataJumping::new(
-            |v, _path| Some(Box::new(Value(*v))),
-            |v, w, _path| Some(Box::new(Collapse(*v, w.unwrap()))),
-            |cm, ws, _path| {
-                let mut it = cm.iter();
-                Some(Box::new(Alg(ws
-                    .iter_mut()
-                    .map(|w| (it.next().unwrap() as char, *std::mem::take(w).unwrap()))
-                    .collect())))
-            },
-            |sp, w, _path| {
-                Some(Box::new(Jump(std::str::from_utf8(sp).unwrap().to_string(), w.unwrap())))
-            },
-        ));
-
-        assert_eq!(
-            s,
-            Some(
-                Alg([
-                    (
-                        'a',
-                        Jump(
-                            "rr".into(),
-                            Collapse(0, Jump("w".into(), Value(1).into()).into()).into()
-                        )
-                    ),
-                    ('b', Jump("ow".into(), Value(2).into())),
-                    ('c', Jump("annon".into(), Value(3).into())),
-                    (
-                        'r',
-                        Alg([
-                            (
-                                'o',
-                                Jump(
-                                    "m".into(),
-                                    Alg([
-                                        ('\'', Jump("i".into(), Value(12).into())),
-                                        (
-                                            'a',
-                                            Jump(
-                                                "n".into(),
-                                                Collapse(
-                                                    4,
-                                                    Alg([
-                                                        ('e', Value(5)),
-                                                        ('u', Jump("s".into(), Value(6).into()))
-                                                    ]
-                                                    .into())
-                                                    .into()
-                                                )
-                                                .into()
-                                            )
-                                        ),
-                                        ('u', Jump("lus".into(), Value(7).into()))
-                                    ]
-                                    .into())
-                                    .into()
-                                )
-                            ),
-                            (
-                                'u',
-                                Jump(
-                                    "b".into(),
-                                    Alg([
-                                        (
-                                            'e',
-                                            Alg([
-                                                ('n', Jump("s".into(), Value(8).into())),
-                                                ('r', Value(9))
-                                            ]
-                                            .into())
-                                        ),
-                                        (
-                                            'i',
-                                            Jump(
-                                                "c".into(),
-                                                Alg([
-                                                    ('o', Jump("n".into(), Value(10).into())),
-                                                    ('u', Jump("ndus".into(), Value(11).into()))
-                                                ]
-                                                .into())
-                                                .into()
-                                            )
-                                        )
-                                    ]
-                                    .into())
-                                    .into()
-                                )
-                            )
-                        ]
-                        .into())
-                    )
-                ]
-                .into())
-                .into()
-            )
-        );
-    }
-
-    /// Tests going from a map directly to a catamorphism
+/// Tests going from a map directly to a catamorphism
     #[test]
     fn cata_test5() {
         let empty = PathMap::<u64>::new();
@@ -2039,127 +1863,8 @@ mod tests {
         assert_eq!(result, 1);
     }
 
-    ///TODO: Port this test away from the deprecated `SplitCata` / `SplitCataJumping` API
-    #[test]
-    fn cata_test6() {
-        let mut btm = PathMap::new();
-        let rs = ["Hello, my name is", "Helsinki", "Hell"];
-        rs.iter().enumerate().for_each(|(i, r)| {
-            btm.set_val_at(r.as_bytes(), i);
-        });
-
-        let mut map_cnt = 0;
-        let mut collapse_cnt = 0;
-        let mut alg_cnt = 0;
-        let mut jump_cnt = 0;
-
-        #[allow(deprecated)]
-        btm.read_zipper().into_cata_jumping_side_effect(SplitCataJumping::new(
-            |_, _path| {
-                // println!("map: \"{}\"", String::from_utf8_lossy(_path));
-                map_cnt += 1;
-            },
-            |_, _, _path| {
-                // println!("collapse: \"{}\"", String::from_utf8_lossy(_path));
-                collapse_cnt += 1;
-            },
-            |_, _, _path| {
-                // println!("alg: \"{}\"", String::from_utf8_lossy(_path));
-                alg_cnt += 1;
-            },
-            |_sub_path, _, _path| {
-                // println!("jump: over \"{}\" to \"{}\"", String::from_utf8_lossy(_sub_path), String::from_utf8_lossy(_path));
-                jump_cnt += 1;
-            },
-        ));
-        // println!("map_cnt={map_cnt}, collapse_cnt={collapse_cnt}, alg_cnt={alg_cnt}, jump_cnt={jump_cnt}");
-
-        assert_eq!(map_cnt, 2);
-        assert_eq!(collapse_cnt, 1);
-        assert_eq!(alg_cnt, 2);
-        assert_eq!(jump_cnt, 3);
-    }
-
-    /// Covers the full spectrum of byte values, not limited to ascii
-    ///
-    /// TODO: Port this test away from the deprecated `SplitCata` / `SplitCataJumping` API,
-    #[test]
-    fn cata_test7() {
-        let mut btm = PathMap::new();
-        let rs = [[0, 0, 0, 0], [0, 255, 170, 170], [0, 255, 255, 255], [0, 255, 88, 88]];
-        rs.iter().enumerate().for_each(|(i, r)| {
-            btm.set_val_at(r, i);
-        });
-
-        let mut map_cnt = 0;
-        let mut collapse_cnt = 0;
-        let mut alg_cnt = 0;
-        let mut jump_cnt = 0;
-
-        #[allow(deprecated)]
-        btm.read_zipper().into_cata_jumping_side_effect(SplitCataJumping::new(
-            |_, _path| {
-                // println!("map: {_path:?}");
-                map_cnt += 1;
-            },
-            |_, _, _path| {
-                // println!("collapse: {_path:?}");
-                collapse_cnt += 1;
-            },
-            |_mask, _, _path| {
-                // println!("alg: {_path:?}, mask: {_mask:?}");
-                alg_cnt += 1;
-            },
-            |_sub_path, _, _path| {
-                // println!("jump: over {_sub_path:?} to {_path:?}");
-                jump_cnt += 1;
-            },
-        ));
-        // println!("map_cnt={map_cnt}, collapse_cnt={collapse_cnt}, alg_cnt={alg_cnt}, jump_cnt={jump_cnt}");
-
-        assert_eq!(map_cnt, 4);
-        assert_eq!(collapse_cnt, 0);
-        assert_eq!(alg_cnt, 3);
-        assert_eq!(jump_cnt, 4);
-    }
-
-    /// Tests that cata hits the root value
-    ///
-    /// TODO: Port this test away from the deprecated `SplitCata` / `SplitCataJumping` API,
-    #[test]
-    fn cata_test8() {
-        let keys = ["", "ab", "abc"];
-        let btm: PathMap<usize> = keys.into_iter().enumerate().map(|(i, k)| (k, i)).collect();
-
-        #[allow(deprecated)]
-        btm.into_cata_jumping_side_effect(SplitCataJumping::new(
-            |v, path| {
-                // println!("map: {path:?}");
-                assert_eq!(path, &[97, 98, 99]);
-                assert_eq!(*v, 2);
-            },
-            |v, _, path| {
-                // println!("collapse: {path:?}");
-                match *v {
-                    1 => assert_eq!(path, &[97, 98]),
-                    0 => assert_eq!(path, &[]),
-                    _ => unreachable!(),
-                }
-            },
-            |_mask, _, path| {
-                // println!("alg: {path:?}");
-                assert_eq!(path, &[]);
-            },
-            |sub_path, _, path| {
-                // println!("jump: over {sub_path:?} to {path:?}");
-                assert_eq!(sub_path, &[98]);
-                assert_eq!(path, &[97]);
-            },
-        ))
-    }
-
-    #[test]
-    fn cata_test9() {
+#[test]
+fn cata_test9() {
         let keys = [vec![0], vec![0, 1, 2], vec![0, 1, 3]];
         let btm: PathMap<usize> = keys.into_iter().enumerate().map(|(i, k)| (k, i)).collect();
 
@@ -2596,45 +2301,10 @@ mod tests {
                 // println!("language: {}, greeting: {}", language, greeting);
                 assert_eq!(*it.next().unwrap(), format!("{greeting},{language}"));
             }
-        }
-    }
+}
 
-    //GOAT WIP
-    // #[test]
-    // fn ana_test5() {
-    //     let _btm = PathMap::<&str>::new_from_ana(GREETINGS, |string_slice, val, children, _path| {
-
-    //         fn split_key(in_str: &str) -> (&str, &str) {
-    //             let det = in_str.find(',').unwrap_or(usize::MAX);
-    //             if det == 0 {
-    //                 ("", &in_str[1..])
-    //             } else if det == usize::MAX {
-    //                 ("", in_str)
-    //             } else {
-    //                 (&in_str[0..det], &in_str[det+1..])
-    //             }
-    //         }
-
-    //         if string_slice.len() == 1 {
-    //             let (_, split_val) = split_key(string_slice[0]);
-    //             *val = Some(split_val);
-    //         } else {
-    //             for i in 0..string_slice.len() {
-    //                 let (key, _) = split_key(string_slice[0]);
-    //                 children.tolerant_push(key.as_bytes(), &string_slice[i..i+1]);
-    //             }
-    //         }
-    //     });
-
-    //     let mut rz = _btm.read_zipper();
-    //     while let Some(language) = rz.to_next_get_value() {
-    //         //GOAT, this feature (and therefore this test) is WIP
-    //         println!("language: {}, greeting: {}", language, std::str::from_utf8(rz.path()).unwrap());
-    //     }
-    // }
-
-    #[test]
-    fn apo_test1() {
+#[test]
+fn apo_test1() {
         let mut btm = PathMap::new();
         let rs = [
             "arro^w",

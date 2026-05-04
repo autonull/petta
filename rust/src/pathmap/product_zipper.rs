@@ -1,5 +1,7 @@
 #![allow(clippy::wrong_self_convention)]
 
+use smallvec::SmallVec;
+
 use super::alloc::{Allocator, GlobalAlloc};
 use super::trie_core::node::*;
 use super::trie_core::r#ref::TrieRef;
@@ -12,12 +14,12 @@ use zipper_priv::*;
 pub struct ProductZipper<'factor_z, 'trie, V: Clone + Send + Sync, A: Allocator = GlobalAlloc> {
     z: read_zipper_core::ReadZipperCore<'trie, 'static, V, A>,
     /// All of the seconday factors beyond the primary factor
-    secondaries: Vec<TrieRef<'trie, V, A>>,
+    secondaries: SmallVec<[TrieRef<'trie, V, A>; 2]>,
     /// The indices in the zipper's path that correspond to the start-point of each secondary factor,
     /// which is conceptually the same as the end-point of each indexed factor
-    factor_paths: Vec<usize>,
+    factor_paths: SmallVec<[usize; 2]>,
     /// We need to hang onto the zippers for the life of this object, so their trackers stay alive
-    source_zippers: Vec<Box<dyn ZipperSubtries<V, A> + 'factor_z>>,
+    source_zippers: SmallVec<[Box<dyn ZipperSubtries<V, A> + 'factor_z>; 2]>,
 }
 
 impl<V: Clone + Send + Sync + Unpin, A: Allocator> core::fmt::Debug
@@ -60,8 +62,8 @@ impl<'factor_z, 'trie, V: Clone + Send + Sync + Unpin, A: Allocator>
     {
         let other_z_iter = other_zippers.into_iter();
         let (mut secondaries, mut source_zippers) = match other_z_iter.size_hint() {
-            (_, Some(hint)) => (Vec::with_capacity(hint), Vec::with_capacity(hint + 1)),
-            (_, None) => (Vec::new(), Vec::new()),
+            (_, Some(hint)) => (SmallVec::with_capacity(hint), SmallVec::with_capacity(hint + 1)),
+            (_, None) => (SmallVec::new(), SmallVec::new()),
         };
 
         //Get the core out of the primary zipper
@@ -81,7 +83,7 @@ impl<'factor_z, 'trie, V: Clone + Send + Sync + Unpin, A: Allocator>
 
         Self {
             z: core_z,
-            factor_paths: Vec::with_capacity(secondaries.len()),
+            factor_paths: SmallVec::with_capacity(secondaries.len()),
             secondaries,
             source_zippers,
         }
@@ -92,14 +94,14 @@ impl<'factor_z, 'trie, V: Clone + Send + Sync + Unpin, A: Allocator>
     where
         PrimaryZ: ZipperMoving + ZipperReadOnlySubtries<'trie, V, A> + 'factor_z,
     {
-        let mut source_zippers = Vec::new();
+        let mut source_zippers = SmallVec::new();
 
         //Get the core out of the primary zipper
         //This unwrap won't fail because all the types that implement `ZipperMoving` have cores
         let core_z = primary_z.take_core().unwrap();
         source_zippers.push(Box::new(primary_z) as Box<dyn ZipperSubtries<V, A>>);
 
-        Self { z: core_z, factor_paths: Vec::new(), secondaries: vec![], source_zippers }
+        Self { z: core_z, factor_paths: SmallVec::new(), secondaries: SmallVec::new(), source_zippers }
     }
     /// Appends additional factors to a `ProductZipper`.  This is useful when dealing with
     /// factor zippers of different types
@@ -121,14 +123,6 @@ impl<'factor_z, 'trie, V: Clone + Send + Sync + Unpin, A: Allocator>
             self.secondaries.push(trie_ref);
             self.source_zippers.push(Box::new(other_z));
         }
-    }
-    /// Reserves a path buffer of at least `len` bytes.  Will never shrink the path buffer
-    /// NOTE, this doesn't offer any value over the standard `reserve_buffers` method which is now implemented
-    /// on many zipper types
-    #[deprecated]
-    pub fn reserve_path_buffer(&mut self, reserve_len: usize) {
-        const AVG_BYTES_PER_NODE: usize = 8;
-        self.reserve_buffers(reserve_len, (reserve_len / AVG_BYTES_PER_NODE) + 1);
     }
     #[inline]
     fn has_next_factor(&mut self) -> bool {
@@ -368,13 +362,25 @@ impl<'factor_z, 'trie, V: Clone + Send + Sync + Unpin + 'trie, A: Allocator + 't
 }
 
 impl<'trie, V: Clone + Send + Sync + Unpin + 'trie, A: Allocator + 'trie> Zipper
-    for ProductZipper<'_, 'trie, V, A>
+for ProductZipper<'_, '_, V, A>
 {
-    #[inline]
-#[inline]
+    #[inline(always)]
     fn path_exists(&self) -> bool {
         self.z.path_exists()
     }
+    #[inline(always)]
+    fn is_val(&self) -> bool {
+        self.z.is_val()
+    }
+    #[inline(always)]
+    fn child_count(&self) -> usize {
+        self.z.child_count()
+    }
+    #[inline(always)]
+    fn child_mask(&self) -> ByteMask {
+        self.z.child_mask()
+    }
+}
 #[inline]
     fn is_val(&self) -> bool {
         self.z.is_val()
@@ -743,9 +749,6 @@ where
     #[inline]
     fn path(&self) -> &[u8] {
         self.primary.path()
-    }
-    fn val_count(&self) -> usize {
-        unimplemented!("method will probably get removed")
     }
     fn descend_to_existing<K: AsRef<[u8]>>(&mut self, path: K) -> usize {
         let mut path = path.as_ref();

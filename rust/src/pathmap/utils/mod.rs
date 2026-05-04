@@ -510,15 +510,19 @@ pub trait BitMask {
     fn count_bits(&self) -> usize;
 
     /// Returns `true` if all bits in `mask` are clear, otherwise returns `false`
+    #[inline]
     fn is_empty_mask(&self) -> bool;
 
     /// Returns `true` if the `k`th bit in `mask` is set, otherwise returns `false`
+    #[inline]
     fn test_bit(&self, k: u8) -> bool;
 
     /// Sets the `k`th bit in mask
+    #[inline]
     fn set_bit(&mut self, k: u8);
 
     /// Clears the `k`th bit in mask
+    #[inline]
     fn clear_bit(&mut self, k: u8);
 
     /// Clears all bits in the mask, restoring it to an empty mask
@@ -580,23 +584,23 @@ impl BitMask for [u64; 4] {
         (self[0].count_ones() + self[1].count_ones() + self[2].count_ones() + self[3].count_ones())
             as usize
     }
-    #[inline]
+    #[inline(always)]
     fn is_empty_mask(&self) -> bool {
         self[0] == 0 && self[1] == 0 && self[2] == 0 && self[3] == 0
     }
-    #[inline]
+    #[inline(always)]
     fn test_bit(&self, k: u8) -> bool {
         let idx = ((k & 0b11000000) >> 6) as usize;
         let bit_i = k & 0b00111111;
         debug_assert!(idx < 4);
         self[idx] & (1 << bit_i) > 0
     }
-    #[inline]
+    #[inline(always)]
     fn set_bit(&mut self, k: u8) {
         let idx = (k / 64) as usize;
         self[idx] |= 1 << (k % 64);
     }
-    #[inline]
+    #[inline(always)]
     fn clear_bit(&mut self, k: u8) {
         let idx = (k / 64) as usize;
         self[idx] ^= 1 << (k % 64);

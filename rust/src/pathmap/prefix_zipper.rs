@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use super::PathMap;
 use super::alloc::Allocator;
 use super::trie_core::node::{AbstractNodeRef, TaggedNodeRef, TrieNodeODRc};
@@ -55,7 +56,7 @@ impl PrefixPos {
 /// ```ignore
 #[derive(Clone)]
 pub struct PrefixZipper<'prefix, Z> {
-    path: Vec<u8>,
+    path: SmallVec<[u8; 16]>,
     source: Z,
     prefix: Cow<'prefix, [u8]>,
     origin_depth: usize,
@@ -76,7 +77,7 @@ where
         source.reset();
         let position =
             if prefix.is_empty() { PrefixPos::Source } else { PrefixPos::Prefix { valid: 0 } };
-        Self { path: Vec::new(), source, prefix, origin_depth: 0, position }
+        Self { path: SmallVec::new(), source, prefix, origin_depth: 0, position }
     }
 
     pub fn with_origin(mut self, origin: &[u8]) -> Result<Self, &'static str> {
@@ -283,6 +284,7 @@ impl<'prefix, Z> Zipper for PrefixZipper<'prefix, Z>
 where
     Z: Zipper,
 {
+    #[inline(always)]
     fn path_exists(&self) -> bool {
         match self.position {
             PrefixPos::Prefix { .. } => true,
@@ -290,12 +292,14 @@ where
             PrefixPos::Source => self.source.path_exists(),
         }
     }
+    #[inline(always)]
     fn is_val(&self) -> bool {
         match self.position {
             PrefixPos::Source => self.source.is_val(),
             _ => false,
         }
     }
+    #[inline(always)]
     fn child_count(&self) -> usize {
         match self.position {
             PrefixPos::Prefix { .. } => 1,
@@ -303,6 +307,7 @@ where
             PrefixPos::Source => self.source.child_count(),
         }
     }
+    #[inline(always)]
     fn child_mask(&self) -> ByteMask {
         match self.position {
             PrefixPos::Prefix { valid } => {
@@ -526,12 +531,12 @@ where
         = PrefixZipper<'prefix, Z::ReadZipperT<'a>>
     where
         Self: 'a;
-    fn fork_read_zipper<'a>(&'a self) -> <Self as ZipperForking<V>>::ReadZipperT<'a> {
-        PrefixZipper {
-            path: Vec::new(),
-            position: PrefixPos::Prefix { valid: 0 },
-            source: self.source.fork_read_zipper(),
-            prefix: self.prefix.clone(),
+fn fork_read_zipper<'a>(&'a self) -> <Self as ZipperForking<V>>::ReadZipperT<'a> {
+    PrefixZipper {
+        path: SmallVec::new(),
+        position: PrefixPos::Prefix { valid: 0 },
+        source: self.source.fork_read_zipper(),
+        prefix: self.prefix.clone(),
             origin_depth: 0,
         }
     }

@@ -29,19 +29,23 @@ use super::zipper_tracking::*;
 /// The most fundamantal interface for a zipper, compatible with all zipper types
 pub trait Zipper {
     /// Returns `true` if the zipper's focus is on a path within the trie, otherwise `false`
+    #[inline(always)]
     fn path_exists(&self) -> bool;
 
     /// Returns `true` if there is a value at the zipper's focus, otherwise `false`
+    #[inline(always)]
     fn is_val(&self) -> bool;
 
     /// Returns the number of child branches from the focus node
     ///
     /// Returns 0 if the focus is on a leaf
+    #[inline(always)]
     fn child_count(&self) -> usize;
 
     /// Returns 256-bit mask indicating which children exist from the branch at the zipper's focus
     ///
     /// Returns an empty mask if the focus is on a leaf or non-existent path
+    #[inline(always)]
     fn child_mask(&self) -> ByteMask;
 }
 
@@ -765,84 +769,84 @@ use zipper_priv::*;
 
 macro_rules! zipper_impl_lens {
     (ZipperIteration $s: ident => $e:expr) => {
-        fn to_next_val(&mut $s) -> bool { $e.to_next_val() }
-        fn descend_first_k_path(&mut $s, k: usize) -> bool { $e.descend_first_k_path(k) }
-        fn to_next_k_path(&mut $s, k: usize) -> bool { $e.to_next_k_path(k) }
+        #[inline(always)] fn to_next_val(&mut $s) -> bool { $e.to_next_val() }
+        #[inline(always)] fn descend_first_k_path(&mut $s, k: usize) -> bool { $e.descend_first_k_path(k) }
+        #[inline(always)] fn to_next_k_path(&mut $s, k: usize) -> bool { $e.to_next_k_path(k) }
     };
     (ZipperAbsolutePath $s: ident => $e:expr) => {
-        fn origin_path(&$s) -> &[u8] { $e.origin_path() }
-        fn root_prefix_path(&$s) -> &[u8] { $e.root_prefix_path() }
+        #[inline(always)] fn origin_path(&$s) -> &[u8] { $e.origin_path() }
+        #[inline(always)] fn root_prefix_path(&$s) -> &[u8] { $e.root_prefix_path() }
     };
     (Zipper $s: ident => $e:expr) => {
-        #[inline] fn path_exists(&$s) -> bool { $e.path_exists() }
-        fn is_val(&$s) -> bool { $e.is_val() }
-        fn child_count(&$s) -> usize { $e.child_count() }
-        fn child_mask(&$s) -> ByteMask { $e.child_mask() }
+        #[inline(always)] fn path_exists(&$s) -> bool { $e.path_exists() }
+        #[inline(always)] fn is_val(&$s) -> bool { $e.is_val() }
+        #[inline(always)] fn child_count(&$s) -> usize { $e.child_count() }
+        #[inline(always)] fn child_mask(&$s) -> ByteMask { $e.child_mask() }
     };
     (ZipperValues $s: ident => $e:expr) => {
-        fn val(&$s) -> Option<&V> { $e.val() }
+        #[inline(always)] fn val(&$s) -> Option<&V> { $e.val() }
     };
     (ZipperForking $s: ident => $e:expr) => {
-        fn fork_read_zipper<'a>(&'a $s) -> Self::ReadZipperT<'a> { $e.fork_read_zipper() }
+        #[inline(always)] fn fork_read_zipper<'a>(&'a $s) -> Self::ReadZipperT<'a> { $e.fork_read_zipper() }
     };
     (ZipperSubtries $s: ident => $e:expr) => {
-        fn native_subtries(&$s) -> bool { $e.native_subtries() }
-        fn try_make_map(&$s) -> Option<super::PathMap<V, A>> { $e.try_make_map() }
-        fn trie_ref(&$s) -> Option<TrieRef<'_, V, A>> { $e.trie_ref() }
-        fn alloc(&$s) -> A { $e.alloc() }
+        #[inline(always)] fn native_subtries(&$s) -> bool { $e.native_subtries() }
+        #[inline(always)] fn try_make_map(&$s) -> Option<super::PathMap<V, A>> { $e.try_make_map() }
+        #[inline(always)] fn trie_ref(&$s) -> Option<TrieRef<'_, V, A>> { $e.trie_ref() }
+        #[inline(always)] fn alloc(&$s) -> A { $e.alloc() }
     };
     (ZipperMoving $s: ident => $e:expr) => {
-        fn at_root(&$s) -> bool { $e.at_root() }
-        fn reset(&mut $s) { $e.reset() }
-        #[inline] fn path(&$s) -> &[u8] { $e.path() }
-        fn val_count(&$s) -> usize { $e.val_count() }
-        fn descend_to<K: AsRef<[u8]>>(&mut $s, k: K) { $e.descend_to(k) }
-        fn descend_to_check<K: AsRef<[u8]>>(&mut $s, k: K) -> bool { $e.descend_to_check(k) }
-        fn descend_to_existing<K: AsRef<[u8]>>(&mut $s, k: K) -> usize { $e.descend_to_existing(k) }
-        fn descend_to_val<K: AsRef<[u8]>>(&mut $s, k: K) -> usize { $e.descend_to_val(k) }
-        fn descend_to_byte(&mut $s, k: u8) { $e.descend_to_byte(k) }
-        fn descend_to_existing_byte(&mut $s, k: u8) -> bool { $e.descend_to_existing_byte(k) }
-        fn descend_indexed_byte(&mut $s, child_idx: usize) -> bool { $e.descend_indexed_byte(child_idx) }
-        fn descend_first_byte(&mut $s) -> bool { $e.descend_first_byte() }
-        fn descend_until(&mut $s) -> bool { $e.descend_until() }
-        fn descend_until_max_bytes(&mut $s, max_bytes: usize) -> bool { $e.descend_until_max_bytes(max_bytes) }
-        fn to_next_sibling_byte(&mut $s) -> bool { $e.to_next_sibling_byte() }
-        fn to_prev_sibling_byte(&mut $s) -> bool { $e.to_prev_sibling_byte() }
-        fn ascend(&mut $s, steps: usize) -> bool { $e.ascend(steps) }
-        fn ascend_byte(&mut $s) -> bool { $e.ascend_byte() }
-        fn ascend_until(&mut $s) -> bool { $e.ascend_until() }
-        fn ascend_until_branch(&mut $s) -> bool { $e.ascend_until_branch() }
-        fn to_next_step(&mut $s) -> bool { $e.to_next_step() }
+        #[inline(always)] fn at_root(&$s) -> bool { $e.at_root() }
+        #[inline(always)] fn reset(&mut $s) { $e.reset() }
+        #[inline(always)] fn path(&$s) -> &[u8] { $e.path() }
+        #[inline(always)] fn val_count(&$s) -> usize { $e.val_count() }
+        #[inline(always)] fn descend_to<K: AsRef<[u8]>>(&mut $s, k: K) { $e.descend_to(k) }
+        #[inline(always)] fn descend_to_check<K: AsRef<[u8]>>(&mut $s, k: K) -> bool { $e.descend_to_check(k) }
+        #[inline(always)] fn descend_to_existing<K: AsRef<[u8]>>(&mut $s, k: K) -> usize { $e.descend_to_existing(k) }
+        #[inline(always)] fn descend_to_val<K: AsRef<[u8]>>(&mut $s, k: K) -> usize { $e.descend_to_val(k) }
+        #[inline(always)] fn descend_to_byte(&mut $s, k: u8) { $e.descend_to_byte(k) }
+        #[inline(always)] fn descend_to_existing_byte(&mut $s, k: u8) -> bool { $e.descend_to_existing_byte(k) }
+        #[inline(always)] fn descend_indexed_byte(&mut $s, child_idx: usize) -> bool { $e.descend_indexed_byte(child_idx) }
+        #[inline(always)] fn descend_first_byte(&mut $s) -> bool { $e.descend_first_byte() }
+        #[inline(always)] fn descend_until(&mut $s) -> bool { $e.descend_until() }
+        #[inline(always)] fn descend_until_max_bytes(&mut $s, max_bytes: usize) -> bool { $e.descend_until_max_bytes(max_bytes) }
+        #[inline(always)] fn to_next_sibling_byte(&mut $s) -> bool { $e.to_next_sibling_byte() }
+        #[inline(always)] fn to_prev_sibling_byte(&mut $s) -> bool { $e.to_prev_sibling_byte() }
+        #[inline(always)] fn ascend(&mut $s, steps: usize) -> bool { $e.ascend(steps) }
+        #[inline(always)] fn ascend_byte(&mut $s) -> bool { $e.ascend_byte() }
+        #[inline(always)] fn ascend_until(&mut $s) -> bool { $e.ascend_until() }
+        #[inline(always)] fn ascend_until_branch(&mut $s) -> bool { $e.ascend_until_branch() }
+        #[inline(always)] fn to_next_step(&mut $s) -> bool { $e.to_next_step() }
     };
-    (ZipperInfallibleSubtries $s: ident => $e:expr) => {
-        fn make_map(&$s) -> super::PathMap<V, A> { $e.make_map() }
-        fn get_trie_ref(&$s) -> TrieRef<'_, V, A> { $e.get_trie_ref() }
-    };
-    (ZipperReadOnlyValues $s: ident => $e:expr) => {
-        fn get_val(&$s) -> Option<&'a V> { $e.get_val() }
-    };
-    (ZipperReadOnlyConditionalValues $s: ident => $e:expr) => {
-        fn witness<'w>(&$s) -> Self::WitnessT { $e.witness() }
-        fn get_val_with_witness<'w>(&$s, witness: &'w Self::WitnessT) -> Option<&'w V> where 'a: 'w { $e.get_val_with_witness(witness) }
-    };
-    (ZipperReadOnlyIteration $s: ident => $e:expr) => {
-        fn to_next_get_val(&mut $s) -> Option<&'a V> { $e.to_next_get_val() }
-    };
-    (ZipperReadOnlyConditionalIteration $s: ident => $e:expr) => {
-        fn to_next_get_val_with_witness<'w>(&mut $s, witness: &'w Self::WitnessT) -> Option<&'w V> where 'a: 'w { $e.to_next_get_val_with_witness(witness) }
-    };
-    (ZipperReadOnlySubtries $s: ident => $e:expr) => {
-        type TrieRefT = <Z as ZipperReadOnlySubtries<'a, V, A>>::TrieRefT;
-        fn trie_ref_at_path<K: AsRef<[u8]>>(&$s, path: K) -> Self::TrieRefT { $e.trie_ref_at_path(path) }
-    };
-    (ZipperConcrete $s: ident => $e:expr) => {
-        #[inline] fn shared_node_id(&$s) -> Option<u64> { $e.shared_node_id() }
-        #[inline] fn is_shared(&$s) -> bool { $e.is_shared() }
-    };
-    (ZipperPriv $s: ident => $e:expr) => {
-        type V = V;
-        type A = A;
-        fn get_focus(&$s) -> AbstractNodeRef<'_, Self::V, Self::A> { $e.get_focus() }
+(ZipperInfallibleSubtries $s: ident => $e:expr) => {
+    #[inline(always)] fn make_map(&$s) -> super::PathMap<V, A> { $e.make_map() }
+    #[inline(always)] fn get_trie_ref(&$s) -> TrieRef<'_, V, A> { $e.get_trie_ref() }
+};
+(ZipperReadOnlyValues $s: ident => $e:expr) => {
+    #[inline(always)] fn get_val(&$s) -> Option<&'a V> { $e.get_val() }
+};
+(ZipperReadOnlyConditionalValues $s: ident => $e:expr) => {
+    #[inline(always)] fn witness<'w>(&$s) -> Self::WitnessT { $e.witness() }
+    #[inline(always)] fn get_val_with_witness<'w>(&$s, witness: &'w Self::WitnessT) -> Option<&'w V> where 'a: 'w { $e.get_val_with_witness(witness) }
+};
+(ZipperReadOnlyIteration $s: ident => $e:expr) => {
+    #[inline(always)] fn to_next_get_val(&mut $s) -> Option<&'a V> { $e.to_next_get_val() }
+};
+(ZipperReadOnlyConditionalIteration $s: ident => $e:expr) => {
+    #[inline(always)] fn to_next_get_val_with_witness<'w>(&mut $s, witness: &'w Self::WitnessT) -> Option<&'w V> where 'a: 'w { $e.to_next_get_val_with_witness(witness) }
+};
+(ZipperReadOnlySubtries $s: ident => $e:expr) => {
+    type TrieRefT = <Z as ZipperReadOnlySubtries<'a, V, A>>::TrieRefT;
+    #[inline(always)] fn trie_ref_at_path<K: AsRef<[u8]>>(&$s, path: K) -> Self::TrieRefT { $e.trie_ref_at_path(path) }
+};
+(ZipperConcrete $s: ident => $e:expr) => {
+    #[inline(always)] fn shared_node_id(&$s) -> Option<u64> { $e.shared_node_id() }
+    #[inline(always)] fn is_shared(&$s) -> bool { $e.is_shared() }
+};
+(ZipperPriv $s: ident => $e:expr) => {
+    type V = V;
+    type A = A;
+    #[inline(always)] fn get_focus(&$s) -> AbstractNodeRef<'_, Self::V, Self::A> { $e.get_focus() }
         fn try_borrow_focus(&$s) -> Option<&TrieNodeODRc<Self::V, Self::A>> { $e.try_borrow_focus() }
     };
     (ZipperPathBuffer $s: ident => $e:expr) => {
@@ -850,9 +854,37 @@ macro_rules! zipper_impl_lens {
         fn prepare_buffers(&mut $s) { $e.prepare_buffers() }
         fn reserve_buffers(&mut $s, path_len: usize, stack_depth: usize) { $e.reserve_buffers(path_len, stack_depth) }
     };
-    (ZipperReadOnlyPriv $s: ident => $e:expr) => {
-        fn borrow_raw_parts<'z>(&'z $s) -> (TaggedNodeRef<'z, V, A>, &'z [u8], Option<&'z V>) { $e.borrow_raw_parts() }
-        fn take_core(&mut $s) -> Option<ReadZipperCore<'a, 'static, V, A>> { $e.take_core() }
+(ZipperReadOnlyPriv $s: ident => $e:expr) => {
+    fn borrow_raw_parts<'z>(&'z $s) -> (TaggedNodeRef<'z, V, A>, &'z [u8], Option<&'z V>) { $e.borrow_raw_parts() }
+    fn take_core(&mut $s) -> Option<ReadZipperCore<'a, 'static, V, A>> { $e.take_core() }
+};
+}
+
+/// Macro to implement all common zipper traits by delegation
+/// Usage: impl_all_zipper_traits!(WriteZipperOwned<V, A>, self => self.z);
+macro_rules! impl_all_zipper_traits {
+    ($type:ty, self => $target:expr) => {
+        impl<V: Clone + Send + Sync + Unpin, A: Allocator> Zipper for $type {
+            zipper_impl_lens!(Zipper self => self.z);
+        }
+        impl<V: Clone + Send + Sync + Unpin, A: Allocator> ZipperValues<V> for $type {
+            zipper_impl_lens!(ZipperValues self => self.z);
+        }
+        impl<V: Clone + Send + Sync + Unpin, A: Allocator> ZipperMoving for $type {
+            zipper_impl_lens!(ZipperMoving self => self.z);
+        }
+        impl<V: Clone + Send + Sync + Unpin, A: Allocator> ZipperPriv for $type {
+            zipper_impl_lens!(ZipperPriv self => self.z);
+        }
+        impl<V: Clone + Send + Sync + Unpin, A: Allocator> ZipperPathBuffer for $type {
+            zipper_impl_lens!(ZipperPathBuffer self => self.z);
+        }
+        impl<V: Clone + Send + Sync + Unpin, A: Allocator> ZipperAbsolutePath for $type {
+            zipper_impl_lens!(ZipperAbsolutePath self => self.z);
+        }
+        impl<V: Clone + Send + Sync + Unpin, A: Allocator> ZipperIteration for $type {
+            zipper_impl_lens!(ZipperIteration self => self.z);
+        }
     };
 }
 
@@ -1243,24 +1275,6 @@ tracker: Option<ZipperTracker<TrackingRead>>,
 //GOAT, the standard prototype of IntoIterator isn't compatible with ReadZipperTracked anymore because
 // we would need to require a witness to create the iterator.  We could add a special into_iter method
 // but I will wait for somebody to ask for it.
-//
-// impl<'a, 'path, V: Clone + Send + Sync + Unpin + 'a, A: Allocator + 'a> std::iter::IntoIterator for ReadZipperTracked<'a, 'path, V, A> {
-//     type Item = (Vec<u8>, &'a V);
-//     type IntoIter = ReadZipperIter<'a, 'path, V, A>;
-
-//     fn into_iter(self) -> Self::IntoIter {
-//         //Destructure `self` without dropping it
-//         let zip = core::mem::ManuallyDrop::new(self);
-//         let core_z = unsafe { std::ptr::read(&zip.z) };
-//         let tracker = unsafe { std::ptr::read(&zip.tracker) };
-//         ReadZipperIter {
-//             started: false,
-//             zipper: Some(core_z),
-//             _tracker: Some(tracker)
-//         }
-//     }
-// }
-
 impl_zipper_debug!(
     impl<'a, 'path, V: Clone + Send + Sync + Unpin + 'a, A: Allocator + 'a> core::fmt::Debug for ReadZipperTracked<'a, 'path, V, A>
 );
@@ -1867,24 +1881,27 @@ pub(crate) mod read_zipper_core {
         }
     }
 
-    impl<V: Clone + Send + Sync + Unpin, A: Allocator> Zipper for ReadZipperCore<'_, '_, V, A> {
-        #[inline]
-        fn path_exists(&self) -> bool {
-            let key = self.node_key();
-            if !key.is_empty() { self.focus_node.node_contains_partial_key(key) } else { true }
-        }
-        fn is_val(&self) -> bool {
-            self.is_val_internal()
-        }
-        fn child_count(&self) -> usize {
-            debug_assert!(self.is_regularized());
-            self.focus_node.count_branches(self.node_key())
-        }
-        fn child_mask(&self) -> ByteMask {
-            debug_assert!(self.is_regularized());
-            self.focus_node.node_branches_mask(self.node_key())
-        }
+impl<V: Clone + Send + Sync + Unpin, A: Allocator> Zipper for ReadZipperCore<'_, '_, V, A> {
+    #[inline]
+    fn path_exists(&self) -> bool {
+        let key = self.node_key();
+        if !key.is_empty() { self.focus_node.node_contains_partial_key(key) } else { true }
     }
+    #[inline]
+    fn is_val(&self) -> bool {
+        self.is_val_internal()
+    }
+    #[inline]
+    fn child_count(&self) -> usize {
+        debug_assert!(self.is_regularized());
+        self.focus_node.count_branches(self.node_key())
+    }
+    #[inline]
+    fn child_mask(&self) -> ByteMask {
+        debug_assert!(self.is_regularized());
+        self.focus_node.node_branches_mask(self.node_key())
+    }
+}
 
     impl<V: Clone + Send + Sync + Unpin, A: Allocator> ZipperValues<V>
         for ReadZipperCore<'_, '_, V, A>

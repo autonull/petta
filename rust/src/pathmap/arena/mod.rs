@@ -10,6 +10,16 @@
 //! - **Better cache locality**: Contiguous memory layout
 //! - **Faster deallocation**: Drop entire arena at once
 //! - **Predictable performance**: No allocation surprises during hot paths
+//!
+//! # Usage
+//!
+//! ```rust
+//! use crate::pathmap::arena::ArenaAllocator;
+//!
+//! let mut arena = ArenaAllocator::new(1024);
+//! let handle = arena.allocate(MyType::new());
+//! let item = arena.get(handle).unwrap();
+//! ```
 
 mod allocator;
 pub use allocator::*;
@@ -23,6 +33,7 @@ use std::sync::Arc;
 pub struct Arena<T> {
     data: Vec<T>,
     initial_capacity: usize,
+    allocated_bytes: usize,
 }
 
 impl<T> Arena<T> {
@@ -31,6 +42,7 @@ impl<T> Arena<T> {
         Self {
             data: Vec::with_capacity(capacity),
             initial_capacity: capacity,
+            allocated_bytes: 0,
         }
     }
 
@@ -41,6 +53,7 @@ impl<T> Arena<T> {
     #[inline]
     pub fn allocate(&mut self, value: T) -> usize {
         let index = self.data.len();
+        self.allocated_bytes += std::mem::size_of::<T>();
         self.data.push(value);
         index
     }
@@ -48,8 +61,12 @@ impl<T> Arena<T> {
     /// Allocate multiple items from an iterator
     pub fn extend<I: IntoIterator<Item = T>>(&mut self, items: I) -> std::ops::Range<usize> {
         let start = self.data.len();
-        self.data.extend(items);
-        start..self.data.len()
+        let count = items.into_iter().fold(0, |count, item| {
+            self.allocated_bytes += std::mem::size_of::<T>();
+            self.data.push(item);
+            count + 1
+        });
+        start..start + count
     }
 
     /// Get reference to allocated item by index
@@ -90,6 +107,7 @@ impl<T> Arena<T> {
     /// Reset arena to reuse memory
     pub fn clear(&mut self) {
         self.data.clear();
+        self.allocated_bytes = 0;
     }
 
     /// Get memory usage statistics
@@ -97,7 +115,8 @@ impl<T> Arena<T> {
         ArenaStats {
             allocated: self.data.len(),
             capacity: self.data.capacity(),
-            memory_bytes: self.data.capacity() * std::mem::size_of::<T>(),
+            memory_bytes: self.allocated_bytes,
+            actual_bytes: self.data.len() * std::mem::size_of::<T>(),
         }
     }
 }
@@ -108,6 +127,25 @@ pub struct ArenaStats {
     pub allocated: usize,
     pub capacity: usize,
     pub memory_bytes: usize,
+    pub actual_bytes: usize,
+}
+
+impl ArenaStats {
+    /// Get memory utilization percentage
+    #[inline]
+    pub fn utilization(&self) -> f64 {
+        if self.memory_bytes == 0 {
+            0.0
+        } else {
+            self.actual_bytes as f64 / self.memory_bytes as f64
+        }
+    }
+
+    /// Get waste percentage (allocated but not used)
+    #[inline]
+    pub fn waste(&self) -> f64 {
+        1.0 - self.utilization()
+    }
 }
 
 impl<T> Default for Arena<T> {
@@ -150,5 +188,25 @@ mod tests {
         arena.clear();
         assert_eq!(arena.len(), 0);
         assert_eq!(arena.capacity(), 10);
+    }
+
+    #[test]
+    fn test_arena_stats() {
+        let mut arena = Arena::<i32>::new(10);
+        arena.allocate(1);
+        arena.allocate(2);
+        arena.allocate(3);
+        
+        let stats = arena.stats();
+        assert_eq!(stats.allocated, 3);
+        assert_eq!(stats.actual_bytes, 3 * std::mem::size_of::<i32>());
+    }
+
+    #[test]
+    fn test_arena_extend() {
+        let mut arena = Arena::<i32>::new(10);
+        let range = arena.extend(vec![1, 2, 3, 4, 5]);
+        assert_eq!(range, 0..5);
+        assert_eq!(arena.len(), 5);
     }
 }

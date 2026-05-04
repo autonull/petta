@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use super::backend::BackendImpl;
-use crate::core::{BackendCapabilities, BackendStats};
+use crate::core::{BackendCapabilities};
 use super::client;
 use super::config::EngineConfig;
 use super::errors::Error;
@@ -24,12 +24,11 @@ use crate::mork::interpreter::Interpreter;
 
 /// SWI-Prolog subprocess backend
 pub struct SwiplBackend {
-child: Option<std::process::Child>,
-stdin: Option<std::process::ChildStdin>,
-stdout: Option<BufReader<std::process::ChildStdout>>,
-stderr: Arc<Mutex<Vec<u8>>>,
-stats: BackendStats,
-config: EngineConfig,
+    child: Option<std::process::Child>,
+    stdin: Option<std::process::ChildStdin>,
+    stdout: Option<BufReader<std::process::ChildStdout>>,
+    stderr: Arc<Mutex<Vec<u8>>>,
+    config: EngineConfig,
 }
 
 impl SwiplBackend {
@@ -42,7 +41,6 @@ impl SwiplBackend {
             stdin: Some(stdin),
             stdout: Some(stdout),
             stderr,
-            stats: BackendStats::new(),
             config: config.clone(),
         })
     }
@@ -136,7 +134,7 @@ impl super::backend::BackendImpl for SwiplBackend {
         self.stdin = Some(stdin);
         self.stdout = Some(stdout);
         self.config = config.clone();
-        self.stats.record_restart();
+        // stats removed
 
         Ok(())
     }
@@ -155,7 +153,6 @@ impl Drop for SwiplBackend {
 #[cfg(feature = "mork")]
 pub struct MorkBackend {
     interpreter: Interpreter,
-    stats: BackendStats,
 }
 
 #[cfg(feature = "mork")]
@@ -169,7 +166,6 @@ impl MorkBackend {
         
         Self {
             interpreter,
-            stats: BackendStats::new(),
         }
     }
 }
@@ -226,7 +222,7 @@ impl super::backend::BackendImpl for MorkBackend {
     }
 
     fn restart(&mut self, _config: &EngineConfig) -> Result<(), Error> {
-    self.stats.record_restart();
+    // stats removed
     Ok(())
 }
 }

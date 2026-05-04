@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use std::marker::PhantomData;
 use std::num::NonZero;
 use std::num::NonZeroU32;
@@ -47,10 +48,10 @@ mod tracking_internal {
 use tracking_internal::TrackingMode;
 
 /// Object that accompanies a zipper and tracks its path, to check for violations against all other
-/// outstanding zipper paths.  See [ZipperCreation::write_zipper_at_exclusive_path](super::zipper::ZipperCreation::write_zipper_at_exclusive_path).
+/// outstanding zipper paths. See [ZipperCreation::write_zipper_at_exclusive_path](super::zipper::ZipperCreation::write_zipper_at_exclusive_path).
 pub struct ZipperTracker<M: TrackingMode> {
     all_paths: SharedTrackerPaths,
-    this_path: Vec<u8>,
+    this_path: SmallVec<[u8; 16]>,
     _is_tracking: PhantomData<M>,
 }
 
@@ -342,7 +343,7 @@ impl ZipperTracker<TrackingRead> {
     /// Create a new `ZipperTracker` to track a read zipper
     pub fn new(shared_paths: SharedTrackerPaths, path: &[u8]) -> Result<Self, Conflict> {
         shared_paths.try_add_reader(path)?;
-        Ok(Self { all_paths: shared_paths, this_path: path.to_vec(), _is_tracking: PhantomData })
+        Ok(Self { all_paths: shared_paths, this_path: SmallVec::from_slice(path), _is_tracking: PhantomData })
     }
 }
 
@@ -350,7 +351,7 @@ impl ZipperTracker<TrackingWrite> {
     /// Create a new `ZipperTracker` to track a write zipper
     pub fn new(shared_paths: SharedTrackerPaths, path: &[u8]) -> Result<Self, Conflict> {
         shared_paths.try_add_writer(path)?;
-        Ok(Self { all_paths: shared_paths, this_path: path.to_vec(), _is_tracking: PhantomData })
+        Ok(Self { all_paths: shared_paths, this_path: SmallVec::from_slice(path), _is_tracking: PhantomData })
     }
     /// Consumes the writer tracker, and returns a new reader tracker with the same path
     pub fn into_reader(self) -> ZipperTracker<TrackingRead> {

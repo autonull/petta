@@ -16,7 +16,7 @@ mod errors;
 mod values;
 mod types;
 
-pub use backend::{Backend, BackendCapabilities, BackendInfo, BackendStats, HealthStatus};
+pub use backend::{Backend, BackendCapabilities};
 pub use errors::{Error, BackendError, Result, SourceLocation};
 pub use values::{MettaValue, MettaResult};
 pub use types::{Type, ProjectRoot, MettaFile};

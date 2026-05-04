@@ -1,5 +1,7 @@
 #![allow(clippy::wrong_self_convention)]
 
+use smallvec::SmallVec;
+
 use super::trie_core::r#ref::TrieRef;
 
 use super::PathMap;
@@ -7,7 +9,7 @@ use super::alloc::{GlobalAlloc, global_alloc};
 
 // note, this is almost identical in implementation to ProductZipperG
 // It's very likely, for maintainability, we'll want to implement ProductZipperG as a simple policy over DependentProductZipperG
-// However, all my attempts at this failed so far because of the enroll enter/exit closure types in the struct
+// However, All my attempts at this failed so far because of the enroll enter/exit closure types in the struct
 use super::utils::ByteMask;
 use super::zipper::*;
 
@@ -16,16 +18,16 @@ use super::zipper::*;
 ///
 /// Compared to [ProductZipperG], this allows the factors zippers to be calculated on the fly, and depend on the prefix.
 ///
-/// GOAT: The shape of this API is still experimental.  Creating new owned zippers is not great for performance and
+/// GOAT: The shape of this API is still experimental. Creating new owned zippers is not great for performance and
 /// there is probably a design that allows mutable references to be returned from an object with an appropriate lifetime.
 #[derive(Clone)]
 pub struct DependentProductZipperG<'trie, PrimaryZ, SecondaryZ, V, C, F>
 where
     V: Clone + Send + Sync,
 {
-    factor_paths: Vec<usize>,
+    factor_paths: SmallVec<[usize; 2]>,
     primary: PrimaryZ,
-    secondary: Vec<SecondaryZ>,
+    secondary: SmallVec<[SecondaryZ; 2]>,
     enroll_payload: Option<C>,
     enroll: F,
     _marker: core::marker::PhantomData<(&'trie V, F)>,
@@ -50,9 +52,9 @@ where
         PrimaryZ: ZipperValues<V>,
     {
         Self {
-            factor_paths: Vec::new(),
+            factor_paths: SmallVec::new(),
             primary,
-            secondary: vec![],
+            secondary: SmallVec::new(),
             enroll_payload: Some(enroll_payload),
             enroll,
             _marker: core::marker::PhantomData,
@@ -412,9 +414,6 @@ where
     #[inline]
     fn path(&self) -> &[u8] {
         self.primary.path()
-    }
-    fn val_count(&self) -> usize {
-        unimplemented!("method will probably get removed")
     }
     fn descend_to_existing<K: AsRef<[u8]>>(&mut self, path: K) -> usize {
         let mut path = path.as_ref();

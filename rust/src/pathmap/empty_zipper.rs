@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use super::utils::ByteMask;
 use super::zipper::*;
 
@@ -5,7 +6,7 @@ use super::zipper::*;
 #[derive(Clone, Default)]
 pub struct EmptyZipper {
     path_start_idx: usize,
-    path: Vec<u8>, //NOTE: we could init this lazily and take a borrowed path, but I can't see a use case where that would matter
+    path: SmallVec<[u8; 16]>,
 }
 
 impl EmptyZipper {
@@ -16,20 +17,24 @@ impl EmptyZipper {
     /// Returns a new `EmptyZipper` with the provided [`root_prefix_path`](ZipperAbsolutePath::root_prefix_path)
     pub fn new_at_path<K: AsRef<[u8]>>(path: K) -> Self {
         let path = path.as_ref();
-        Self { path_start_idx: path.len(), path: path.to_vec() }
+        Self { path_start_idx: path.len(), path: SmallVec::from_slice(path) }
     }
 }
 
 impl Zipper for EmptyZipper {
+    #[inline(always)]
     fn path_exists(&self) -> bool {
         false
     }
+    #[inline(always)]
     fn is_val(&self) -> bool {
         false
     }
+    #[inline(always)]
     fn child_count(&self) -> usize {
         0
     }
+    #[inline(always)]
     fn child_mask(&self) -> ByteMask {
         ByteMask::EMPTY
     }

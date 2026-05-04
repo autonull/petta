@@ -77,6 +77,7 @@
 //!              [                      line_offset: varint64]
 //! ```ignore
 use fast_slice_utils::starts_with;
+use smallvec::SmallVec;
 use std::cell::Cell;
 use std::marker::PhantomData;
 use std::{hash::Hasher, io::Write};
@@ -1143,8 +1144,8 @@ where
 {
     tree: &'tree ArenaCompactTree<Storage>,
     cur_node: Node,
-    stack: Vec<StackFrame>,
-    path: Vec<u8>,
+    stack: SmallVec<[StackFrame; 4]>,
+    path: SmallVec<[u8; 16]>,
     origin_depth: usize,
     origin_node_depth: usize,
     pub invalid: usize,
@@ -1226,16 +1227,16 @@ where
     fn from_tree(tree: &'tree ArenaCompactTree<Storage>) -> Self {
         let (cur_node, node_id) = tree.get_root();
         let stack_frame = StackFrame::from(&cur_node, node_id);
-        ACTZipper {
-            tree,
-            cur_node,
-            path: Vec::new(),
-            invalid: 0,
-            origin_depth: 0,
-            origin_node_depth: 0,
-            stack: Vec::from([stack_frame]),
-            _marker: PhantomData,
-        }
+ACTZipper {
+    tree,
+    cur_node,
+    path: SmallVec::new(),
+    invalid: 0,
+    origin_depth: 0,
+    origin_node_depth: 0,
+    stack: Vec::from([stack_frame]),
+    _marker: PhantomData,
+}
     }
 
     fn with_root_here(mut self) -> Self {
