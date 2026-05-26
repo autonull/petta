@@ -1,0 +1,3 @@
+[submodule "repos/OmegaClaw-Core"]
+	path = repos/OmegaClaw-Core
+	url = https://github.com/asi-alliance/OmegaClaw-Core
