@@ -14,47 +14,66 @@ fn send_query(
     payload: &str,
     config: &EngineConfig,
 ) -> Result<Vec<MettaResult>, Error> {
+    eprintln!("[DBG] send_query: type={}, payload_len={}", query_type as char, payload.len());
     let start = Instant::now();
     let pb = payload.as_bytes();
     
+    let payload_preview: String = payload.chars().take(100).collect();
+    eprintln!("[DBG] payload preview: {:?}", payload_preview);
+    
+    eprintln!("[DBG] writing command byte: {}", query_type as char);
     stdin.write_all(&[query_type])
-        .map_err(|e| Error::WriteError(e.to_string()))?;
+        .map_err(|e| { eprintln!("[DBG] write command byte failed: {}", e); Error::WriteError(e.to_string()) })?;
+    eprintln!("[DBG] writing length: {} (be bytes: {:?})", pb.len(), &(pb.len() as u32).to_be_bytes());
     stdin.write_all(&(pb.len() as u32).to_be_bytes())
-        .map_err(|e| Error::WriteError(e.to_string()))?;
+        .map_err(|e| { eprintln!("[DBG] write length failed: {}", e); Error::WriteError(e.to_string()) })?;
+    eprintln!("[DBG] writing payload");
     stdin.write_all(pb)
-        .map_err(|e| Error::WriteError(e.to_string()))?;
-    stdin.flush().map_err(|e| Error::WriteError(e.to_string()))?;
+        .map_err(|e| { eprintln!("[DBG] write payload failed: {}", e); Error::WriteError(e.to_string()) })?;
+    eprintln!("[DBG] flushing stdin");
+    stdin.flush().map_err(|e| { eprintln!("[DBG] flush stdin failed: {}", e); Error::WriteError(e.to_string()) })?;
+    eprintln!("[DBG] stdin written and flushed OK");
     
     check_timeout(start, config)?;
+    eprintln!("[DBG] timeout check OK");
     
     // Read status byte, skipping any stray ready signals (0xFF)
     let mut b = [0u8; 1];
+    eprintln!("[DBG] reading status byte (skipping 0xFF)...");
     loop {
         read_exact(stdout, &mut b)?;
+        eprintln!("[DBG] read byte: 0x{:02x}", b[0]);
         if b[0] != 0xFF {
             break;
         }
     }
+    eprintln!("[DBG] status byte: 0x{:02x} ({})", b[0], 
+        if b[0] == 0 { "OK" } else if b[0] == 1 { "ERROR" } else { "UNKNOWN" });
     
     match b[0] {
         0 => {
             let count = read_u32(stdout)?;
+            eprintln!("[DBG] result count: {}", count);
             let mut results = Vec::with_capacity(count as usize);
-            for _ in 0..count {
+            for i in 0..count {
                 let len = read_u32(stdout)?;
+                eprintln!("[DBG] result[{}] length: {}", i, len);
                 let mut buf = vec![0u8; len as usize];
                 read_exact(stdout, &mut buf)?;
                 let value = String::from_utf8(buf)
                     .map_err(|e| Error::Protocol(e.to_string()))?;
+                eprintln!("[DBG] result[{}] value: {:?}", i, value);
                 results.push(MettaResult { value });
             }
             Ok(results)
         }
         1 => {
             let len = read_u32(stdout)?;
+            eprintln!("[DBG] error payload length: {}", len);
             let mut buf = vec![0u8; len as usize];
             read_exact(stdout, &mut buf)?;
             let msg = String::from_utf8_lossy(&buf);
+            eprintln!("[DBG] error message: {:?}", msg);
             Err(Error::Backend(parse_backend_error(&msg)))
         }
         s => Err(Error::Protocol(format!("unknown status: {s}"))),

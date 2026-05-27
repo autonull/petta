@@ -212,27 +212,40 @@ impl PeTTaEngine {
     /// # Ok::<_, petta::Error>(())
     /// ```
     pub fn with_config(config: &EngineConfig) -> Result<Self, Error> {
+        eprintln!("[DBG] PeTTaEngine::with_config called");
         #[allow(unused_mut)]
         let mut config = config.clone();
 
         #[cfg(feature = "websocket")]
         let ws_server = {
+            eprintln!("[DBG] spawning WS extension server...");
+            let _ = std::fs::write("/tmp/ws_server_starting.txt", "WS server starting");
             match crate::ws_ext::WsExtensionServer::spawn(
                 "repos/OmegaClaw-Core/memory/vector_store.json".into()
             ) {
                 Ok(server) => {
+                    eprintln!("[DBG] WS extension server ready on port {}", server.port);
+                    let _ = std::fs::write("/tmp/ws_server_ready.txt", format!("WS server ready on port {}", server.port));
                     config.ws_port = Some(server.port);
                     Some(server)
                 }
                 Err(e) => {
+                    eprintln!("[DBG] WS extension server failed: {}", e);
+                    let _ = std::fs::write("/tmp/ws_server_failed.txt", format!("WS server failed: {}", e));
                     eprintln!("Warning: WS extension server failed to start: {}", e);
                     None
                 }
             }
         };
+        eprintln!("[DBG] creating BackendState...");
+
+        let backend_result = BackendState::new(&config);
+        eprintln!("[DBG] BackendState::new result: {:?}", backend_result.is_ok());
+        let backend = backend_result?;
+        eprintln!("[DBG] BackendState created OK, name={}", backend.name());
 
         Ok(Self {
-            backend: BackendState::new(&config)?,
+            backend,
             config,
             restarts: 0,
             #[cfg(feature = "websocket")]

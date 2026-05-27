@@ -94,21 +94,42 @@ Example LM servers: llama.cpp server (`llama-server`), vLLM, Ollama, LocalAI.
 
 ```
    IRC ──TCP──> irc.rs (ws_ext)  ──WebSocket──>  Prolog (omegaclaw_ext.pl)
-                                                      │
-   LM  <──HTTP── llm.rs (ws_ext)  <──WebSocket───     │
-                                                      │
-                                                channels.metta
-                                                   loop.metta
-                                                   skills.metta
-                                                   memory.metta
+                                                       │
+    LM  <──HTTP── llm.rs (ws_ext)  <──WebSocket───     │
+                                                       │
+                                                 channels.metta
+                                                    loop.metta
+                                                    skills.metta
+                                                    memory.metta
 ```
 
 1. **PeTTa engine** starts a WebSocket extension server and a SWI-Prolog subprocess.
-2. **Prolog** loads `omegaclaw_ext.pl` which connects to the WS extension.
+2. **Prolog** loads `omegaclaw_ext.pl` which connects (lazily) to the WS extension.
 3. **MeTTa** code (`run_omegaclaw.metta`) imports and calls `(omegaclaw)`, entering the agent loop.
 4. Each loop iteration: receive IRC message -> build context prompt -> call LM -> parse skill commands -> execute -> loop.
 5. **`irc.rs`** handles the persistent IRC connection in a background thread; messages are queued and retrieved via WS calls.
 6. **`llm.rs`** routes LLM requests to the configured provider.
+
+### Loop Control Flow (`repos/OmegaClaw-Core/src/loop.metta`)
+
+The `(omegaclaw $k)` function runs in four distinct phases per iteration:
+
+| Phase | Description |
+|-------|-------------|
+| **0: Init** | Runs once (k=1): calls `initLoop`, `initMemory`, `initChannels`. On subsequent iterations, decrements the loop counter. |
+| **1: Receive** | Reads from the communication channel (IRC or mock). Detects new messages and resets the loop counter on new input. |
+| **2a: Active** | If loops remaining (>0): builds context prompt, calls LLM via WebSocket, parses the response as skill commands, executes them. All LLM outputs are stored in `&state` vars (`&response`, `&sexpr`, `&results`). |
+| **2b: Idle** | If no loops remaining: checks the wakeup timer and adds wake loops if the interval has elapsed. |
+| **2c: Persist** | Always runs: appends to conversation history and updates last-results state. |
+| **3: Sleep** | Sleeps for `sleepInterval` seconds, garbage-collects, then recurses with k+1. |
+
+**Why the loop used to exit immediately (bugs fixed):**
+
+1. `empty(_) :- fail.` in `prolog/metta.pl` made the `(empty)` expression always fail. Every `(= (name) (empty))` default atom defined a broken function. When `configure` in `initLoop` added a new atom alongside it, evaluation became nondeterministic — the old broken atom could be matched, returning `(empty)` to `(change-state! &loops ...)`, which then caused `(> (get-state &loops) 0)` to crash (comparing non-numeric `empty` with 0). **Fix**: changed to `empty(empty).` so `(empty)` evaluates to the symbol `empty`.
+
+2. Variable scoping bug: the ELSE branch (idle path) referenced `$sexpr`, `$response`, `$results` from the TRUE branch's inner `let*` scope. These variables were unbound in the idle path. **Fix**: LLM outputs are stored in `&state` global vars initialized with safe defaults at the start of each iteration.
+
+3. The default function atoms `(= (name) (empty))` in `loop.metta`, `channels.metta`, and `memory.metta` competed with the atoms created by `configure` calls. **Fix**: removed all redundant default atoms. `initLoop`, `initChannels`, and `initMemory` now exclusively own their parameter definitions.
 
 ## Agent Skills
 
@@ -188,12 +209,12 @@ cargo build --release
 | `repos/OmegaClaw-Core/src/channels.metta` | Channel abstraction: init, send, receive |
 | `repos/OmegaClaw-Core/src/skills.metta` | Skill definitions sent to the model |
 | `repos/OmegaClaw-Core/src/memory.metta` | Memory system: remember, query, episodes, history |
+| `repos/OmegaClaw-Core/src/utils.metta` | `configure`, `argk`, string helpers |
 | `repos/OmegaClaw-Core/memory/prompt.txt` | System prompt for the LLM |
 | `repos/OmegaClaw-Core/memory/history.metta` | Conversation history (appended at runtime) |
 | `repos/OmegaClaw-Core/memory/vector_store.json` | Persistent vector memory store |
-| `repos/OmegaClaw-Core/channels/irc.py` | Python IRC adapter (not used - Rust implementation active) |
-| `rust/src/ws_ext/irc.rs` | Rust IRC adapter (active implementation) |
-| `rust/src/ws_ext/llm.rs` | LLM provider dispatch |
-| `rust/src/ws_ext/mod.rs` | WebSocket extension - method routing |
-| `prolog/omegaclaw_ext.pl` | Prolog bridge - connects MeTTa to WS extension |
-| `prolog/metta.pl` | MeTTa engine core in Prolog |
+| `rust/src/ws_ext/irc.rs` | Rust IRC adapter (TCP connection in background thread) |
+| `rust/src/ws_ext/llm.rs` | LLM provider dispatch (Ollama, Anthropic, OpenAI, etc.) |
+| `rust/src/ws_ext/mod.rs` | WebSocket extension server + method routing |
+| `prolog/omegaclaw_ext.pl` | Prolog bridge - WS calls from MeTTa to Rust |
+| `prolog/metta.pl` | MeTTa engine core + `empty` sentinel definition |

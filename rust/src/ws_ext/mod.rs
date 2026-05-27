@@ -21,6 +21,7 @@ pub struct WsExtensionServer {
 impl WsExtensionServer {
     pub fn spawn(store_path: String) -> Result<Self, String> {
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+        let (ready_tx, ready_rx) = std::sync::mpsc::channel();
 
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(4)
@@ -35,9 +36,12 @@ impl WsExtensionServer {
         let thread = std::thread::Builder::new()
             .name("ws-ext-server".into())
             .spawn(move || {
-                runtime.block_on(run_server(listener, store_path, shutdown_rx));
+                runtime.block_on(run_server(listener, store_path, shutdown_rx, ready_tx));
             })
             .map_err(|e| format!("thread spawn: {}", e))?;
+
+        // Wait for server to be ready to accept connections
+        ready_rx.recv().map_err(|_| "WS server failed to start".to_string())?;
 
         Ok(Self { port, shutdown_tx: Some(shutdown_tx), thread: Some(thread) })
     }
@@ -58,8 +62,10 @@ async fn run_server(
     listener: TcpListener,
     store_path: String,
     mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+    ready_tx: std::sync::mpsc::Sender<()>,
 ) {
     vector_store::init(&store_path);
+    let _ = ready_tx.send(()); // Signal that we're ready to accept connections
 
     tokio::select! {
         _ = &mut shutdown_rx => {}
@@ -72,13 +78,17 @@ async fn run_server(
 }
 
 async fn accept_loop(listener: &TcpListener) -> Result<(), String> {
+    eprintln!("[WS] accept_loop started, waiting for connections");
     let (stream, _) = listener.accept().await.map_err(|e| format!("accept: {}", e))?;
+    eprintln!("[WS] first connection accepted");
     let ws_stream = accept_async(stream).await.map_err(|e| format!("ws accept: {}", e))?;
     let (mut write, mut read) = ws_stream.split();
 
+    eprintln!("[WS] WebSocket handshake complete");
     while let Some(msg) = read.next().await {
         if let Ok(msg) = msg {
             if let Some(text) = msg.to_text().ok().map(String::from) {
+                eprintln!("[WS] received: {}", &text[..text.len().min(200)]);
                 let response = handle_message(&text).await;
                 if let Ok(json) = serde_json::to_string(&response) {
                     let _ = write.send(Message::Text(json)).await;
@@ -145,6 +155,7 @@ async fn handle_message(text: &str) -> WsResponse {
             let nick = req.params["nick"].as_str().unwrap_or("omegaclaw");
             let channel = req.params["channel"].as_str().unwrap_or("#omegaclaw");
             let auth_secret = req.params["auth_secret"].as_str().unwrap_or("");
+            eprintln!("[WS] irc_connect: srv={} port={} nick={} ch={}", server, port, nick, channel);
             match irc::connect(server, port, nick, channel, auth_secret) {
                 Ok(s) => serde_json::Value::String(s),
                 Err(e) => return WsResponse::err(req.id, e),

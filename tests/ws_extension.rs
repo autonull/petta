@@ -25,7 +25,6 @@ fn test_ws_server_spawn_and_lifecycle() {
 #[test]
 fn test_ws_channel_send() {
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs.json".into()).unwrap();
-    std::thread::sleep(Duration::from_millis(200));
     let mut ws = connect_ws(server.port);
 
     let resp = send_req(&mut ws, 1, "channel_send", serde_json::json!({"msg": "hello"}));
@@ -36,7 +35,6 @@ fn test_ws_channel_send() {
 #[test]
 fn test_ws_vector_remember_and_query() {
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs2.json".into()).unwrap();
-    std::thread::sleep(Duration::from_millis(200));
     let mut ws = connect_ws(server.port);
 
     let resp = send_req(&mut ws, 1, "vector_remember", serde_json::json!({
@@ -61,7 +59,6 @@ fn test_ws_vector_remember_and_query() {
 #[test]
 fn test_ws_unknown_method() {
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs3.json".into()).unwrap();
-    std::thread::sleep(Duration::from_millis(200));
     let mut ws = connect_ws(server.port);
 
     let resp = send_req(&mut ws, 99, "nonexistent", serde_json::json!({}));
@@ -73,7 +70,6 @@ fn test_ws_unknown_method() {
 #[test]
 fn test_ws_bad_json() {
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs4.json".into()).unwrap();
-    std::thread::sleep(Duration::from_millis(200));
     let mut ws = connect_ws(server.port);
 
     ws.write(Message::Text("not json".into())).unwrap();
@@ -87,7 +83,6 @@ fn test_ws_bad_json() {
 fn test_ws_llm_call_missing_key() {
     unsafe { std::env::remove_var("OPENAI_API_KEY"); }
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs5.json".into()).unwrap();
-    std::thread::sleep(Duration::from_millis(200));
     let mut ws = connect_ws(server.port);
 
     let resp = send_req(&mut ws, 1, "llm_call", serde_json::json!({
@@ -102,7 +97,6 @@ fn test_ws_llm_call_missing_key() {
 #[test]
 fn test_ws_llm_call_ollama() {
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs6.json".into()).unwrap();
-    std::thread::sleep(Duration::from_millis(500));
     let mut ws = connect_ws(server.port);
 
     let resp = send_req(&mut ws, 1, "llm_call", serde_json::json!({
@@ -121,7 +115,6 @@ fn test_ws_llm_call_ollama() {
 #[test]
 fn test_ws_irc_connect() {
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs7.json".into()).unwrap();
-    std::thread::sleep(Duration::from_millis(200));
     let mut ws = connect_ws(server.port);
 
     let resp = send_req(&mut ws, 1, "irc_connect", serde_json::json!({

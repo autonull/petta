@@ -61,8 +61,8 @@ fn is_allowed_msg(secret: &str, authed: &Option<String>, nick: &str, text: &str)
     "ignore"
 }
 
-fn irc_loop(server: String, port: u16, nick: String, channel: String, auth_secret: String) {
-    eprintln!("[IRC] Connecting to {}:{} as {} for {}", server, port, nick, channel);
+fn irc_loop(server: String, port: u16, nick: String, channel: String, _auth_secret: String) {
+    eprintln!("[IRC] irc_loop ENTERED srv={} port={} nick={} ch={}", server, port, nick, channel);
 
     let sock = match TcpStream::connect(format!("{}:{}", server, port)) {
         Ok(s) => {
@@ -83,6 +83,7 @@ fn irc_loop(server: String, port: u16, nick: String, channel: String, auth_secre
     }
 
     let irc_send = |cmd: &str| {
+        eprintln!("[IRC] >>> {}", cmd);
         if let Ok(mut w) = writer.lock() {
             let _ = w.write_all(format!("{}\r\n", cmd).as_bytes());
             let _ = w.flush();
@@ -93,54 +94,65 @@ fn irc_loop(server: String, port: u16, nick: String, channel: String, auth_secre
     irc_send(&format!("USER {} 0 * :{}", nick, nick));
 
     let reader = std::io::BufReader::new(sock);
-    let mut connected = false;
 
-    for line in reader.lines().flatten() {
-        let running = state().lock().unwrap().running;
-        if !running {
-            break;
-        }
+    eprintln!("[IRC] Waiting for registration...");
+    for line_exp in reader.lines() {
+        match line_exp {
+            Ok(line) => {
+                eprintln!("[IRC] <<< {}", line);
+                let running = state().lock().unwrap().running;
+                if !running {
+                    break;
+                }
 
-        if line.starts_with("PING") {
-            let token = line.split_whitespace().nth(1).unwrap_or("");
-            irc_send(&format!("PONG {}", token));
-            continue;
-        }
+                if line.starts_with("PING") {
+                    let token = line.split_whitespace().nth(1).unwrap_or("");
+                    irc_send(&format!("PONG {}", token));
+                    continue;
+                }
 
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() > 1 {
-            match parts[1] {
-                "001" => {
-                    connected = true;
-                    state().lock().unwrap().connected = true;
-                    eprintln!("[IRC] Registered. Joining {}", channel);
-                    irc_send(&format!("JOIN {}", channel));
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() > 1 {
+                    match parts[1] {
+                        "001" => {
+                            state().lock().unwrap().connected = true;
+                            eprintln!("[IRC] Registered! Joining channel");
+                            irc_send(&format!("JOIN {}", channel));
+                        }
+                        "403" | "405" | "471" | "473" | "474" | "475" => {
+                            eprintln!("[IRC] Join failed: {}", line);
+                        }
+                        "433" => {
+                            eprintln!("[IRC] Nickname in use: {}", line);
+                        }
+                        _ => {}
+                    }
                 }
-                "403" | "405" | "471" | "473" | "474" | "475" => {
-                    eprintln!("[IRC] Join failed: {}", line);
+
+                if let Some((prefix, trailing)) = line.split_once(" PRIVMSG ") {
+                    let nick_from = prefix.split('!').next().unwrap_or("");
+                    if let Some((_, msg_text)) = trailing.split_once(" :") {
+                        let mut s = state().lock().unwrap();
+                        let result = is_allowed_msg(&s.auth_secret, &s.authed_nick, nick_from, msg_text);
+                        match result {
+                            "allow" => {
+                                s.messages.push_back(format!("{}: {}", nick_from, msg_text));
+                            }
+                            "auth_bound" => {
+                                irc_send(&format!(
+                                    "PRIVMSG {} :Authentication successful for {}.",
+                                    channel, nick_from
+                                ));
+                                s.authed_nick = Some(normalize_nick(nick_from));
+                            }
+                            _ => {}
+                        }
+                    }
                 }
-                "433" => {
-                    eprintln!("[IRC] Nickname in use: {}", line);
-                }
-                _ => {}
             }
-        }
-
-        if let Some((prefix, trailing)) = line.split_once(" PRIVMSG ") {
-            let nick_from = prefix.split('!').next().unwrap_or("");
-            if let Some((_, msg_text)) = trailing.split_once(" :") {
-                let mut s = state().lock().unwrap();
-                let result = is_allowed_msg(&s.auth_secret, &s.authed_nick, nick_from, msg_text);
-                match result {
-                    "allow" => {
-                        s.messages.push_back(format!("{}: {}", nick_from, msg_text));
-                    }
-                    "auth_bound" => {
-                        irc_send(&format!("PRIVMSG {} :Authentication successful for {}.", channel, nick_from));
-                        s.authed_nick = Some(normalize_nick(nick_from));
-                    }
-                    _ => {}
-                }
+            Err(e) => {
+                eprintln!("[IRC] Read error: {}", e);
+                break;
             }
         }
     }
@@ -163,7 +175,15 @@ fn rand_suffix() -> String {
     n.to_string()
 }
 
-pub fn connect(server: &str, port: u16, nick: &str, channel: &str, auth_secret: &str) -> Result<String, String> {
+pub fn connect(
+    server: &str,
+    port: u16,
+    nick: &str,
+    channel: &str,
+    auth_secret: &str,
+) -> Result<String, String> {
+    eprintln!("[IRC] connect called: srv={} port={} nick={} ch={}", server, port, nick, channel);
+
     let nick = format!("{}{}", nick, rand_suffix());
     let ch = if channel.starts_with('#') {
         channel.to_string()
@@ -192,6 +212,7 @@ pub fn connect(server: &str, port: u16, nick: &str, channel: &str, auth_secret: 
         .spawn(move || irc_loop(srv, port, n, c, a))
         .map_err(|e| format!("Failed to spawn IRC thread: {}", e))?;
 
+    eprintln!("[IRC] Thread spawned, returning: {} as {} on {}", ch, nick, server);
     Ok(format!("Connecting to {} as {} on {}", ch, nick, server))
 }
 

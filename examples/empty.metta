@@ -1,4 +1,5 @@
 (= (y) (empty))
 
-!(test (collapse (y))
-       ())
+; `(empty)` now evaluates to the symbol `empty` (not a failure sentinel)
+!(test (== (y) empty)
+       True)

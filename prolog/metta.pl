@@ -125,7 +125,7 @@ implies(A,B,C) :- bool(A), bool(B), ( A == true -> ( B == true  -> C = true ; B 
 
 %%% Nondeterminism: %%%
 superpose(L,X) :- member(X,L).
-empty(_) :- fail.
+empty(empty).
 
 %%% Lists / Tuples: %%%
 'cons-atom'(H, T, [H|T]).

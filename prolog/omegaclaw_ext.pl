@@ -1,24 +1,35 @@
-:- module(omegaclaw_ext, []).
 :- catch(use_module(library(http/websocket)), _, true).
 :- catch(use_module(library(readutil)), _, true).
 
-:- initialization(init_ws).
-
-init_ws :-
-    catch(do_init_ws, _, true).
-
-do_init_ws :-
-    getenv('WS_PORT', PortStr),
-    atom_number(PortStr, Port),
-    atomic_list_concat(['ws://127.0.0.1:', Port], URL),
-    ws_open(URL, WS, []),
-    nb_setval(ws_connection, WS),
-    nb_setval(ws_msg_id, 0).
+% Lazy initialization - just marks ready, actual connection on first ws_call
+init_ws :- true.
 
 ws_connected :-
-    nb_current(ws_connection, _).
+    nb_current(ws_connection, _), !.
+
+% Lazy WS connection with retry on first call
+maybe_init_ws :-
+    ws_connected, !.
+maybe_init_ws :-
+    \+ getenv('WS_PORT', _), !.
+maybe_init_ws :-
+    getenv('WS_PORT', PortStr), !,
+    atom_number(PortStr, Port),
+    atomic_list_concat(['ws://127.0.0.1:', Port], URL),
+    (   catch(ws_open(URL, WS, []), _, fail)
+    ->  nb_setval(ws_connection, WS),
+        nb_setval(ws_msg_id, 0),
+        !
+    ;   sleep(0.5),
+        fail
+    ),
+    !.
+maybe_init_ws :-
+    sleep(0.5),
+    maybe_init_ws.
 
 ws_call(Method, Params, Result) :-
+    maybe_init_ws, !,
     ws_connected, !,
     nb_getval(ws_connection, WS),
     nb_getval(ws_msg_id, Id0),
@@ -49,23 +60,10 @@ ws_call(_, _, []).
 'channel-send'(Msg, _) :-
     ws_call("channel_send", _{msg:Msg}, _).
 
-'around-time'(Time, MaxLines, Result) :-
-    catch((
-        read_file_to_string('repos/OmegaClaw-Core/memory/history.metta', Content, []),
-        split_string(Content, "\n", "\n", Lines),
-        reverse(Lines, RevLines),
-        length(RevLines, Total),
-        MinTake is min(Total, MaxLines),
-        length(TakeList, MinTake),
-        append(TakeList, _, RevLines),
-        reverse(TakeList, Selected),
-        atomic_list_concat(Selected, "\n", Result)
-    ), _, Result = "").
-
 'balance-parens'(Str, Str).
 
 'irc-connect'(Server, Port, Nick, Channel, AuthSecret, _) :-
-    ( nonvar(AuthSecret), AuthSecret \== (empty) -> Secret = AuthSecret
+    ( nonvar(AuthSecret), AuthSecret \== empty -> Secret = AuthSecret
     ; getenv('OMEGACLAW_AUTH_SECRET', Secret) -> true
     ; Secret = '' ),
     ws_call("irc_connect", _{server:Server, port:Port, nick:Nick, channel:Channel, auth_secret:Secret}, _).

@@ -18,13 +18,20 @@ process_metta_string(S, Results, Space) :- string_codes(S, Cs),
 parse_form(form(S), parsed(T, S, Term)) :- sread(S, Term),
                                         ( Term = [=, [F|W], _], atom(F) -> register_fun_arity(F, W), T=function
                                                                          ; T=expression ).
-parse_form(runnable(S), parsed(runnable, S, Term)) :- sread(S, Term).
+parse_form(runnable(S), parsed(T, S, Term)) :- sread(S, Term),
+    ( Term = [=, [F|W], _], atom(F) -> register_fun_arity(F, W), T=function
+                                       ; T=runnable ).
 
 process_form(Space, parsed(expression, _, Term), []) :- 'add-atom'(Space, Term, true),
-                                                maybe_print_metta_sexpr(Term).
-process_form(_, parsed(runnable, FormStr, Term), Result) :- translate_expr([collapse, Term], Goals, Result),
-                                                    maybe_print_metta_runnable(FormStr, Goals),
-                                                    call_goals(Goals).
+                                                 maybe_print_metta_sexpr(Term).
+process_form(_, parsed(runnable, FormStr, Term), Result) :-
+    with_output_to(user_error, format("!!!!! runnable form: Term=~w~n", [Term])),
+    ( translate_expr([collapse, Term], Goals, Result) ->
+        with_output_to(user_error, format("!!!!! translate_expr OK, Goals=~w, Result=~w~n", [Goals, Result])),
+        maybe_print_metta_runnable(FormStr, Goals),
+        call_goals(Goals)
+    ; with_output_to(user_error, format("!!!!! translate_expr FAILED for Term=~w~n", [Term])),
+      Result = [] ).
 process_form(Space, parsed(function, FormStr, Term), []) :- add_sexp(Space, Term),
                                                       translate_clause(Term, Clause),
                                                       assert_clause_with_tracking(Clause, Term, Ref),
