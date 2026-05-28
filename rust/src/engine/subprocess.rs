@@ -25,26 +25,27 @@ impl SubprocessManager {
     pub fn new(config: EngineConfig) -> Self {
         Self { config, stderr: Arc::new(Mutex::new(Vec::new())) }
     }
-    
+
     pub fn spawn(&self) -> Result<SpawnHandle, Error> {
         eprintln!("[DBG] SubprocessManager::spawn called, swipl_path={:?}", self.config.swipl_path);
         check_swipl_version(&self.config.swipl_path, (9, 3))?;
         eprintln!("[DBG] swipl version check OK");
-        
+
         let src_dir = &self.config.src_dir;
         eprintln!("[DBG] src_dir={:?}", src_dir);
-        
+
         let server = build_server_source(src_dir, self.config.verbose)?;
         eprintln!("[DBG] server source built, length={}", server.len());
         let tmp = tempfile::Builder::new()
-            .prefix("petta_srv_").suffix(".pl").tempfile()
+            .prefix("petta_srv_")
+            .suffix(".pl")
+            .tempfile()
             .map_err(|e| Error::WriteError(e.to_string()))?;
         eprintln!("[DBG] temp file created: {:?}", tmp.path());
-        
-        std::fs::write(tmp.path(), &server)
-            .map_err(|e| Error::WriteError(e.to_string()))?;
+
+        std::fs::write(tmp.path(), &server).map_err(|e| Error::WriteError(e.to_string()))?;
         eprintln!("[DBG] temp file written");
-        
+
         let mut cmd = Command::new(&self.config.swipl_path);
         cmd.args(["-q", "-t", "halt", tmp.path().to_str().unwrap()]);
         eprintln!("[DBG] command: {:?}", cmd);
@@ -66,7 +67,7 @@ impl SubprocessManager {
             .spawn()
             .map_err(|e| Error::SpawnError(e.to_string()))?;
         eprintln!("[DBG] child spawned, pid={}", child.id());
-        
+
         let stderr = child.stderr.take();
         let stderr_out = self.stderr.clone();
         std::thread::spawn(move || {
@@ -74,19 +75,21 @@ impl SubprocessManager {
             if let Some(mut s) = stderr {
                 let mut buf = [0u8; 4096];
                 while let Ok(n) = s.read(&mut buf) {
-                    if n == 0 { break; }
+                    if n == 0 {
+                        break;
+                    }
                     let _ = stderr_out.lock().map(|mut g| g.extend_from_slice(&buf[..n]));
                 }
             }
             eprintln!("[DBG] stderr reader thread exiting");
         });
-        
+
         eprintln!("[DBG] taking stdin/stdout from child");
         let stdin = child.stdin.take().ok_or_else(|| Error::SpawnError("no stdin".into()))?;
         let stdout = BufReader::new(
-            child.stdout.take().ok_or_else(|| Error::SpawnError("no stdout".into()))?
+            child.stdout.take().ok_or_else(|| Error::SpawnError("no stdout".into()))?,
         );
-        
+
         std::mem::forget(tmp);
         eprintln!("[DBG] spawn returning Ok");
         Ok((child, stdin, stdout, self.stderr.clone()))
@@ -97,9 +100,11 @@ impl SubprocessManager {
 pub fn wait_for_ready<R: Read>(reader: &mut R) -> Result<(), Error> {
     loop {
         let mut b = [0u8; 1];
-        reader.read_exact(&mut b).map_err(|e| {
-            Error::Protocol(format!("read ready signal: {e}"))
-        })?;
-        if b[0] == 0xFF { return Ok(()); }
+        reader
+            .read_exact(&mut b)
+            .map_err(|e| Error::Protocol(format!("read ready signal: {e}")))?;
+        if b[0] == 0xFF {
+            return Ok(());
+        }
     }
 }

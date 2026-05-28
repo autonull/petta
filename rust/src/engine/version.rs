@@ -10,11 +10,11 @@ pub fn check_swipl_version(path: &Path, min: (u32, u32)) -> Result<(), super::Pe
     let output = Command::new(path).arg("--version").output().map_err(|_| {
         super::PeTTaError::SwiplVersion(format!("swipl not found at {}", path.display()))
     })?;
-    
+
     if !output.status.success() {
         return Err(super::PeTTaError::SwiplVersion("version check failed".into()));
     }
-    
+
     let vs = String::from_utf8_lossy(&output.stdout);
     for part in vs.split_whitespace() {
         let p: Vec<&str> = part.split('.').collect();
@@ -23,9 +23,10 @@ pub fn check_swipl_version(path: &Path, min: (u32, u32)) -> Result<(), super::Pe
                 if ma > min.0 || (ma == min.0 && mi >= min.1) {
                     return Ok(());
                 }
-                return Err(super::PeTTaError::SwiplVersion(
-                    format!("need {}.{} found {}.{}", min.0, min.1, ma, mi)
-                ));
+                return Err(super::PeTTaError::SwiplVersion(format!(
+                    "need {}.{} found {}.{}",
+                    min.0, min.1, ma, mi
+                )));
             }
         }
     }

@@ -19,20 +19,20 @@
 //! # Ok::<_, petta::Error>(())
 //! ```
 
-pub mod swipl;
 #[cfg(feature = "mork")]
 pub mod mork;
+pub mod swipl;
 
-pub use swipl::SwiplBackend;
 #[cfg(feature = "mork")]
 pub use mork::MorkBackend;
+pub use swipl::SwiplBackend;
 
 // Re-export core types
 pub use crate::core::{Backend, BackendCapabilities};
 
-use std::collections::HashMap;
-use crate::engine::EngineConfig;
 use crate::Error;
+use crate::engine::EngineConfig;
+use std::collections::HashMap;
 
 /// Backend type enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,9 +51,7 @@ pub struct BackendRegistry {
 impl BackendRegistry {
     /// Create new empty registry
     pub fn new() -> Self {
-        Self {
-            backends: HashMap::new(),
-        }
+        Self { backends: HashMap::new() }
     }
 
     /// Auto-select best available backend

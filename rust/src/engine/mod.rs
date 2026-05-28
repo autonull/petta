@@ -46,16 +46,19 @@ mod version;
 
 // Core types
 pub use backend::BackendImpl;
-pub use backends::SwiplBackend;
 #[cfg(feature = "mork")]
 pub use backends::MorkBackend;
+pub use backends::SwiplBackend;
 pub use config::{Backend, EngineConfig, EngineConfigBuilder};
 pub use errors::{BackendError, Error, parse_backend_error};
 
 // Re-export for backward compatibility
 #[deprecated(since = "0.5.0", note = "use Error instead")]
 pub use errors::Error as PeTTaError;
-pub use formatters::{create_formatter, CompactFormatter, JsonFormatter, OutputFormatter, PrettyFormatter, SExprFormatter};
+pub use formatters::{
+    CompactFormatter, JsonFormatter, OutputFormatter, PrettyFormatter, SExprFormatter,
+    create_formatter,
+};
 pub use version::{MIN_SWIPL_VERSION, swipl_available};
 
 // Internal imports
@@ -83,9 +86,9 @@ impl BackendState {
             #[cfg(feature = "mork")]
             Backend::Mork => Ok(Self::Mork(backends::MorkBackend::new())),
             #[cfg(not(feature = "mork"))]
-            Backend::Mork => Err(Error::Mork(
-                "Mork backend not available (requires nightly Rust)".into()
-            )),
+            Backend::Mork => {
+                Err(Error::Mork("Mork backend not available (requires nightly Rust)".into()))
+            }
             Backend::Swipl => backends::SwiplBackend::new(config).map(Self::Swipl),
         }
     }
@@ -136,7 +139,11 @@ impl BackendState {
     }
 
     /// Load single file
-    fn load_metta_file(&mut self, path: &Path, config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
+    fn load_metta_file(
+        &mut self,
+        path: &Path,
+        config: &EngineConfig,
+    ) -> Result<Vec<MettaResult>, Error> {
         match self {
             #[cfg(feature = "mork")]
             Self::Mork(backend) => backend.load_metta_file(path, config),
@@ -145,7 +152,11 @@ impl BackendState {
     }
 
     /// Load multiple files
-    fn load_metta_files(&mut self, paths: &[&Path], config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
+    fn load_metta_files(
+        &mut self,
+        paths: &[&Path],
+        config: &EngineConfig,
+    ) -> Result<Vec<MettaResult>, Error> {
         match self {
             #[cfg(feature = "mork")]
             Self::Mork(backend) => backend.load_metta_files(paths, config),
@@ -154,7 +165,11 @@ impl BackendState {
     }
 
     /// Process MeTTa string
-    fn process_metta_string(&mut self, code: &str, config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
+    fn process_metta_string(
+        &mut self,
+        code: &str,
+        config: &EngineConfig,
+    ) -> Result<Vec<MettaResult>, Error> {
         match self {
             #[cfg(feature = "mork")]
             Self::Mork(backend) => backend.process_metta_string(code, config),
@@ -221,17 +236,23 @@ impl PeTTaEngine {
             eprintln!("[DBG] spawning WS extension server...");
             let _ = std::fs::write("/tmp/ws_server_starting.txt", "WS server starting");
             match crate::ws_ext::WsExtensionServer::spawn(
-                "repos/OmegaClaw-Core/memory/vector_store.json".into()
+                "repos/OmegaClaw-Core/memory/vector_store.json".into(),
             ) {
                 Ok(server) => {
                     eprintln!("[DBG] WS extension server ready on port {}", server.port);
-                    let _ = std::fs::write("/tmp/ws_server_ready.txt", format!("WS server ready on port {}", server.port));
+                    let _ = std::fs::write(
+                        "/tmp/ws_server_ready.txt",
+                        format!("WS server ready on port {}", server.port),
+                    );
                     config.ws_port = Some(server.port);
                     Some(server)
                 }
                 Err(e) => {
                     eprintln!("[DBG] WS extension server failed: {}", e);
-                    let _ = std::fs::write("/tmp/ws_server_failed.txt", format!("WS server failed: {}", e));
+                    let _ = std::fs::write(
+                        "/tmp/ws_server_failed.txt",
+                        format!("WS server failed: {}", e),
+                    );
                     eprintln!("Warning: WS extension server failed to start: {}", e);
                     None
                 }

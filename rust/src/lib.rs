@@ -76,12 +76,12 @@
 #![warn(missing_docs)]
 
 // Core modules
+pub mod core;
 pub mod engine;
+pub mod optimize;
 pub mod parser;
 pub mod utils;
-pub mod optimize;
 pub mod values;
-pub mod core;
 
 #[cfg(feature = "mork")]
 pub mod mork;
@@ -94,27 +94,24 @@ pub mod backends;
 mod cli;
 mod repl;
 
+pub mod differential;
+mod gxhash;
+mod observability;
+mod profiler;
+mod reliability;
+mod viz;
 #[cfg(feature = "websocket")]
 pub mod ws_ext;
-mod profiler;
-mod observability;
-mod reliability;
-pub mod differential;
-mod viz;
-mod gxhash;
 
 // ============================================================================
 // Core Engine Exports
 // ============================================================================
 
-pub use engine::{
-Backend, BackendError, EngineConfig, EngineConfigBuilder,
-Error, PeTTaEngine,
-};
+pub use engine::{Backend, BackendError, EngineConfig, EngineConfigBuilder, Error, PeTTaEngine};
 pub use values::{MettaResult, MettaValue};
 
 // Ergonomic API (re-export from api module)
-pub use api::{PeTTa, PeTTaBuilder, PeTTaEngine as ApiEngine, EngineConfig as ApiEngineConfig};
+pub use api::{EngineConfig as ApiEngineConfig, PeTTa, PeTTaBuilder, PeTTaEngine as ApiEngine};
 
 // Deprecated exports for backward compatibility
 #[deprecated(since = "0.5.0", note = "use Error instead")]
@@ -125,8 +122,8 @@ pub use engine::Error as PeTTaError;
 // ============================================================================
 
 pub use engine::{
-    create_formatter, CompactFormatter, JsonFormatter, OutputFormatter,
-    PrettyFormatter, SExprFormatter,
+    CompactFormatter, JsonFormatter, OutputFormatter, PrettyFormatter, SExprFormatter,
+    create_formatter,
 };
 
 // ============================================================================
@@ -134,14 +131,14 @@ pub use engine::{
 // ============================================================================
 
 pub use cli::{BackendArg, Cli, OutputFormat};
-pub use repl::{run_repl, ReplConfig};
+pub use repl::{ReplConfig, run_repl};
 
 // ============================================================================
 // Profiling and Monitoring
 // ============================================================================
 
-pub use profiler::{ProfileStats, QueryProfile};
 pub use observability::{Metrics, ObservabilityConfig, ServiceStatus};
+pub use profiler::{ProfileStats, QueryProfile};
 pub use reliability::{CircuitBreaker, CircuitState, ReliabilityConfig};
 
 // ============================================================================
@@ -149,8 +146,8 @@ pub use reliability::{CircuitBreaker, CircuitState, ReliabilityConfig};
 // ============================================================================
 
 pub use differential::{
-    assert_backend_parity, compare_results, BackendResult, DifferentialTest,
-    ParityTestSuite, TestSuiteResult,
+    BackendResult, DifferentialTest, ParityTestSuite, TestSuiteResult, assert_backend_parity,
+    compare_results,
 };
 
 // ============================================================================
@@ -178,5 +175,5 @@ pub mod parse {
 
 /// Utility functions
 pub mod util {
-    pub use crate::utils::{format_duration_ms, find_best_match, levenshtein, truncate};
+    pub use crate::utils::{find_best_match, format_duration_ms, levenshtein, truncate};
 }

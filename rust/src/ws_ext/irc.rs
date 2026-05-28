@@ -133,7 +133,8 @@ fn irc_loop(server: String, port: u16, nick: String, channel: String, _auth_secr
                     let nick_from = prefix.split('!').next().unwrap_or("");
                     if let Some((_, msg_text)) = trailing.split_once(" :") {
                         let mut s = state().lock().unwrap();
-                        let result = is_allowed_msg(&s.auth_secret, &s.authed_nick, nick_from, msg_text);
+                        let result =
+                            is_allowed_msg(&s.auth_secret, &s.authed_nick, nick_from, msg_text);
                         match result {
                             "allow" => {
                                 s.messages.push_back(format!("{}: {}", nick_from, msg_text));
@@ -185,11 +186,7 @@ pub fn connect(
     eprintln!("[IRC] connect called: srv={} port={} nick={} ch={}", server, port, nick, channel);
 
     let nick = format!("{}{}", nick, rand_suffix());
-    let ch = if channel.starts_with('#') {
-        channel.to_string()
-    } else {
-        format!("#{}", channel)
-    };
+    let ch = if channel.starts_with('#') { channel.to_string() } else { format!("#{}", channel) };
 
     {
         let mut s = state().lock().unwrap();

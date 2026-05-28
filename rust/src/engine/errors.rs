@@ -47,35 +47,23 @@ pub enum Error {
     Config(String),
 
     #[error("execution failed: {reason}")]
-    Execution {
-        reason: String,
-        context: Option<String>,
-    },
+    Execution { reason: String, context: Option<String> },
 }
 
 /// Backend-specific error types with rich context.
 #[derive(Error, Debug, Clone)]
 pub enum BackendError {
     #[error("undefined function `{name}/{arity}`{suggestion}", 
-            suggestion = if let Some(s) = suggestion { 
+            suggestion = if let Some(s) = suggestion {
                 format!(" (did you mean `{s}`?)") 
             } else { String::new() })]
-    Undefined {
-        name: String,
-        arity: usize,
-        suggestion: Option<String>,
-    },
+    Undefined { name: String, arity: usize, suggestion: Option<String> },
 
     #[error("type error: expected {expected}, found {found}")]
-    TypeMismatch {
-        expected: String,
-        found: String,
-    },
+    TypeMismatch { expected: String, found: String },
 
     #[error("syntax error: {detail}")]
-    Syntax {
-        detail: String,
-    },
+    Syntax { detail: String },
 
     #[error("unbound variable in query")]
     UnboundVar,
@@ -84,16 +72,10 @@ pub enum BackendError {
     Uninstantiated,
 
     #[error("permission denied: {op} on {target}")]
-    Permission {
-        op: String,
-        target: String,
-    },
+    Permission { op: String, target: String },
 
     #[error("{kind} '{term}' does not exist")]
-    Existence {
-        kind: String,
-        term: String,
-    },
+    Existence { kind: String, term: String },
 
     #[error("stack overflow: maximum stack depth exceeded")]
     StackOverflow,
@@ -125,17 +107,22 @@ fn parse_json(raw: &str) -> Option<BackendError> {
             if let (Some(n), Some(a)) = (msg("name"), msg("name_arity")) {
                 if let Ok(arity) = a.parse() {
                     return Some(BackendError::Undefined {
-                        name: n, arity, suggestion: msg("suggestion")
+                        name: n,
+                        arity,
+                        suggestion: msg("suggestion"),
                     });
                 }
             }
             if let Some(f) = msg("functor") {
                 if f.contains("syntax_error") {
-                    return Some(BackendError::Syntax { detail: msg("message").unwrap_or_default() });
+                    return Some(BackendError::Syntax {
+                        detail: msg("message").unwrap_or_default(),
+                    });
                 }
                 if f.contains("existence_error") {
                     return Some(BackendError::Existence {
-                        kind: f, term: msg("raw").unwrap_or_default()
+                        kind: f,
+                        term: msg("raw").unwrap_or_default(),
                     });
                 }
             }
@@ -166,14 +153,10 @@ fn parse_error_kind(raw: &str) -> Option<BackendError> {
         return Some(BackendError::StackOverflow);
     }
     if raw.contains("permission_error") {
-        return Some(BackendError::Permission {
-            op: "unknown".into(), target: "unknown".into()
-        });
+        return Some(BackendError::Permission { op: "unknown".into(), target: "unknown".into() });
     }
     if raw.contains("existence_error") {
-        return Some(BackendError::Existence {
-            kind: "unknown".into(), term: "unknown".into()
-        });
+        return Some(BackendError::Existence { kind: "unknown".into(), term: "unknown".into() });
     }
     None
 }

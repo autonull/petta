@@ -4,38 +4,59 @@ fn api_key(env_var: &str, name: &str) -> Result<String, String> {
     std::env::var(env_var).map_err(|_| format!("{} not configured (set {})", name, env_var))
 }
 
-async fn openai_compatible(base_url: &str, model: &str, api_key: &str, prompt: &str, max_tokens: u32) -> Result<String, String> {
+async fn openai_compatible(
+    base_url: &str,
+    model: &str,
+    api_key: &str,
+    prompt: &str,
+    max_tokens: u32,
+) -> Result<String, String> {
     let client = reqwest::Client::new();
     let body = serde_json::json!({
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens,
     });
-    let resp = client.post(format!("{}/chat/completions", base_url))
+    let resp = client
+        .post(format!("{}/chat/completions", base_url))
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
         .json(&body)
-        .send().await.map_err(|e| format!("LLM request failed: {}", e))?;
+        .send()
+        .await
+        .map_err(|e| format!("LLM request failed: {}", e))?;
     let val: Value = resp.json().await.map_err(|e| format!("LLM response parse: {}", e))?;
-    val["choices"][0]["message"]["content"].as_str().map(String::from)
+    val["choices"][0]["message"]["content"]
+        .as_str()
+        .map(String::from)
         .ok_or_else(|| format!("LLM response missing content: {}", val))
 }
 
-async fn anthropic_call(api_key: &str, model: &str, prompt: &str, max_tokens: u32) -> Result<String, String> {
+async fn anthropic_call(
+    api_key: &str,
+    model: &str,
+    prompt: &str,
+    max_tokens: u32,
+) -> Result<String, String> {
     let client = reqwest::Client::new();
     let body = serde_json::json!({
         "model": model,
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}],
     });
-    let resp = client.post("https://api.anthropic.com/v1/messages")
+    let resp = client
+        .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")
         .header("Content-Type", "application/json")
         .json(&body)
-        .send().await.map_err(|e| format!("Anthropic request failed: {}", e))?;
+        .send()
+        .await
+        .map_err(|e| format!("Anthropic request failed: {}", e))?;
     let val: Value = resp.json().await.map_err(|e| format!("Anthropic response parse: {}", e))?;
-    val["content"][0]["text"].as_str().map(String::from)
+    val["content"][0]["text"]
+        .as_str()
+        .map(String::from)
         .ok_or_else(|| format!("Anthropic response missing text: {}", val))
 }
 
@@ -54,13 +75,18 @@ async fn asi_one_call(api_key: &str, prompt: &str, max_tokens: u32) -> Result<St
         "max_tokens": max_tokens,
         "extra_body": {"enable_thinking": true, "thinking_budget": 6000},
     });
-    let resp = client.post("https://api.asi1.ai/v1/chat/completions")
+    let resp = client
+        .post("https://api.asi1.ai/v1/chat/completions")
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
         .json(&body)
-        .send().await.map_err(|e| format!("ASIOne request failed: {}", e))?;
+        .send()
+        .await
+        .map_err(|e| format!("ASIOne request failed: {}", e))?;
     let val: Value = resp.json().await.map_err(|e| format!("ASIOne response parse: {}", e))?;
-    val["choices"][0]["message"]["content"].as_str().map(String::from)
+    val["choices"][0]["message"]["content"]
+        .as_str()
+        .map(String::from)
         .ok_or_else(|| format!("ASIOne response missing content: {}", val))
 }
 
@@ -76,11 +102,19 @@ pub async fn call(params: &Value) -> Result<String, String> {
         }
         "OpenAI" => {
             let key = api_key("OPENAI_API_KEY", "OpenAI")?;
-            openai_compatible("https://api.openai.com/v1", "gpt-5.4", &key, prompt, max_tokens).await
+            openai_compatible("https://api.openai.com/v1", "gpt-5.4", &key, prompt, max_tokens)
+                .await
         }
         "ASICloud" => {
             let key = api_key("ASI_API_KEY", "ASICloud")?;
-            openai_compatible("https://inference.asicloud.cudos.org/v1", "minimax/minimax-m2.5", &key, prompt, max_tokens).await
+            openai_compatible(
+                "https://inference.asicloud.cudos.org/v1",
+                "minimax/minimax-m2.5",
+                &key,
+                prompt,
+                max_tokens,
+            )
+            .await
         }
         "ASIOne" => {
             let key = api_key("ASIONE_API_KEY", "ASIOne")?;
@@ -91,13 +125,19 @@ pub async fn call(params: &Value) -> Result<String, String> {
             let base = std::env::var("LLM_SERVER_LOCAL_URL")
                 .unwrap_or_else(|_| "http://localhost:11434".into());
             let base_url = format!("{}/v1", base.trim_end_matches('/'));
-            let model = std::env::var("OLLAMA_MODEL")
-                .unwrap_or_else(|_| "qwen3.5:9b".into());
+            let model = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3.5:9b".into());
             openai_compatible(&base_url, &model, &key, prompt, max_tokens).await
         }
         "OpenRouter" => {
             let key = api_key("OPENROUTER_API_KEY", "OpenRouter")?;
-            openai_compatible("https://openrouter.ai/api/v1", "z-ai/glm-5.1", &key, prompt, max_tokens).await
+            openai_compatible(
+                "https://openrouter.ai/api/v1",
+                "z-ai/glm-5.1",
+                &key,
+                prompt,
+                max_tokens,
+            )
+            .await
         }
         other => Err(format!("Unknown LLM provider '{}'", other)),
     }

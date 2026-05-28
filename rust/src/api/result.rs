@@ -3,8 +3,8 @@
 //! This module provides structured types for execution results,
 //! offering rich information about MeTTa execution outcomes.
 
-use std::time::Duration;
 use crate::values::MettaValue;
+use std::time::Duration;
 
 // Re-export MettaResult from values module
 pub use crate::values::MettaResult;
@@ -21,10 +21,7 @@ pub struct Warning {
 impl Warning {
     /// Create a new warning
     pub fn new<S: Into<String>>(message: S) -> Self {
-        Self {
-            message: message.into(),
-            suggestion: None,
-        }
+        Self { message: message.into(), suggestion: None }
     }
 
     /// Add a suggestion to the warning
@@ -48,23 +45,14 @@ pub struct ExecutionResult {
 impl ExecutionResult {
     /// Create new execution result from raw results
     pub fn from_results(results: Vec<MettaResult>) -> Self {
-        let values: Vec<MettaValue> = results.into_iter()
-            .filter_map(|r| MettaValue::parse(&r.value))
-            .collect();
-        Self {
-            stats: ExecutionStats::default(),
-            values,
-            warnings: Vec::new(),
-        }
+        let values: Vec<MettaValue> =
+            results.into_iter().filter_map(|r| MettaValue::parse(&r.value)).collect();
+        Self { stats: ExecutionStats::default(), values, warnings: Vec::new() }
     }
 
     /// Create execution result with custom stats and warnings
     pub fn new(values: Vec<MettaValue>, stats: ExecutionStats, warnings: Vec<Warning>) -> Self {
-        Self {
-            values,
-            stats,
-            warnings,
-        }
+        Self { values, stats, warnings }
     }
 
     /// Get first result value
@@ -74,9 +62,7 @@ impl ExecutionResult {
 
     /// Get first result as string
     pub fn first_as_string(&self) -> Option<String> {
-        self.values.first().and_then(|v| {
-            v.as_str().map(|s| s.to_string())
-        })
+        self.values.first().and_then(|v| v.as_str().map(|s| s.to_string()))
     }
 
     /// Get first result as integer
@@ -176,10 +162,6 @@ impl ExecutionStats {
 
     /// Create stats with explicit values
     pub fn with_values(duration: Duration, reductions: usize, allocations: usize) -> Self {
-        Self {
-            duration,
-            reductions,
-            allocations,
-        }
+        Self { duration, reductions, allocations }
     }
 }

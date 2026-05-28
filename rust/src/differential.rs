@@ -3,8 +3,8 @@
 //! This module provides tools to ensure that different backends
 //! produce identical results for the same input.
 
-use crate::engine::{Backend, EngineConfig};
 use crate::PeTTaEngine;
+use crate::engine::{Backend, EngineConfig};
 use std::path::Path;
 
 /// Result of running a test on a backend
@@ -25,11 +25,7 @@ pub struct DifferentialTest {
 
 impl DifferentialTest {
     pub fn new(name: &'static str, code: &'static str) -> Self {
-        Self {
-            name,
-            metta_code: code.to_string(),
-            expected_success: true,
-        }
+        Self { name, metta_code: code.to_string(), expected_success: true }
     }
 
     pub fn expect_failure(mut self) -> Self {
@@ -47,9 +43,7 @@ pub fn run_differential_test(
     let mut results = Vec::new();
 
     for &backend in backends {
-        let config = EngineConfig::new(project_root)
-            .backend(backend)
-            .verbose(false);
+        let config = EngineConfig::new(project_root).backend(backend).verbose(false);
 
         let mut engine = match PeTTaEngine::with_config(&config) {
             Ok(e) => e,
@@ -69,11 +63,8 @@ pub fn run_differential_test(
 
         let result = match output {
             Ok(results) => {
-                let output_str = results
-                    .iter()
-                    .map(|r| r.value.clone())
-                    .collect::<Vec<_>>()
-                    .join("\n");
+                let output_str =
+                    results.iter().map(|r| r.value.clone()).collect::<Vec<_>>().join("\n");
                 Ok(output_str)
             }
             Err(e) => Err(format!("{:?}", e)),
@@ -107,20 +98,14 @@ pub fn compare_results(results: &[BackendResult]) -> bool {
 }
 
 /// Assert that all backends produce the same result
-pub fn assert_backend_parity(
-    test: &DifferentialTest,
-    project_root: &Path,
-) -> Result<(), String> {
+pub fn assert_backend_parity(test: &DifferentialTest, project_root: &Path) -> Result<(), String> {
     let backends = vec![Backend::Mork, Backend::Swipl];
     let results = run_differential_test(test, &backends, project_root)?;
 
     if !compare_results(&results) {
         let mut msg = format!("Backend parity failed for test '{}':\n", test.name);
         for result in &results {
-            msg.push_str(&format!(
-                "  {:?}: {:?}\n",
-                result.backend, result.output
-            ));
+            msg.push_str(&format!("  {:?}: {:?}\n", result.backend, result.output));
         }
         return Err(msg);
     }
@@ -136,10 +121,7 @@ pub struct ParityTestSuite {
 
 impl ParityTestSuite {
     pub fn new(project_root: &Path) -> Self {
-        Self {
-            tests: Vec::new(),
-            project_root: project_root.to_path_buf(),
-        }
+        Self { tests: Vec::new(), project_root: project_root.to_path_buf() }
     }
 
     pub fn add_test(&mut self, test: DifferentialTest) {
@@ -161,11 +143,7 @@ impl ParityTestSuite {
             }
         }
 
-        TestSuiteResult {
-            passed,
-            failed,
-            failures,
-        }
+        TestSuiteResult { passed, failed, failures }
     }
 }
 
@@ -207,11 +185,7 @@ mod tests {
         let test = DifferentialTest::new("simple_addition", "!(+ 1 2)");
         let result = assert_backend_parity(&test, project_root);
 
-        assert!(
-            result.is_ok(),
-            "Backend parity test failed: {:?}",
-            result.err().unwrap()
-        );
+        assert!(result.is_ok(), "Backend parity test failed: {:?}", result.err().unwrap());
     }
 
     #[test]

@@ -126,10 +126,7 @@ impl EngineConfig {
     ///
     /// Sets the source directory to `{project_root}/prolog`
     pub fn new(project_root: &Path) -> Self {
-        Self {
-            src_dir: project_root.join("prolog"),
-            ..Default::default()
-        }
+        Self { src_dir: project_root.join("prolog"), ..Default::default() }
     }
 
     /// Create a new configuration builder
@@ -295,11 +292,8 @@ mod tests {
 
     #[test]
     fn test_builder_pattern() {
-        let config = EngineConfig::builder()
-            .backend(Backend::Mork)
-            .verbose(true)
-            .max_restarts(5)
-            .build();
+        let config =
+            EngineConfig::builder().backend(Backend::Mork).verbose(true).max_restarts(5).build();
 
         assert_eq!(config.backend, Backend::Mork);
         assert!(config.verbose);
@@ -315,9 +309,7 @@ mod tests {
 
     #[test]
     fn test_config_methods() {
-        let config = EngineConfig::default()
-            .verbose(true)
-            .max_restarts(10);
+        let config = EngineConfig::default().verbose(true).max_restarts(10);
 
         assert!(config.verbose);
         assert_eq!(config.max_restarts, 10);
@@ -325,6 +317,8 @@ mod tests {
 
     #[test]
     fn test_backend_methods() {
-        assert!(EngineConfig::default().backend.is_mork() || EngineConfig::default().backend.is_swipl());
+        assert!(
+            EngineConfig::default().backend.is_mork() || EngineConfig::default().backend.is_swipl()
+        );
     }
 }

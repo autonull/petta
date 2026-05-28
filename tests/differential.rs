@@ -18,11 +18,7 @@ fn test_differential_simple_arithmetic() {
     suite.add_test(test);
 
     let result = suite.run_all();
-    assert!(
-        result.failed == 0,
-        "Differential test failed: {}",
-        result
-    );
+    assert!(result.failed == 0, "Differential test failed: {}", result);
 }
 
 #[test]
@@ -36,11 +32,7 @@ fn test_differential_boolean_logic() {
     suite.add_test(test);
 
     let result = suite.run_all();
-    assert!(
-        result.failed == 0,
-        "Boolean logic test failed: {}",
-        result
-    );
+    assert!(result.failed == 0, "Boolean logic test failed: {}", result);
 }
 
 #[test]
@@ -61,11 +53,7 @@ fn test_differential_comparisons() {
     }
 
     let result = suite.run_all();
-    assert!(
-        result.failed == 0,
-        "Comparison tests failed: {}",
-        result
-    );
+    assert!(result.failed == 0, "Comparison tests failed: {}", result);
 }
 
 #[test]
@@ -88,9 +76,5 @@ fn test_differential_fibonacci() {
     suite.add_test(test);
 
     let result = suite.run_all();
-    assert!(
-        result.failed == 0,
-        "Fibonacci test failed: {}",
-        result
-    );
+    assert!(result.failed == 0, "Fibonacci test failed: {}", result);
 }

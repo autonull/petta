@@ -25,37 +25,27 @@ enum MettaValueInner {
 impl MettaValue {
     /// Create a new string value
     pub fn string<S: Into<String>>(s: S) -> Self {
-        Self {
-            inner: MettaValueInner::String(s.into()),
-        }
+        Self { inner: MettaValueInner::String(s.into()) }
     }
 
     /// Create a new integer value
     pub fn int(i: i64) -> Self {
-        Self {
-            inner: MettaValueInner::Int(i),
-        }
+        Self { inner: MettaValueInner::Int(i) }
     }
 
     /// Create a new float value
     pub fn float(f: f64) -> Self {
-        Self {
-            inner: MettaValueInner::Float(f),
-        }
+        Self { inner: MettaValueInner::Float(f) }
     }
 
     /// Create a new boolean value
     pub fn bool(b: bool) -> Self {
-        Self {
-            inner: MettaValueInner::Bool(b),
-        }
+        Self { inner: MettaValueInner::Bool(b) }
     }
 
     /// Create a new expression value
     pub fn expression<S: Into<String>>(expr: S) -> Self {
-        Self {
-            inner: MettaValueInner::Expression(expr.into()),
-        }
+        Self { inner: MettaValueInner::Expression(expr.into()) }
     }
 
     /// Check if value is a string
@@ -180,9 +170,7 @@ pub struct MettaResult {
 impl MettaResult {
     /// Create new result from value
     pub fn new<V: Into<MettaValue>>(value: V) -> Self {
-        Self {
-            value: value.into(),
-        }
+        Self { value: value.into() }
     }
 
     /// Get the value

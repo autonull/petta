@@ -24,10 +24,7 @@ where
     V: Clone,
 {
     pub fn new(capacity: usize) -> Self {
-        Self {
-            capacity,
-            data: indexmap::IndexMap::with_capacity(capacity),
-        }
+        Self { capacity, data: indexmap::IndexMap::with_capacity(capacity) }
     }
 
     pub fn get(&mut self, key: &K) -> Option<V>
@@ -81,10 +78,7 @@ pub struct StringInterner {
 
 impl StringInterner {
     pub fn new() -> Self {
-        Self {
-            strings: std::collections::HashMap::with_capacity(1024),
-            next_id: 0,
-        }
+        Self { strings: std::collections::HashMap::with_capacity(1024), next_id: 0 }
     }
 
     pub fn intern(&mut self, s: &str) -> u32 {
@@ -98,10 +92,7 @@ impl StringInterner {
     }
 
     pub fn get(&self, id: u32) -> Option<&str> {
-        self.strings
-            .iter()
-            .find(|&(_, &v)| v == id)
-            .map(|(k, _)| k.as_str())
+        self.strings.iter().find(|&(_, &v)| v == id).map(|(k, _)| k.as_str())
     }
 
     pub fn clear(&mut self) {
@@ -140,7 +131,7 @@ mod tests {
         let id1 = interner.intern("hello");
         let id2 = interner.intern("world");
         let id3 = interner.intern("hello");
-        
+
         assert_eq!(id1, id3);
         assert_ne!(id1, id2);
     }

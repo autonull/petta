@@ -1,5 +1,5 @@
 use std::time::Duration;
-use tungstenite::{connect, Message, WebSocket, stream::MaybeTlsStream};
+use tungstenite::{Message, WebSocket, connect, stream::MaybeTlsStream};
 
 type WsStream = WebSocket<MaybeTlsStream<std::net::TcpStream>>;
 
@@ -9,7 +9,12 @@ fn connect_ws(port: u16) -> WsStream {
     ws
 }
 
-fn send_req(ws: &mut WsStream, id: u64, method: &str, params: serde_json::Value) -> serde_json::Value {
+fn send_req(
+    ws: &mut WsStream,
+    id: u64,
+    method: &str,
+    params: serde_json::Value,
+) -> serde_json::Value {
     let req = serde_json::json!({"id": id, "method": method, "params": params});
     ws.write(Message::Text(req.to_string())).unwrap();
     ws.flush().unwrap();
@@ -37,19 +42,34 @@ fn test_ws_vector_remember_and_query() {
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs2.json".into()).unwrap();
     let mut ws = connect_ws(server.port);
 
-    let resp = send_req(&mut ws, 1, "vector_remember", serde_json::json!({
-        "text": "test entry A", "vector": [0.1, 0.2, 0.3], "ts": "2026-01-01"
-    }));
+    let resp = send_req(
+        &mut ws,
+        1,
+        "vector_remember",
+        serde_json::json!({
+            "text": "test entry A", "vector": [0.1, 0.2, 0.3], "ts": "2026-01-01"
+        }),
+    );
     assert_eq!(resp["result"], "ok");
 
-    let resp = send_req(&mut ws, 2, "vector_remember", serde_json::json!({
-        "text": "test entry B", "vector": [0.4, 0.5, 0.6], "ts": "2026-01-02"
-    }));
+    let resp = send_req(
+        &mut ws,
+        2,
+        "vector_remember",
+        serde_json::json!({
+            "text": "test entry B", "vector": [0.4, 0.5, 0.6], "ts": "2026-01-02"
+        }),
+    );
     assert_eq!(resp["result"], "ok");
 
-    let resp = send_req(&mut ws, 3, "vector_query", serde_json::json!({
-        "vector": [0.1, 0.2, 0.3], "n": 10
-    }));
+    let resp = send_req(
+        &mut ws,
+        3,
+        "vector_query",
+        serde_json::json!({
+            "vector": [0.1, 0.2, 0.3], "n": 10
+        }),
+    );
     let results = resp["result"].as_array().unwrap();
     assert!(results.len() >= 2);
     assert_eq!(results[0]["text"], "test entry A");
@@ -81,13 +101,20 @@ fn test_ws_bad_json() {
 
 #[test]
 fn test_ws_llm_call_missing_key() {
-    unsafe { std::env::remove_var("OPENAI_API_KEY"); }
+    unsafe {
+        std::env::remove_var("OPENAI_API_KEY");
+    }
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs5.json".into()).unwrap();
     let mut ws = connect_ws(server.port);
 
-    let resp = send_req(&mut ws, 1, "llm_call", serde_json::json!({
-        "provider": "OpenAI", "prompt": "hello", "max_tokens": 100
-    }));
+    let resp = send_req(
+        &mut ws,
+        1,
+        "llm_call",
+        serde_json::json!({
+            "provider": "OpenAI", "prompt": "hello", "max_tokens": 100
+        }),
+    );
     assert_eq!(resp["id"], 1);
     assert!(!resp["error"].is_null());
     let err = resp["error"].as_str().unwrap();
@@ -99,11 +126,16 @@ fn test_ws_llm_call_ollama() {
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs6.json".into()).unwrap();
     let mut ws = connect_ws(server.port);
 
-    let resp = send_req(&mut ws, 1, "llm_call", serde_json::json!({
-        "provider": "Ollama",
-        "prompt": "say hello in one word",
-        "max_tokens": 20
-    }));
+    let resp = send_req(
+        &mut ws,
+        1,
+        "llm_call",
+        serde_json::json!({
+            "provider": "Ollama",
+            "prompt": "say hello in one word",
+            "max_tokens": 20
+        }),
+    );
     assert_eq!(resp["id"], 1);
     if let Some(err) = resp.get("error") {
         eprintln!("Ollama LLM error (may be expected if env not set): {}", err);
@@ -117,13 +149,18 @@ fn test_ws_irc_connect() {
     let server = petta::ws_ext::WsExtensionServer::spawn("/tmp/test_vs7.json".into()).unwrap();
     let mut ws = connect_ws(server.port);
 
-    let resp = send_req(&mut ws, 1, "irc_connect", serde_json::json!({
-        "server": "irc.quakenet.org",
-        "port": 6667,
-        "nick": "omegaclaw_test",
-        "channel": "##metta",
-        "auth_secret": ""
-    }));
+    let resp = send_req(
+        &mut ws,
+        1,
+        "irc_connect",
+        serde_json::json!({
+            "server": "irc.quakenet.org",
+            "port": 6667,
+            "nick": "omegaclaw_test",
+            "channel": "##metta",
+            "auth_secret": ""
+        }),
+    );
     assert_eq!(resp["id"], 1);
     if let Some(err) = resp.get("error") {
         eprintln!("IRC connect error: {}", err);
@@ -138,7 +175,12 @@ fn test_ws_irc_connect() {
             eprintln!("IRC recv result: '{}'", resp2["result"]);
         }
         // Send a test message
-        let resp3 = send_req(&mut ws, 3, "irc_send", serde_json::json!({"msg": "Hello from OmegaClaw test!"}));
+        let resp3 = send_req(
+            &mut ws,
+            3,
+            "irc_send",
+            serde_json::json!({"msg": "Hello from OmegaClaw test!"}),
+        );
         if let Some(err) = resp3.get("error") {
             eprintln!("IRC send error: {}", err);
         } else {

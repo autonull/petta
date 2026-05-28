@@ -1,16 +1,16 @@
-mod protocol;
-mod llm;
-mod embed;
-mod vector_store;
-mod search;
 mod channel;
+mod embed;
 mod irc;
+mod llm;
+mod protocol;
+mod search;
+mod vector_store;
 
+use futures_util::{SinkExt, StreamExt};
 use protocol::{WsRequest, WsResponse};
 use tokio::net::TcpListener;
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::Message;
-use futures_util::{StreamExt, SinkExt};
 
 pub struct WsExtensionServer {
     pub port: u16,
@@ -29,7 +29,8 @@ impl WsExtensionServer {
             .build()
             .map_err(|e| format!("tokio runtime: {}", e))?;
 
-        let listener = runtime.block_on(TcpListener::bind("127.0.0.1:0"))
+        let listener = runtime
+            .block_on(TcpListener::bind("127.0.0.1:0"))
             .map_err(|e| format!("bind: {}", e))?;
         let port = listener.local_addr().map_err(|e| format!("local addr: {}", e))?.port();
 
@@ -107,55 +108,46 @@ async fn handle_message(text: &str) -> WsResponse {
     };
 
     let result = match req.method.as_str() {
-        "llm_call" => {
-            match llm::call(&req.params).await {
-                Ok(s) => serde_json::Value::String(s),
-                Err(e) => return WsResponse::err(req.id, e),
-            }
-        }
-        "embed" => {
-            match embed::call(&req.params).await {
-                Ok(v) => serde_json::Value::Array(v.into_iter().map(|f| serde_json::Value::from(f as f64)).collect()),
-                Err(e) => return WsResponse::err(req.id, e),
-            }
-        }
-        "vector_remember" => {
-            match vector_store::remember(&req.params) {
-                Ok(s) => serde_json::Value::String(s),
-                Err(e) => return WsResponse::err(req.id, e),
-            }
-        }
-        "vector_query" => {
-            match vector_store::query(&req.params) {
-                Ok(v) => serde_json::Value::Array(v),
-                Err(e) => return WsResponse::err(req.id, e),
-            }
-        }
-        "web_search" => {
-            match search::search(&req.params).await {
-                Ok(s) => serde_json::Value::String(s),
-                Err(e) => return WsResponse::err(req.id, e),
-            }
-        }
-        "channel_send" => {
-            match channel::send(&req.params) {
-                Ok(s) => serde_json::Value::String(s),
-                Err(e) => return WsResponse::err(req.id, e),
-            }
-        }
-        "channel_recv" => {
-            match channel::recv() {
-                Ok(s) => serde_json::Value::String(s),
-                Err(e) => return WsResponse::err(req.id, e),
-            }
-        }
+        "llm_call" => match llm::call(&req.params).await {
+            Ok(s) => serde_json::Value::String(s),
+            Err(e) => return WsResponse::err(req.id, e),
+        },
+        "embed" => match embed::call(&req.params).await {
+            Ok(v) => serde_json::Value::Array(
+                v.into_iter().map(|f| serde_json::Value::from(f as f64)).collect(),
+            ),
+            Err(e) => return WsResponse::err(req.id, e),
+        },
+        "vector_remember" => match vector_store::remember(&req.params) {
+            Ok(s) => serde_json::Value::String(s),
+            Err(e) => return WsResponse::err(req.id, e),
+        },
+        "vector_query" => match vector_store::query(&req.params) {
+            Ok(v) => serde_json::Value::Array(v),
+            Err(e) => return WsResponse::err(req.id, e),
+        },
+        "web_search" => match search::search(&req.params).await {
+            Ok(s) => serde_json::Value::String(s),
+            Err(e) => return WsResponse::err(req.id, e),
+        },
+        "channel_send" => match channel::send(&req.params) {
+            Ok(s) => serde_json::Value::String(s),
+            Err(e) => return WsResponse::err(req.id, e),
+        },
+        "channel_recv" => match channel::recv() {
+            Ok(s) => serde_json::Value::String(s),
+            Err(e) => return WsResponse::err(req.id, e),
+        },
         "irc_connect" => {
             let server = req.params["server"].as_str().unwrap_or("irc.libera.chat");
             let port = req.params["port"].as_u64().unwrap_or(6667) as u16;
             let nick = req.params["nick"].as_str().unwrap_or("omegaclaw");
             let channel = req.params["channel"].as_str().unwrap_or("#omegaclaw");
             let auth_secret = req.params["auth_secret"].as_str().unwrap_or("");
-            eprintln!("[WS] irc_connect: srv={} port={} nick={} ch={}", server, port, nick, channel);
+            eprintln!(
+                "[WS] irc_connect: srv={} port={} nick={} ch={}",
+                server, port, nick, channel
+            );
             match irc::connect(server, port, nick, channel, auth_secret) {
                 Ok(s) => serde_json::Value::String(s),
                 Err(e) => return WsResponse::err(req.id, e),
@@ -168,18 +160,14 @@ async fn handle_message(text: &str) -> WsResponse {
                 Err(e) => return WsResponse::err(req.id, e),
             }
         }
-        "irc_recv" => {
-            match irc::recv() {
-                Ok(s) => serde_json::Value::String(s),
-                Err(e) => return WsResponse::err(req.id, e),
-            }
-        }
-        "irc_stop" => {
-            match irc::stop() {
-                Ok(s) => serde_json::Value::String(s),
-                Err(e) => return WsResponse::err(req.id, e),
-            }
-        }
+        "irc_recv" => match irc::recv() {
+            Ok(s) => serde_json::Value::String(s),
+            Err(e) => return WsResponse::err(req.id, e),
+        },
+        "irc_stop" => match irc::stop() {
+            Ok(s) => serde_json::Value::String(s),
+            Err(e) => return WsResponse::err(req.id, e),
+        },
         other => return WsResponse::err(req.id, format!("unknown method '{}'", other)),
     };
 

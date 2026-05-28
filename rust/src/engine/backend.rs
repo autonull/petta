@@ -34,12 +34,11 @@
 //! }
 //! ```
 
-use std::path::Path;
 use super::config::EngineConfig;
 use super::errors::Error;
-use crate::values::MettaResult;
 use crate::core::BackendCapabilities;
-
+use crate::values::MettaResult;
+use std::path::Path;
 
 /// Core backend trait for MeTTa execution.
 ///
@@ -62,8 +61,8 @@ use crate::core::BackendCapabilities;
 /// impl BackendImpl for MyBackend {
 ///     fn name(&self) -> &'static str { "MyBackend" }
 ///     
-///     fn process_metta_string(&mut self, code: &str, config: &EngineConfig) 
-///         -> Result<Vec<MettaResult>, Error> 
+///     fn process_metta_string(&mut self, code: &str, config: &EngineConfig)
+///         -> Result<Vec<MettaResult>, Error>
 ///     {
 ///         // Your implementation here
 ///         Ok(vec![])
@@ -94,25 +93,25 @@ pub trait BackendImpl: Send + Sync {
     /// Get current health status (defaults to Healthy)
 
     /// Load and execute a single MeTTa file.
-    /// 
+    ///
     /// Default implementation reads the file and calls `process_metta_string`.
     fn load_metta_file(
         &mut self,
         path: &Path,
-        config: &EngineConfig
+        config: &EngineConfig,
     ) -> Result<Vec<MettaResult>, Error> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|_e| Error::FileNotFound(path.to_path_buf()))?;
+        let content =
+            std::fs::read_to_string(path).map_err(|_e| Error::FileNotFound(path.to_path_buf()))?;
         self.process_metta_string(&content, config)
     }
 
     /// Load and execute multiple MeTTa files.
-    /// 
+    ///
     /// Default implementation calls `load_metta_file` for each path.
     fn load_metta_files(
-        &mut self, 
-        paths: &[&Path], 
-        config: &EngineConfig
+        &mut self,
+        paths: &[&Path],
+        config: &EngineConfig,
     ) -> Result<Vec<MettaResult>, Error> {
         let mut all_results = Vec::new();
         for path in paths {
@@ -123,9 +122,9 @@ pub trait BackendImpl: Send + Sync {
 
     /// Process a MeTTa code string
     fn process_metta_string(
-        &mut self, 
-        code: &str, 
-        config: &EngineConfig
+        &mut self,
+        code: &str,
+        config: &EngineConfig,
     ) -> Result<Vec<MettaResult>, Error>;
 
     /// Get stderr output (if available)

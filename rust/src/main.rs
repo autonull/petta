@@ -76,9 +76,7 @@ fn run_files(args: &Cli) {
     }
     eprintln!("[DBG] files after filter={:?}, extra_args={:?}", files, extra_args);
 
-    let mut config = EngineConfig::new(Path::new("."))
-        .verbose(args.verbose)
-        .backend(backend);
+    let mut config = EngineConfig::new(Path::new(".")).verbose(args.verbose).backend(backend);
     config.extra_args = extra_args;
     eprintln!("[DBG] config created, ws_port={:?}, src_dir={:?}", config.ws_port, config.src_dir);
 
