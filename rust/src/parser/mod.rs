@@ -12,13 +12,13 @@
 //! combinators instead of DCG rules. It produces `MettaValue` AST nodes.
 
 use nom::{
- IResult, Parser,
- branch::alt,
- bytes::complete::{tag, take_while1},
- character::complete::{char, multispace0},
- combinator::{map, opt, value},
- multi::many0,
- sequence::{delimited, preceded, terminated},
+    IResult, Parser,
+    branch::alt,
+    bytes::complete::{tag, take_while1},
+    character::complete::{char, multispace0},
+    combinator::{map, opt, value},
+    multi::many0,
+    sequence::{delimited, preceded, terminated},
 };
 
 use crate::values::MettaValue;
@@ -60,14 +60,7 @@ pub fn parse_metta(input: &str) -> Result<MettaValue, String> {
 fn sexpr(input: &str) -> IResult<&str, MettaValue> {
     preceded(
         multispace0,
-        alt((
-            string_literal,
-            parenthesized_list,
-            variable,
-            number,
-            boolean_literal,
-            atom,
-        )),
+        alt((string_literal, parenthesized_list, variable, number, boolean_literal, atom)),
     )
     .parse(input)
 }
@@ -96,13 +89,9 @@ fn parenthesized_list(input: &str) -> IResult<&str, MettaValue> {
 
 /// Parse a string literal: `"hello"`
 fn string_literal(input: &str) -> IResult<&str, MettaValue> {
-    delimited(
-        char(constants::STRING_DELIM),
-        parse_string_content,
-        char(constants::STRING_DELIM),
-    )
-    .map(MettaValue::Atom)
-    .parse(input)
+    delimited(char(constants::STRING_DELIM), parse_string_content, char(constants::STRING_DELIM))
+        .map(MettaValue::Atom)
+        .parse(input)
 }
 
 fn parse_string_content(input: &str) -> IResult<&str, String> {
@@ -166,43 +155,41 @@ fn parse_string_content(input: &str) -> IResult<&str, String> {
 fn variable(input: &str) -> IResult<&str, MettaValue> {
     preceded(
         char(constants::VARIABLE_PREFIX),
-        map(take_while1(is_token_char), |name: &str| {
-            MettaValue::Atom(format!("${}", name))
-        }),
+        map(take_while1(is_token_char), |name: &str| MettaValue::Atom(format!("${}", name))),
     )
     .parse(input)
 }
 
- /// Parse a number (integer or float, positive or negative).
- fn number(input: &str) -> IResult<&str, MettaValue> {
-  let (input, neg) = opt(tag("-")).parse(input)?;
-  let (input, num_part) = take_while1(|c: char| c.is_ascii_digit() || c == '.').parse(input)?;
- 
-  if num_part.is_empty() {
-   return Err(nom::Err::Error(nom::error::Error::new(
-    input,
-    nom::error::ErrorKind::TakeWhile1,
-   )));
-  }
- 
-  let full = match neg {
-   Some(_) => format!("-{}", num_part),
-   None => num_part.to_string(),
-  };
- 
-  // Try integer first
-  if let Ok(i) = full.parse::<i64>() {
-   return Ok((input, MettaValue::Integer(i)));
-  }
- 
-  // Try float
-  if let Ok(f) = full.parse::<f64>() {
-   return Ok((input, MettaValue::Float(f)));
-  }
- 
-  // Not a valid number
-  Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Verify)))
- }
+/// Parse a number (integer or float, positive or negative).
+fn number(input: &str) -> IResult<&str, MettaValue> {
+    let (input, neg) = opt(tag("-")).parse(input)?;
+    let (input, num_part) = take_while1(|c: char| c.is_ascii_digit() || c == '.').parse(input)?;
+
+    if num_part.is_empty() {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::TakeWhile1,
+        )));
+    }
+
+    let full = match neg {
+        Some(_) => format!("-{}", num_part),
+        None => num_part.to_string(),
+    };
+
+    // Try integer first
+    if let Ok(i) = full.parse::<i64>() {
+        return Ok((input, MettaValue::Integer(i)));
+    }
+
+    // Try float
+    if let Ok(f) = full.parse::<f64>() {
+        return Ok((input, MettaValue::Float(f)));
+    }
+
+    // Not a valid number
+    Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Verify)))
+}
 
 /// Parse boolean literals: `true` or `false`
 fn boolean_literal(input: &str) -> IResult<&str, MettaValue> {
@@ -232,35 +219,35 @@ fn is_token_char(c: char) -> bool {
 
 /// Serialize a `MettaValue` back to a MeTTa S-expression string.
 pub fn serialize_metta(value: &MettaValue) -> String {
- match value {
-  MettaValue::Integer(n) => n.to_string(),
-  MettaValue::Float(f) => {
-   let s = f.to_string();
-   if s.contains('.') {
-    s.trim_end_matches('0').trim_end_matches('.').to_string()
-   } else {
-    s
-   }
-  }
-  MettaValue::Bool(true) => "True".to_string(),
-  MettaValue::Bool(false) => "False".to_string(),
-  MettaValue::Atom(s) => s.clone(),
-  MettaValue::List(items) => {
-   if items.is_empty() {
-    "()".to_string()
-   } else {
-    let inner: Vec<String> = items.iter().map(serialize_metta).collect();
-    format!("({})", inner.join(" "))
-   }
-  }
-  MettaValue::Expression(head, args) => {
-   let mut parts = vec![head.clone()];
-   parts.extend(args.iter().map(serialize_metta));
-   format!("({})", parts.join(" "))
-  }
-  MettaValue::Str(s) => format!("\"{}\"", s),
-  MettaValue::Error(msg) => format!("!Error({})", msg),
- }
+    match value {
+        MettaValue::Integer(n) => n.to_string(),
+        MettaValue::Float(f) => {
+            let s = f.to_string();
+            if s.contains('.') {
+                s.trim_end_matches('0').trim_end_matches('.').to_string()
+            } else {
+                s
+            }
+        }
+        MettaValue::Bool(true) => "True".to_string(),
+        MettaValue::Bool(false) => "False".to_string(),
+        MettaValue::Atom(s) => s.clone(),
+        MettaValue::List(items) => {
+            if items.is_empty() {
+                "()".to_string()
+            } else {
+                let inner: Vec<String> = items.iter().map(serialize_metta).collect();
+                format!("({})", inner.join(" "))
+            }
+        }
+        MettaValue::Expression(head, args) => {
+            let mut parts = vec![head.clone()];
+            parts.extend(args.iter().map(serialize_metta));
+            format!("({})", parts.join(" "))
+        }
+        MettaValue::Str(s) => format!("\"{}\"", s),
+        MettaValue::Error(msg) => format!("!Error({})", msg),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -277,24 +264,24 @@ mod tests {
         assert_eq!(v, MettaValue::Atom("foo".into()));
     }
 
- #[test]
- fn test_parse_number_int() {
-  let v = parse_metta("42").unwrap();
-  assert_eq!(v, MettaValue::Integer(42));
- }
+    #[test]
+    fn test_parse_number_int() {
+        let v = parse_metta("42").unwrap();
+        assert_eq!(v, MettaValue::Integer(42));
+    }
 
- #[test]
- fn test_parse_number_neg_int() {
-  let v = parse_metta("-42").unwrap();
-  assert_eq!(v, MettaValue::Integer(-42));
- }
+    #[test]
+    fn test_parse_number_neg_int() {
+        let v = parse_metta("-42").unwrap();
+        assert_eq!(v, MettaValue::Integer(-42));
+    }
 
-#[test]
-#[allow(clippy::approx_constant)]
-fn test_parse_number_float() {
-    let v = parse_metta("3.14").unwrap();
-    assert!(matches!(v, MettaValue::Float(f) if (f - 3.14).abs() < 1e-10));
-}
+    #[test]
+    #[allow(clippy::approx_constant)]
+    fn test_parse_number_float() {
+        let v = parse_metta("3.14").unwrap();
+        assert!(matches!(v, MettaValue::Float(f) if (f - 3.14).abs() < 1e-10));
+    }
 
     #[test]
     fn test_parse_string_literal() {
@@ -328,19 +315,19 @@ fn test_parse_number_float() {
         }
     }
 
- #[test]
- fn test_parse_expression() {
-  let v = parse_metta("(+ 1 2)").unwrap();
-  match v {
-   MettaValue::Expression(ref head, ref args) => {
-    assert_eq!(head, "+");
-    assert_eq!(args.len(), 2);
-    assert_eq!(args[0], MettaValue::Integer(1));
-    assert_eq!(args[1], MettaValue::Integer(2));
-   }
-   other => panic!("Expected Expression, got {:?}", other),
-  }
- }
+    #[test]
+    fn test_parse_expression() {
+        let v = parse_metta("(+ 1 2)").unwrap();
+        match v {
+            MettaValue::Expression(ref head, ref args) => {
+                assert_eq!(head, "+");
+                assert_eq!(args.len(), 2);
+                assert_eq!(args[0], MettaValue::Integer(1));
+                assert_eq!(args[1], MettaValue::Integer(2));
+            }
+            other => panic!("Expected Expression, got {:?}", other),
+        }
+    }
 
     #[test]
     fn test_parse_nested() {

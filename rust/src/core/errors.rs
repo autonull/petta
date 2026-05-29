@@ -67,18 +67,11 @@ pub enum Error {
 
     /// Parse error with source location
     #[error("parse error at {location}: {message}")]
-    Parse {
-        message: String,
-        location: SourceLocation,
-    },
+    Parse { message: String, location: SourceLocation },
 
     /// Type error with context
     #[error("type error: expected {expected}, found {found} in {context}")]
-    Type {
-        expected: String,
-        found: String,
-        context: String,
-    },
+    Type { expected: String, found: String, context: String },
 
     /// Execution failed
     #[error("execution failed: {0}")]
@@ -93,24 +86,15 @@ pub enum BackendError {
         suggestion = if let Some(s) = suggestion {
             format!(" (did you mean `{s}`?)")
         } else { String::new() })]
-    Undefined {
-        name: String,
-        arity: usize,
-        suggestion: Option<String>,
-    },
+    Undefined { name: String, arity: usize, suggestion: Option<String> },
 
     /// Type mismatch
     #[error("type error: expected {expected}, found {found}")]
-    TypeMismatch {
-        expected: String,
-        found: String,
-    },
+    TypeMismatch { expected: String, found: String },
 
     /// Syntax error
     #[error("syntax error: {detail}")]
-    Syntax {
-        detail: String,
-    },
+    Syntax { detail: String },
 
     /// Unbound variable in query
     #[error("unbound variable in query")]
@@ -122,17 +106,11 @@ pub enum BackendError {
 
     /// Permission denied
     #[error("permission denied: {op} on {target}")]
-    Permission {
-        op: String,
-        target: String,
-    },
+    Permission { op: String, target: String },
 
     /// Existence error
     #[error("{kind} '{term}' does not exist")]
-    Existence {
-        kind: String,
-        term: String,
-    },
+    Existence { kind: String, term: String },
 
     /// Stack overflow
     #[error("stack overflow: maximum stack depth exceeded")]

@@ -9,9 +9,13 @@ pub trait OutputFormatter: Send + Sync {
 }
 
 /// Pretty formatter
-pub struct PrettyFormatter { use_color: bool }
+pub struct PrettyFormatter {
+    use_color: bool,
+}
 impl PrettyFormatter {
-    pub fn new(use_color: bool) -> Self { Self { use_color } }
+    pub fn new(use_color: bool) -> Self {
+        Self { use_color }
+    }
 }
 impl OutputFormatter for PrettyFormatter {
     fn format(&self, results: &[MettaResult]) -> String {
@@ -29,18 +33,28 @@ impl OutputFormatter for PrettyFormatter {
 /// Compact formatter
 #[derive(Default)]
 pub struct CompactFormatter;
-impl CompactFormatter { pub fn new() -> Self { Self } }
+impl CompactFormatter {
+    pub fn new() -> Self {
+        Self
+    }
+}
 impl OutputFormatter for CompactFormatter {
     fn format(&self, results: &[MettaResult]) -> String {
         results.iter().map(|r| r.value.as_str()).collect::<Vec<_>>().join(" ")
     }
-    fn format_single(&self, result: &MettaResult) -> String { result.value.clone() }
+    fn format_single(&self, result: &MettaResult) -> String {
+        result.value.clone()
+    }
 }
 
 /// JSON formatter
 #[derive(Default)]
 pub struct JsonFormatter;
-impl JsonFormatter { pub fn new() -> Self { Self } }
+impl JsonFormatter {
+    pub fn new() -> Self {
+        Self
+    }
+}
 impl OutputFormatter for JsonFormatter {
     fn format(&self, results: &[MettaResult]) -> String {
         let values: Vec<&str> = results.iter().map(|r| r.value.as_str()).collect();
@@ -54,15 +68,18 @@ impl OutputFormatter for JsonFormatter {
 /// S-expression formatter
 #[derive(Default)]
 pub struct SExprFormatter;
-impl SExprFormatter { pub fn new() -> Self { Self } }
+impl SExprFormatter {
+    pub fn new() -> Self {
+        Self
+    }
+}
 impl OutputFormatter for SExprFormatter {
     fn format(&self, results: &[MettaResult]) -> String {
         results.iter().map(|r| self.format_single(r)).collect::<Vec<_>>().join("\n")
     }
     fn format_single(&self, result: &MettaResult) -> String {
         let v = &result.value;
-        if v.starts_with('(') || v.starts_with('[') { v.clone() }
-        else { format!("({})", v) }
+        if v.starts_with('(') || v.starts_with('[') { v.clone() } else { format!("({})", v) }
     }
 }
 
@@ -78,8 +95,10 @@ pub fn create_formatter(format: &str, use_color: bool) -> Box<dyn OutputFormatte
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn make_result(value: &str) -> MettaResult { MettaResult { value: value.into() } }
-    
+    fn make_result(value: &str) -> MettaResult {
+        MettaResult { value: value.into() }
+    }
+
     #[test]
     fn test_compact_formatter() {
         let formatter = CompactFormatter::new();

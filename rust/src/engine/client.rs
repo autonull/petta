@@ -17,26 +17,39 @@ fn send_query(
     eprintln!("[DBG] send_query: type={}, payload_len={}", query_type as char, payload.len());
     let start = Instant::now();
     let pb = payload.as_bytes();
-    
+
     let payload_preview: String = payload.chars().take(100).collect();
     eprintln!("[DBG] payload preview: {:?}", payload_preview);
-    
+
     eprintln!("[DBG] writing command byte: {}", query_type as char);
-    stdin.write_all(&[query_type])
-        .map_err(|e| { eprintln!("[DBG] write command byte failed: {}", e); Error::WriteError(e.to_string()) })?;
-    eprintln!("[DBG] writing length: {} (be bytes: {:?})", pb.len(), &(pb.len() as u32).to_be_bytes());
-    stdin.write_all(&(pb.len() as u32).to_be_bytes())
-        .map_err(|e| { eprintln!("[DBG] write length failed: {}", e); Error::WriteError(e.to_string()) })?;
+    stdin.write_all(&[query_type]).map_err(|e| {
+        eprintln!("[DBG] write command byte failed: {}", e);
+        Error::WriteError(e.to_string())
+    })?;
+    eprintln!(
+        "[DBG] writing length: {} (be bytes: {:?})",
+        pb.len(),
+        &(pb.len() as u32).to_be_bytes()
+    );
+    stdin.write_all(&(pb.len() as u32).to_be_bytes()).map_err(|e| {
+        eprintln!("[DBG] write length failed: {}", e);
+        Error::WriteError(e.to_string())
+    })?;
     eprintln!("[DBG] writing payload");
-    stdin.write_all(pb)
-        .map_err(|e| { eprintln!("[DBG] write payload failed: {}", e); Error::WriteError(e.to_string()) })?;
+    stdin.write_all(pb).map_err(|e| {
+        eprintln!("[DBG] write payload failed: {}", e);
+        Error::WriteError(e.to_string())
+    })?;
     eprintln!("[DBG] flushing stdin");
-    stdin.flush().map_err(|e| { eprintln!("[DBG] flush stdin failed: {}", e); Error::WriteError(e.to_string()) })?;
+    stdin.flush().map_err(|e| {
+        eprintln!("[DBG] flush stdin failed: {}", e);
+        Error::WriteError(e.to_string())
+    })?;
     eprintln!("[DBG] stdin written and flushed OK");
-    
+
     check_timeout(start, config)?;
     eprintln!("[DBG] timeout check OK");
-    
+
     // Read status byte, skipping any stray ready signals (0xFF)
     let mut b = [0u8; 1];
     eprintln!("[DBG] reading status byte (skipping 0xFF)...");
@@ -47,9 +60,18 @@ fn send_query(
             break;
         }
     }
-    eprintln!("[DBG] status byte: 0x{:02x} ({})", b[0], 
-        if b[0] == 0 { "OK" } else if b[0] == 1 { "ERROR" } else { "UNKNOWN" });
-    
+    eprintln!(
+        "[DBG] status byte: 0x{:02x} ({})",
+        b[0],
+        if b[0] == 0 {
+            "OK"
+        } else if b[0] == 1 {
+            "ERROR"
+        } else {
+            "UNKNOWN"
+        }
+    );
+
     match b[0] {
         0 => {
             let count = read_u32(stdout)?;
@@ -60,8 +82,7 @@ fn send_query(
                 eprintln!("[DBG] result[{}] length: {}", i, len);
                 let mut buf = vec![0u8; len as usize];
                 read_exact(stdout, &mut buf)?;
-                let value = String::from_utf8(buf)
-                    .map_err(|e| Error::Protocol(e.to_string()))?;
+                let value = String::from_utf8(buf).map_err(|e| Error::Protocol(e.to_string()))?;
                 eprintln!("[DBG] result[{}] value: {:?}", i, value);
                 results.push(MettaResult { value });
             }
@@ -112,7 +133,9 @@ pub fn load_metta_file(
     config: &EngineConfig,
 ) -> Result<Vec<MettaResult>, Error> {
     let abs = path.canonicalize().map_err(|e| Error::PathError(e.to_string()))?;
-    if !abs.exists() { return Err(Error::FileNotFound(abs)); }
+    if !abs.exists() {
+        return Err(Error::FileNotFound(abs));
+    }
     send_query(stdin, stdout, b'F', &abs.to_string_lossy(), config)
 }
 
@@ -122,12 +145,20 @@ pub fn load_metta_files(
     paths: &[&std::path::Path],
     config: &EngineConfig,
 ) -> Result<Vec<MettaResult>, Error> {
-    if paths.is_empty() { return Ok(Vec::new()); }
-    let combined: String = paths.iter().map(|p| {
-        let abs = p.canonicalize().map_err(|e| Error::PathError(e.to_string()))?;
-        if !abs.exists() { return Err(Error::FileNotFound(abs)); }
-        std::fs::read_to_string(&abs).map_err(|e| Error::PathError(e.to_string()))
-    }).collect::<Result<Vec<_>, Error>>()?.join("\n");
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    let combined: String = paths
+        .iter()
+        .map(|p| {
+            let abs = p.canonicalize().map_err(|e| Error::PathError(e.to_string()))?;
+            if !abs.exists() {
+                return Err(Error::FileNotFound(abs));
+            }
+            std::fs::read_to_string(&abs).map_err(|e| Error::PathError(e.to_string()))
+        })
+        .collect::<Result<Vec<_>, Error>>()?
+        .join("\n");
     send_query(stdin, stdout, b'S', &combined, config)
 }
 

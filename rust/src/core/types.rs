@@ -3,8 +3,8 @@
 //! This module provides type-level abstractions used throughout the codebase,
 //! including type-safe path types and compile-time guarantees.
 
-use std::path::{Path, PathBuf};
 use crate::engine::Error;
+use std::path::{Path, PathBuf};
 
 /// MeTTa type representation
 pub enum Type {
@@ -86,7 +86,6 @@ impl std::fmt::Display for Type {
 // ============================================================================
 // Type-Safe Path Types
 // ============================================================================
-
 
 /// Represents the root directory of a MeTTa project
 ///

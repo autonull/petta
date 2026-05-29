@@ -3,7 +3,7 @@
 //! These tests verify the full request/response cycle between Rust and SWI-Prolog,
 //! covering all message types ('F', 'S', 'Q') and edge cases.
 
-use petta::{BackendError, MettaValue, Error as PeTTaError};
+use petta::{BackendError, Error as PeTTaError, MettaValue};
 
 mod test_utils;
 use test_utils::{make_engine, project_root};
@@ -144,12 +144,10 @@ fn test_protocol_error_undefined_function() {
             // Empty result list is also valid for undefined functions
             let _ = results;
         }
-Err(PeTTaError::Backend(BackendError::Undefined {
-                name, arity, ..
-            })) => {
-                assert_eq!(name, "undefined_function");
-                assert_eq!(arity, 2);
-            }
+        Err(PeTTaError::Backend(BackendError::Undefined { name, arity, .. })) => {
+            assert_eq!(name, "undefined_function");
+            assert_eq!(arity, 2);
+        }
         Err(e) => panic!("Expected UndefinedFunction or Ok, got {:?}", e),
     }
 }
@@ -162,7 +160,7 @@ fn test_protocol_error_type_mismatch() {
     // This may succeed in MeTTa (returning false) or produce a type error
     // Either way, the protocol should handle it gracefully
     match results {
-        Ok(_) => {}                            // Valid: returns false
+        Ok(_) => {}                       // Valid: returns false
         Err(PeTTaError::Backend(_)) => {} // Also valid: type error
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
@@ -174,14 +172,14 @@ fn test_protocol_error_type_mismatch() {
 
 #[test]
 fn test_value_parse_integer_positive() {
- let v = MettaValue::parse("12345");
- assert!(matches!(v, Some(MettaValue::Integer(n)) if n == 12345));
+    let v = MettaValue::parse("12345");
+    assert!(matches!(v, Some(MettaValue::Integer(n)) if n == 12345));
 }
 
 #[test]
 fn test_value_parse_integer_negative() {
- let v = MettaValue::parse("-42");
- assert!(matches!(v, Some(MettaValue::Integer(n)) if n == -42));
+    let v = MettaValue::parse("-42");
+    assert!(matches!(v, Some(MettaValue::Integer(n)) if n == -42));
 }
 
 #[test]
@@ -366,10 +364,19 @@ fn test_is_member_unassigned_variable() {
 "#;
     let results = e.process_metta_string(code).unwrap();
     // Should return exactly one result (not multiple like before the fix)
-    assert_eq!(results.len(), 1, "is-member with unassigned variable should return exactly one result, got: {:?}", results.iter().map(|r| &r.value).collect::<Vec<_>>());
+    assert_eq!(
+        results.len(),
+        1,
+        "is-member with unassigned variable should return exactly one result, got: {:?}",
+        results.iter().map(|r| &r.value).collect::<Vec<_>>()
+    );
     // The result should be false (unassigned variable is not a member)
     let value = &results[0].value;
-    assert!(value.eq_ignore_ascii_case("false"), "is-member with unassigned variable should be false, got: {}", value);
+    assert!(
+        value.eq_ignore_ascii_case("false"),
+        "is-member with unassigned variable should be false, got: {}",
+        value
+    );
 }
 
 #[test]
@@ -388,7 +395,11 @@ fn test_is_member_existing_element() {
     let results = e.process_metta_string(code).unwrap();
     // At least one result should be true
     let values: Vec<&str> = results.iter().map(|r| r.value.as_str()).collect();
-    assert!(values.iter().any(|v| v.eq_ignore_ascii_case("true")), "is-member with existing element should return true, got: {:?}", values);
+    assert!(
+        values.iter().any(|v| v.eq_ignore_ascii_case("true")),
+        "is-member with existing element should return true, got: {:?}",
+        values
+    );
 }
 
 #[test]
@@ -407,5 +418,9 @@ fn test_is_member_non_existing_element() {
     let results = e.process_metta_string(code).unwrap();
     // The result should be false
     let values: Vec<&str> = results.iter().map(|r| r.value.as_str()).collect();
-    assert!(values.iter().any(|v| v.eq_ignore_ascii_case("false")), "is-member with non-existing element should return false, got: {:?}", values);
+    assert!(
+        values.iter().any(|v| v.eq_ignore_ascii_case("false")),
+        "is-member with non-existing element should return false, got: {:?}",
+        values
+    );
 }

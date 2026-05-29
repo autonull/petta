@@ -2,7 +2,7 @@
 //!
 //! Production-grade monitoring, metrics, and health checks
 
-use std::sync::atomic::{AtomicU64};
+use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 
 /// Metrics collector for query statistics
@@ -110,8 +110,6 @@ impl Default for ObservabilityConfig {
         }
     }
 }
-
-
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ServiceStatus {

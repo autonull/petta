@@ -21,15 +21,13 @@ pub struct ReplConfig {
 
 impl Default for ReplConfig {
     fn default() -> Self {
-        let history = std::env::var("PETTA_HISTORY")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                dirs::cache_dir()
-                    .or_else(dirs::home_dir)
-                    .unwrap_or_else(|| PathBuf::from("/tmp"))
-                    .join("petta")
-                    .join("history.txt")
-            });
+        let history = std::env::var("PETTA_HISTORY").map(PathBuf::from).unwrap_or_else(|_| {
+            dirs::cache_dir()
+                .or_else(dirs::home_dir)
+                .unwrap_or_else(|| PathBuf::from("/tmp"))
+                .join("petta")
+                .join("history.txt")
+        });
 
         Self {
             project_root: PathBuf::from("."),
@@ -42,10 +40,7 @@ impl Default for ReplConfig {
 
 impl ReplConfig {
     pub fn new(project_root: impl Into<PathBuf>) -> Self {
-        Self {
-            project_root: project_root.into(),
-            ..Default::default()
-        }
+        Self { project_root: project_root.into(), ..Default::default() }
     }
 
     pub fn verbose(mut self, verbose: bool) -> Self {
@@ -73,9 +68,7 @@ pub fn run_repl(config: &ReplConfig) {
 
     // Initialize engine
     let mut engine = match PeTTaEngine::with_config(
-        &EngineConfig::new(&config.project_root)
-            .verbose(config.verbose)
-            .backend(config.backend),
+        &EngineConfig::new(&config.project_root).verbose(config.verbose).backend(config.backend),
     ) {
         Ok(e) => e,
         Err(e) => {
@@ -161,7 +154,10 @@ fn handle_command(line: &str, engine: &mut PeTTaEngine, config: &ReplConfig) -> 
         ":stats" | ":s" => {
             println!("{}:", cyan("⚡ REPL Statistics"));
             println!("  Backend: {}", yellow(&config.backend.to_string()));
-            println!("  Engine status: {}", green(if engine.is_alive() { "alive" } else { "stopped" }));
+            println!(
+                "  Engine status: {}",
+                green(if engine.is_alive() { "alive" } else { "stopped" })
+            );
             false
         }
         _ => {
@@ -189,7 +185,9 @@ fn handle_command(line: &str, engine: &mut PeTTaEngine, config: &ReplConfig) -> 
                             println!(
                                 "{} {}",
                                 green("→"),
-                                r.parsed_value().map(|v| format!("({v:?})")).unwrap_or(r.value.clone())
+                                r.parsed_value()
+                                    .map(|v| format!("({v:?})"))
+                                    .unwrap_or(r.value.clone())
                             );
                         }
                     }

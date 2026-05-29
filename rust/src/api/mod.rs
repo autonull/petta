@@ -24,14 +24,14 @@
 //! - **Backend**: Backend type enumeration
 //! - **ExecutionResult**: Structured execution results
 
-mod engine;
 mod config;
+mod engine;
 mod result;
 
-pub use engine::{PeTTa, PeTTaEngine, Builder as PeTTaBuilder};
-pub use engine::{PeTTaTyped, Uninitialized, Initialized, Running};
-pub use config::{EngineConfig, EngineConfigBuilder, Backend};
-pub use result::{ExecutionResult, MettaResult, ExecutionStats};
+pub use config::{Backend, EngineConfig, EngineConfigBuilder};
+pub use engine::{Builder as PeTTaBuilder, PeTTa, PeTTaEngine};
+pub use engine::{Initialized, PeTTaTyped, Running, Uninitialized};
+pub use result::{ExecutionResult, ExecutionStats, MettaResult};
 
 // Re-export for convenience
 pub use crate::values::MettaValue;

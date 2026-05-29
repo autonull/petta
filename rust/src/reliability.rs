@@ -118,7 +118,7 @@ mod tests {
     fn test_reliability_config() {
         let permissive = ReliabilityConfig::permissive();
         assert!(!permissive.circuit_breaker_enabled);
-        
+
         let strict = ReliabilityConfig::strict();
         assert!(strict.circuit_breaker_enabled);
         assert_eq!(strict.failure_threshold, 3);

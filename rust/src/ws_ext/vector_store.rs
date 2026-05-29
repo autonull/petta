@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::{RwLock, OnceLock};
+use std::sync::{OnceLock, RwLock};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VectorDbEntry {
@@ -29,9 +29,8 @@ impl VectorStore {
     }
 
     pub fn query(&self, query_vec: &[f32], n: usize) -> Vec<Value> {
-        let mut scored: Vec<(f32, &VectorDbEntry)> = self.entries.iter()
-            .map(|e| (cosine_similarity(query_vec, &e.vector), e))
-            .collect();
+        let mut scored: Vec<(f32, &VectorDbEntry)> =
+            self.entries.iter().map(|e| (cosine_similarity(query_vec, &e.vector), e)).collect();
         scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(n);
         scored.into_iter().map(|(score, e)| {
@@ -40,7 +39,9 @@ impl VectorStore {
     }
 
     pub fn save(&self, path: &str) {
-        if !self.dirty { return; }
+        if !self.dirty {
+            return;
+        }
         if let Ok(json) = serde_json::to_string(&self.entries) {
             let _ = std::fs::write(path, &json);
         }
@@ -78,9 +79,12 @@ pub fn init(store_path: &str) {
 pub fn remember(params: &Value) -> Result<String, String> {
     let text = params["text"].as_str().ok_or("missing text")?;
     let ts = params["ts"].as_str().unwrap_or("");
-    let vec: Vec<f32> = params["vector"].as_array()
+    let vec: Vec<f32> = params["vector"]
+        .as_array()
         .ok_or("missing vector")?
-        .iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect();
+        .iter()
+        .map(|v| v.as_f64().unwrap_or(0.0) as f32)
+        .collect();
     if let Some(store) = VECTOR_STORE.get() {
         if let Ok(mut s) = store.write() {
             s.remember(text.to_string(), vec, ts.to_string());
@@ -91,9 +95,12 @@ pub fn remember(params: &Value) -> Result<String, String> {
 }
 
 pub fn query(params: &Value) -> Result<Vec<Value>, String> {
-    let vec: Vec<f32> = params["vector"].as_array()
+    let vec: Vec<f32> = params["vector"]
+        .as_array()
         .ok_or("missing vector")?
-        .iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect();
+        .iter()
+        .map(|v| v.as_f64().unwrap_or(0.0) as f32)
+        .collect();
     let n = params["n"].as_u64().unwrap_or(20) as usize;
     if let Some(store) = VECTOR_STORE.get() {
         if let Ok(s) = store.read() {

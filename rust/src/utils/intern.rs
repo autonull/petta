@@ -31,17 +31,11 @@ pub struct SymbolTable {
 
 impl SymbolTable {
     pub fn new() -> Self {
-        Self {
-            symbols: RwLock::new(HashMap::new()),
-            next_id: RwLock::new(0),
-        }
+        Self { symbols: RwLock::new(HashMap::new()), next_id: RwLock::new(0) }
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            symbols: RwLock::new(HashMap::with_capacity(capacity)),
-            next_id: RwLock::new(0),
-        }
+        Self { symbols: RwLock::new(HashMap::with_capacity(capacity)), next_id: RwLock::new(0) }
     }
 
     pub fn intern(&self, s: &str) -> Symbol {
@@ -55,7 +49,7 @@ impl SymbolTable {
         let mut symbols = self.symbols.write().unwrap();
         let id = *self.next_id.read().unwrap();
         *self.next_id.write().unwrap() = id + 1;
-        
+
         symbols.insert(s.to_string(), SymbolId(id));
         Symbol::new(id)
     }
@@ -76,10 +70,7 @@ impl SymbolTable {
     pub fn stats(&self) -> SymbolTableStats {
         let symbols = self.symbols.read().unwrap();
         let next_id = self.next_id.read().unwrap();
-        SymbolTableStats {
-            unique_symbols: symbols.len(),
-            max_id: *next_id,
-        }
+        SymbolTableStats { unique_symbols: symbols.len(), max_id: *next_id }
     }
 }
 

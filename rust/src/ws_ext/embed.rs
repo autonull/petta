@@ -26,15 +26,22 @@ pub async fn call(params: &Value) -> Result<Vec<f32>, String> {
                 "model": "text-embedding-3-small",
                 "input": text,
             });
-            let resp = client.post("https://api.openai.com/v1/embeddings")
+            let resp = client
+                .post("https://api.openai.com/v1/embeddings")
                 .header("Authorization", format!("Bearer {}", key))
                 .header("Content-Type", "application/json")
                 .json(&body)
-                .send().await.map_err(|e| format!("Embedding request failed: {}", e))?;
-            let val: Value = resp.json().await.map_err(|e| format!("Embedding response parse: {}", e))?;
+                .send()
+                .await
+                .map_err(|e| format!("Embedding request failed: {}", e))?;
+            let val: Value =
+                resp.json().await.map_err(|e| format!("Embedding response parse: {}", e))?;
             let vec: Vec<f32> = val["data"][0]["embedding"]
-                .as_array().ok_or("no embedding in response")?
-                .iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect();
+                .as_array()
+                .ok_or("no embedding in response")?
+                .iter()
+                .map(|v| v.as_f64().unwrap_or(0.0) as f32)
+                .collect();
             cache(text, vec.clone());
             Ok(vec)
         }

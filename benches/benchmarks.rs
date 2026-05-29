@@ -2,13 +2,12 @@
 //!
 //! Run with: cargo bench --features mork
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use petta::engine::{Backend, EngineConfig, PeTTaEngine};
 use std::path::Path;
 
 fn benchmark_simple_arithmetic(c: &mut Criterion) {
-    let manifest_dir =
-        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
     let project_root = Path::new(&manifest_dir);
 
     let mut group = c.benchmark_group("simple_arithmetic");
@@ -16,9 +15,7 @@ fn benchmark_simple_arithmetic(c: &mut Criterion) {
 
     #[cfg(feature = "mork")]
     {
-        let config = EngineConfig::new(project_root)
-            .backend(Backend::Mork)
-            .verbose(false);
+        let config = EngineConfig::new(project_root).backend(Backend::Mork).verbose(false);
         let mut engine = PeTTaEngine::with_config(&config).unwrap();
 
         group.bench_function("mork", |b| {
@@ -29,9 +26,7 @@ fn benchmark_simple_arithmetic(c: &mut Criterion) {
     }
 
     {
-        let config = EngineConfig::new(project_root)
-            .backend(Backend::Swipl)
-            .verbose(false);
+        let config = EngineConfig::new(project_root).backend(Backend::Swipl).verbose(false);
         let mut engine = PeTTaEngine::with_config(&config).unwrap();
 
         group.bench_function("swipl", |b| {
@@ -45,8 +40,7 @@ fn benchmark_simple_arithmetic(c: &mut Criterion) {
 }
 
 fn benchmark_pattern_matching(c: &mut Criterion) {
-    let manifest_dir =
-        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
     let project_root = Path::new(&manifest_dir);
 
     let mut group = c.benchmark_group("pattern_matching");
@@ -56,9 +50,7 @@ fn benchmark_pattern_matching(c: &mut Criterion) {
 
     #[cfg(feature = "mork")]
     {
-        let config = EngineConfig::new(project_root)
-            .backend(Backend::Mork)
-            .verbose(false);
+        let config = EngineConfig::new(project_root).backend(Backend::Mork).verbose(false);
         let mut engine = PeTTaEngine::with_config(&config).unwrap();
 
         group.bench_function("mork", |b| {
@@ -69,9 +61,7 @@ fn benchmark_pattern_matching(c: &mut Criterion) {
     }
 
     {
-        let config = EngineConfig::new(project_root)
-            .backend(Backend::Swipl)
-            .verbose(false);
+        let config = EngineConfig::new(project_root).backend(Backend::Swipl).verbose(false);
         let mut engine = PeTTaEngine::with_config(&config).unwrap();
 
         group.bench_function("swipl", |b| {
@@ -85,8 +75,7 @@ fn benchmark_pattern_matching(c: &mut Criterion) {
 }
 
 fn benchmark_list_operations(c: &mut Criterion) {
-    let manifest_dir =
-        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
     let project_root = Path::new(&manifest_dir);
 
     let mut group = c.benchmark_group("list_operations");
@@ -96,9 +85,7 @@ fn benchmark_list_operations(c: &mut Criterion) {
 
     #[cfg(feature = "mork")]
     {
-        let config = EngineConfig::new(project_root)
-            .backend(Backend::Mork)
-            .verbose(false);
+        let config = EngineConfig::new(project_root).backend(Backend::Mork).verbose(false);
         let mut engine = PeTTaEngine::with_config(&config).unwrap();
 
         group.bench_function("mork", |b| {
@@ -109,9 +96,7 @@ fn benchmark_list_operations(c: &mut Criterion) {
     }
 
     {
-        let config = EngineConfig::new(project_root)
-            .backend(Backend::Swipl)
-            .verbose(false);
+        let config = EngineConfig::new(project_root).backend(Backend::Swipl).verbose(false);
         let mut engine = PeTTaEngine::with_config(&config).unwrap();
 
         group.bench_function("swipl", |b| {

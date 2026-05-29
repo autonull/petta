@@ -4,4 +4,4 @@
 //! including backend selection and engine settings.
 
 // Re-export core config types
-pub use crate::engine::{EngineConfig, EngineConfigBuilder, Backend};
+pub use crate::engine::{Backend, EngineConfig, EngineConfigBuilder};

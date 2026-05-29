@@ -3,12 +3,12 @@
 //! This module provides both simplified (`PeTTa`) and full-featured (`PeTTaEngine`)
 //! interfaces to the MeTTa execution engine.
 
+use super::ExecutionResult;
+use crate::Error;
+use crate::engine::{Backend, EngineConfig, PeTTaEngine as CoreEngine};
+use crate::values::MettaResult;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
-use crate::engine::{EngineConfig, PeTTaEngine as CoreEngine, Backend};
-use crate::values::MettaResult;
-use crate::Error;
-use super::ExecutionResult;
 
 // ============================================================================
 // Type-State Pattern for Compile-Time Safety
@@ -112,10 +112,7 @@ impl PeTTa {
     /// # Ok::<_, petta::Error>(())
     /// ```
     pub fn with_config(config: EngineConfig) -> Result<Self, Error> {
-        Ok(Self {
-            engine: CoreEngine::with_config(&config)?,
-            loaded_files: Vec::new(),
-        })
+        Ok(Self { engine: CoreEngine::with_config(&config)?, loaded_files: Vec::new() })
     }
 
     /// Create a new builder for custom configuration.
@@ -243,11 +240,10 @@ impl PeTTa {
     /// ```
     pub fn eval_float(&mut self, code: &str) -> Result<f64, Error> {
         let result = self.engine.eval(code)?;
-        result.parse::<f64>()
-            .map_err(|_| Error::Execution { 
-                reason: format!("Failed to parse '{}' as float", result),
-                context: None,
-            })
+        result.parse::<f64>().map_err(|_| Error::Execution {
+            reason: format!("Failed to parse '{}' as float", result),
+            context: None,
+        })
     }
 
     /// Evaluate and parse as boolean.
@@ -389,9 +385,7 @@ pub struct Builder {
 impl Builder {
     /// Create new builder with defaults
     pub fn new() -> Self {
-        Self {
-            config: EngineConfig::default(),
-        }
+        Self { config: EngineConfig::default() }
     }
 
     /// Set backend type
@@ -470,16 +464,12 @@ impl PeTTaEngine {
     /// # Ok::<_, petta::Error>(())
     /// ```
     pub fn with_config(config: &EngineConfig) -> Result<Self, Error> {
-        Ok(Self {
-            engine: CoreEngine::with_config(config)?,
-        })
+        Ok(Self { engine: CoreEngine::with_config(config)? })
     }
 
     /// Create engine with default configuration.
     pub fn new() -> Result<Self, Error> {
-        Ok(Self {
-            engine: CoreEngine::with_config(&EngineConfig::default())?,
-        })
+        Ok(Self { engine: CoreEngine::with_config(&EngineConfig::default())? })
     }
 
     /// Execute MeTTa code and return structured results.
@@ -596,11 +586,7 @@ impl PeTTaTyped<Uninitialized> {
 
     /// Initialize the engine (transition to Initialized state)
     pub fn init(self) -> Result<PeTTaTyped<Initialized>, Error> {
-        Ok(PeTTaTyped {
-            engine: self.engine,
-            loaded_files: self.loaded_files,
-            _state: PhantomData,
-        })
+        Ok(PeTTaTyped { engine: self.engine, loaded_files: self.loaded_files, _state: PhantomData })
     }
 }
 
@@ -614,11 +600,7 @@ impl Default for PeTTaTyped<Uninitialized> {
 impl PeTTaTyped<Initialized> {
     /// Start the engine (transition to Running state)
     pub fn start(self) -> Result<PeTTaTyped<Running>, Error> {
-        Ok(PeTTaTyped {
-            engine: self.engine,
-            loaded_files: self.loaded_files,
-            _state: PhantomData,
-        })
+        Ok(PeTTaTyped { engine: self.engine, loaded_files: self.loaded_files, _state: PhantomData })
     }
 
     /// Load a file in initialized state
@@ -644,11 +626,7 @@ impl PeTTaTyped<Running> {
 
     /// Stop the engine (transition to Initialized state)
     pub fn stop(self) -> Result<PeTTaTyped<Initialized>, Error> {
-        Ok(PeTTaTyped {
-            engine: self.engine,
-            loaded_files: self.loaded_files,
-            _state: PhantomData,
-        })
+        Ok(PeTTaTyped { engine: self.engine, loaded_files: self.loaded_files, _state: PhantomData })
     }
 
     /// Check if engine is healthy

@@ -5,10 +5,10 @@
 
 use std::path::Path;
 
-use crate::engine::{EngineConfig, SwiplBackend as CoreSwiplBackend, BackendImpl};
-use crate::values::MettaResult;
 use crate::Error;
 use crate::core::BackendCapabilities;
+use crate::engine::{BackendImpl, EngineConfig, SwiplBackend as CoreSwiplBackend};
+use crate::values::MettaResult;
 
 /// SWI-Prolog subprocess backend wrapper
 pub struct SwiplBackend {
@@ -17,9 +17,7 @@ pub struct SwiplBackend {
 
 impl SwiplBackend {
     pub fn new(config: &EngineConfig) -> Result<Self, Error> {
-        Ok(Self {
-            inner: CoreSwiplBackend::new(config)?,
-        })
+        Ok(Self { inner: CoreSwiplBackend::new(config)? })
     }
 }
 

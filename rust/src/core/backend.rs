@@ -3,10 +3,10 @@
 //! This module defines the core abstraction for execution backends,
 //! providing a common interface for SWI-Prolog and MORK backends.
 
-use std::path::Path;
-use crate::values::MettaResult;
-use crate::engine::EngineConfig;
 use crate::Error;
+use crate::engine::EngineConfig;
+use crate::values::MettaResult;
+use std::path::Path;
 
 /// Unified backend trait for all execution engines
 ///
@@ -33,7 +33,11 @@ pub trait Backend: Send + Sync {
     fn load_file(&mut self, path: &Path, config: &EngineConfig) -> Result<Vec<MettaResult>, Error>;
 
     /// Load and execute multiple MeTTa files
-    fn load_files(&mut self, paths: &[&Path], config: &EngineConfig) -> Result<Vec<MettaResult>, Error> {
+    fn load_files(
+        &mut self,
+        paths: &[&Path],
+        config: &EngineConfig,
+    ) -> Result<Vec<MettaResult>, Error> {
         let mut all_results = Vec::new();
         for path in paths {
             all_results.extend(self.load_file(path, config)?);
@@ -125,8 +129,6 @@ impl BackendCapabilities {
         self
     }
 }
-
-
 
 /// Backend health status
 #[derive(Debug, Clone, PartialEq, Eq)]
