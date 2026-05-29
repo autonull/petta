@@ -236,7 +236,7 @@ impl PeTTaEngine {
             eprintln!("[DBG] spawning WS extension server...");
             let _ = std::fs::write("/tmp/ws_server_starting.txt", "WS server starting");
             match crate::ws_ext::WsExtensionServer::spawn(
-                "repos/OmegaClaw-Core/memory/vector_store.json".into(),
+                "lib/omegaclaw/memory/vector_store.json".into(),
             ) {
                 Ok(server) => {
                     eprintln!("[DBG] WS extension server ready on port {}", server.port);

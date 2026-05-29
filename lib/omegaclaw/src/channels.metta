@@ -24,13 +24,17 @@
                      (configure IRC_port 6667)
                      (configure IRC_user omegaclaw)
                      (irc-connect (IRC_server) (IRC_port) (IRC_user) (IRC_channel) ""))
-              (println! "Only IRC is natively supported in this version."))))
+              (if (== (commchannel) cli)
+                  (println! "CLI channel initialized.")
+                  (println! "Only IRC and CLI are natively supported in this version.")))))
 
 ;Receive the latest user message considering all communication channels:
 (= (receive)
    (if (== (commchannel) irc)
        (irc-recv)
-       ""))
+       (if (== (commchannel) cli)
+           (channel-recv)
+           "")))
 
 ;Send a message to all communication channels:
 !(change-state! &lastsend "")
@@ -40,7 +44,9 @@
               (let $safemsg (string-replace $msg  "\n" "\\n")
                    (if (== (commchannel) irc)
                        (let $temp (cut) (irc-send $safemsg))
-                       (println! "Only IRC is natively supported in this version.")))) _))
+                       (if (== (commchannel) cli)
+                           (let $temp (cut) (println! $safemsg))
+                           (println! "Only IRC and CLI are natively supported in this version."))))) _))
 
 ;Search the internet for some information:
 (= (search $msg)
