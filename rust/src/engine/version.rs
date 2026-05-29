@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::Command;
 
 /// Minimum SWI-Prolog version
-pub const MIN_SWIPL_VERSION: (u32, u32) = (9, 3);
+pub const MIN_SWIPL_VERSION: (u32, u32) = (9, 0);
 
 pub fn check_swipl_version(path: &Path, min: (u32, u32)) -> Result<(), super::PeTTaError> {
     let output = Command::new(path).arg("--version").output().map_err(|_| {
