@@ -1,5 +1,5 @@
 use serde_json::Value;
-use std::io::{self, BufRead, Write};
+use std::io::{self, Write};
 use std::sync::{Mutex, OnceLock};
 
 #[cfg(feature = "repl")]
