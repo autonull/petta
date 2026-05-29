@@ -1,39 +1,48 @@
 //! PeTTa CLI - Production MeTTa Runtime
 
+#[cfg(feature = "clap")]
 use clap::Parser;
+
+#[cfg(feature = "clap")]
+use petta::Cli;
+
+#[cfg(feature = "clap")]
 use petta::{
-    Backend, Cli, EngineConfig, PeTTaEngine, ReplConfig, run_repl,
-    utils::{cyan, red},
+    Backend, EngineConfig, PeTTaEngine, ReplConfig, run_repl,
+    utils::red,
 };
+use petta::utils::cyan;
+#[cfg(feature = "clap")]
 use std::path::Path;
 
 fn main() {
-    let args = Cli::parse();
+    #[cfg(feature = "clap")]
+    {
+        let args = Cli::parse();
 
-    if args.files.is_empty() && !args.interactive {
-        print_banner(&args);
+        if args.files.is_empty() && !args.interactive {
+            print_banner(&args);
+            run_demo();
+            return;
+        }
+
+        if args.interactive {
+            run_repl_mode(&args);
+            return;
+        }
+
+        run_files(&args);
+    }
+
+    #[cfg(not(feature = "clap"))]
+    {
+        println!("{} {}", cyan("⚡"), cyan("PeTTa v0.5.0"));
+        println!("Compiled without clap feature. CLI arguments disabled.");
         run_demo();
-        return;
-    }
-
-    if args.interactive {
-        run_repl_mode(&args);
-        return;
-    }
-
-    run_files(&args);
-}
-
-fn print_banner(args: &Cli) {
-    println!("{} {}", cyan("⚡"), cyan("PeTTa v0.5.0"));
-    println!("{}", cyan("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
-    println!("{} {}", cyan("🧠"), cyan("Production MeTTa Runtime"));
-    if args.verbose {
-        println!("{} {}", cyan("Backend:"), args.backend);
-        println!("{} {}", cyan("Output:"), args.output_format);
     }
 }
 
+#[cfg(not(feature = "clap"))]
 fn run_demo() {
     println!("\n{} {}", cyan("⚡"), cyan("PeTTa Demo"));
     println!("Backend: Swipl");
@@ -51,6 +60,36 @@ fn run_demo() {
     println!("\n✓ Done");
 }
 
+#[cfg(feature = "clap")]
+fn print_banner(args: &Cli) {
+    println!("{} {}", cyan("⚡"), cyan("PeTTa v0.5.0"));
+    println!("{}", cyan("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
+    println!("{} {}", cyan("🧠"), cyan("Production MeTTa Runtime"));
+    if args.verbose {
+        println!("{} {}", cyan("Backend:"), args.backend);
+        println!("{} {}", cyan("Output:"), args.output_format);
+    }
+}
+
+#[cfg(feature = "clap")]
+fn run_demo() {
+    println!("\n{} {}", cyan("⚡"), cyan("PeTTa Demo"));
+    println!("Backend: Swipl");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    let demos = [
+        ("Identity", "(= (myid $x) $x) !(myid 42)"),
+        ("Arithmetic", "!(+ 1 2)"),
+        ("Boolean", "!(and true false)"),
+    ];
+
+    for (name, code) in &demos {
+        println!("{name}: {code}");
+    }
+    println!("\n✓ Done");
+}
+
+#[cfg(feature = "clap")]
 fn run_repl_mode(args: &Cli) {
     let config = ReplConfig::new(".")
         .verbose(args.verbose)
@@ -58,6 +97,7 @@ fn run_repl_mode(args: &Cli) {
     run_repl(&config);
 }
 
+#[cfg(feature = "clap")]
 fn run_files(args: &Cli) {
     eprintln!("[DBG] run_files called with files={:?}", args.files);
     let timing = args.time.then(std::time::Instant::now);
@@ -78,7 +118,7 @@ fn run_files(args: &Cli) {
 
     let mut config = EngineConfig::new(Path::new(".")).verbose(args.verbose).backend(backend);
     config.extra_args = extra_args;
-    eprintln!("[DBG] config created, ws_port={:?}, src_dir={:?}", config.ws_port, config.src_dir);
+    eprintln!("[DBG] config created, src_dir={:?}", config.src_dir);
 
     eprintln!("[DBG] calling PeTTaEngine::with_config...");
     let mut engine = match PeTTaEngine::with_config(&config) {
@@ -130,6 +170,7 @@ fn run_files(args: &Cli) {
     }
 }
 
+#[cfg(feature = "clap")]
 fn parse_backend(s: &str) -> Backend {
     match s.to_lowercase().as_str() {
         "mork" => Backend::Mork,

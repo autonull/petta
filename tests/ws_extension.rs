@@ -1,3 +1,4 @@
+#![cfg(feature = "websocket")]
 use std::time::Duration;
 use tungstenite::{Message, WebSocket, connect, stream::MaybeTlsStream};
 

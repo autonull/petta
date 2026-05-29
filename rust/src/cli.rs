@@ -2,10 +2,14 @@
 //!
 //! Ergonomic command-line interface configuration
 
+#[cfg(feature = "clap")]
 use crate::Backend;
+
+#[cfg(feature = "clap")]
 use clap::{Parser, ValueEnum};
 
 /// PeTTa CLI arguments
+#[cfg(feature = "clap")]
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "petta",
@@ -53,6 +57,7 @@ pub struct Cli {
 }
 
 /// Backend selection
+#[cfg(feature = "clap")]
 #[derive(ValueEnum, Clone, Debug, Default, PartialEq)]
 #[value(rename_all = "lowercase")]
 pub enum BackendArg {
@@ -61,6 +66,7 @@ pub enum BackendArg {
     Prolog,
 }
 
+#[cfg(feature = "clap")]
 impl std::fmt::Display for BackendArg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -70,6 +76,7 @@ impl std::fmt::Display for BackendArg {
     }
 }
 
+#[cfg(feature = "clap")]
 impl BackendArg {
     pub fn to_backend(&self) -> Backend {
         match self {
@@ -80,6 +87,7 @@ impl BackendArg {
 }
 
 /// Output format selection
+#[cfg(feature = "clap")]
 #[derive(ValueEnum, Clone, Debug, Default, PartialEq)]
 #[value(rename_all = "lowercase")]
 pub enum OutputFormat {
@@ -90,6 +98,7 @@ pub enum OutputFormat {
     SExpr,
 }
 
+#[cfg(feature = "clap")]
 impl std::fmt::Display for OutputFormat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -101,7 +110,7 @@ impl std::fmt::Display for OutputFormat {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "clap"))]
 mod tests {
     use super::*;
 

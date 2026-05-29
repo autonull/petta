@@ -88,7 +88,7 @@ pub fn remember(params: &Value) -> Result<String, String> {
     if let Some(store) = VECTOR_STORE.get() {
         if let Ok(mut s) = store.write() {
             s.remember(text.to_string(), vec, ts.to_string());
-            s.save("repos/OmegaClaw-Core/memory/vector_store.json");
+            s.save("lib/omegaclaw/memory/vector_store.json");
         }
     }
     Ok("ok".into())

@@ -16,10 +16,10 @@
               () _)))
 
 (= (getPrompt)
-   (read-file (library OmegaClaw-Core ./memory/prompt.txt)))
+   (read-file (library omegaclaw ./memory/prompt.txt)))
 
 (= (getHistory)
-   (read_file_tail (library OmegaClaw-Core ./memory/history.metta) (maxHistory)))
+   (read_file_tail (library omegaclaw ./memory/history.metta) (maxHistory)))
 
 (= (addToHistory $lastmessage $response $sexpr $msgnew)
    (if $msgnew
@@ -36,7 +36,7 @@
        (useGPTEmbedding (string-safe $str))))
 
 (= (appendToHistory $addition)
-   (append-file (library OmegaClaw-Core ./memory/history.metta) (swrite $addition)))
+   (append-file (library omegaclaw ./memory/history.metta) (swrite $addition)))
 
 (= (remember $str)
    (progn (vector-remember $str (embed $str) (get_time_as_string))

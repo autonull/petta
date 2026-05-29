@@ -122,7 +122,7 @@ pub fn around_time(params: &Value) -> Result<String, String> {
         Err(_) => return Ok("".to_string()),
     };
 
-    let history_path = Path::new("repos/OmegaClaw-Core/memory/history.metta");
+    let history_path = Path::new("lib/omegaclaw/memory/history.metta");
     if !history_path.exists() {
         return Ok("".to_string());
     }

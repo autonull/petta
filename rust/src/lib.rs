@@ -130,7 +130,9 @@ pub use engine::{
 // CLI and REPL
 // ============================================================================
 
+#[cfg(feature = "clap")]
 pub use cli::{BackendArg, Cli, OutputFormat};
+#[cfg(feature = "repl")]
 pub use repl::{ReplConfig, run_repl};
 
 // ============================================================================
